@@ -25,7 +25,7 @@ return new class extends Migration
             $table->enum('target_level', ['Semua', 'Guru', 'Siswa', 'Orang Tua']);
             $table->timestamps();
             $table->softDeletes();
-        });
+        }); 
     }
 
     /**

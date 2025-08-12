@@ -1,6 +1,7 @@
-import React, { useState, Fragment } from "react";
-import { Link, Head } from "@inertiajs/react";
+import React, { useState, Fragment, useEffect } from "react";
+import { Link, Head, usePage } from "@inertiajs/react";
 import { Dialog, Transition, Menu } from "@headlessui/react";
+import { Toaster, toast } from "react-hot-toast";
 import {
     HomeIcon,
     UsersIcon,
@@ -46,6 +47,12 @@ function CollapsibleNavGroup({
 }) {
     const [isOpen, setIsOpen] = useState(active);
 
+    useEffect(() => {
+        if (active) {
+            setIsOpen(true);
+        }
+    }, [active]);
+
     return (
         <li>
             <button
@@ -89,6 +96,16 @@ function CollapsibleNavGroup({
 export default function AdminLayout({ user, header, children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const { flash } = usePage().props;
+
+    useEffect(() => {
+        if (flash.success) {
+            toast.success(flash.success);
+        }
+        if (flash.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     const sidebarContent = (isMobile = false) => (
         <div className="flex flex-col h-full">
@@ -113,8 +130,8 @@ export default function AdminLayout({ user, header, children }) {
             <ul className="space-y-2 font-medium p-4 flex-1 overflow-y-auto">
                 <li>
                     <NavLink
-                        href={route("admin.dashboard")}
-                        active={route().current("admin.dashboard")}
+                        href={route("dashboard")}
+                        active={route().current("dashboard")}
                         isCollapsed={!isSidebarOpen && !isMobile}
                     >
                         <HomeIcon className="w-6 h-6" />
@@ -128,7 +145,13 @@ export default function AdminLayout({ user, header, children }) {
                     title="Master Data"
                     icon={<RectangleStackIcon className="w-6 h-6" />}
                     isCollapsed={!isSidebarOpen && !isMobile}
-                    active={route().current("guru.*")}
+                    active={
+                        route().current("guru.*") ||
+                        route().current("siswa.*") ||
+                        route().current("kelas.*") ||
+                        route().current("mata-pelajaran.*") ||
+                        route().current("orang-tua-wali.*")
+                    }
                 >
                     <li>
                         <NavLink
@@ -161,13 +184,21 @@ export default function AdminLayout({ user, header, children }) {
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink href="#" isCollapsed={false}>
+                        <NavLink
+                            href={route("mata-pelajaran.index")}
+                            active={route().current("mata-pelajaran.*")}
+                            isCollapsed={false}
+                        >
                             <BookOpenIcon className="w-5 h-5 mr-3" />
                             Mata Pelajaran
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink href="#" isCollapsed={false}>
+                        <NavLink
+                            href={route("orang-tua-wali.index")}
+                            active={route().current("orang-tua-wali.*")}
+                            isCollapsed={false}
+                        >
                             <UserGroupIcon className="w-5 h-5 mr-3" />
                             Orang Tua/Wali
                         </NavLink>
@@ -239,6 +270,13 @@ export default function AdminLayout({ user, header, children }) {
     return (
         <>
             <Head title={header} />
+            <Toaster
+                position="top-right"
+                reverseOrder={false}
+                toastOptions={{
+                    duration: 5000,
+                }}
+            />
             <div className="bg-gray-100">
                 {/* --- Sidebar Mobile --- */}
                 <Transition.Root show={isMobileSidebarOpen} as={Fragment}>
@@ -320,14 +358,12 @@ export default function AdminLayout({ user, header, children }) {
                             <Bars3Icon className="h-6 w-6" />
                         </button>
 
-                        {/* --- SISA HEADER YANG DITAMBAHKAN --- */}
                         <div
                             className="h-6 w-px bg-gray-200 lg:hidden"
                             aria-hidden="true"
                         />
 
                         <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-between">
-                            {/* Search Bar */}
                             <form
                                 className="relative flex flex-1"
                                 action="#"
@@ -352,7 +388,6 @@ export default function AdminLayout({ user, header, children }) {
                                 />
                             </form>
 
-                            {/* User Menu di Kanan */}
                             <div className="flex items-center gap-x-4 lg:gap-x-6">
                                 <button
                                     type="button"
@@ -370,13 +405,11 @@ export default function AdminLayout({ user, header, children }) {
                                     </span>
                                 </button>
 
-                                {/* Separator */}
                                 <div
                                     className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200"
                                     aria-hidden="true"
                                 />
 
-                                {/* Dropdown Profile */}
                                 <Menu as="div" className="relative">
                                     <Menu.Button className="-m-1.5 flex items-center p-1.5">
                                         <span className="sr-only">

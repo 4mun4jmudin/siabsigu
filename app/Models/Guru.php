@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Guru extends Model
 {
-   use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'tbl_guru';
     protected $primaryKey = 'id_guru';
@@ -36,6 +36,10 @@ class Guru extends Model
     // Relasi: Satu Guru bisa menjadi wali satu kelas
     public function kelasWali()
     {
-        return $this->hasOne(Kelas::class, 'id_wali_kelas', 'id_guru');
+        return $this->hasMany(Kelas::class, 'id_wali_kelas', 'id_guru');
+    }
+    public function jadwalMengajar()
+    {
+        return $this->hasMany(JadwalMengajar::class, 'id_guru', 'id_guru');
     }
 }

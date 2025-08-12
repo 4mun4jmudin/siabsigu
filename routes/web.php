@@ -9,6 +9,8 @@ use App\Http\Controllers\TahunAjaranController;
 use App\Http\Controllers\Admin\GuruController;
 use App\Http\Controllers\Admin\SiswaController;
 use App\Http\Controllers\Admin\KelasController;
+use App\Http\Controllers\Admin\MataPelajaranController;
+use App\Http\Controllers\Admin\OrangTuaWaliController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -31,13 +33,15 @@ Route::middleware('auth')->group(function () {
         ->name('admin.dashboard');
     Route::resource('guru', GuruController::class);
     Route::middleware('auth')->group(function () {
-    // ... (route lainnya seperti guru, dll)
+        // ... (route lainnya seperti guru, dll)
 
-    // Tambahkan route untuk CRUD Siswa
-    Route::resource('siswa', SiswaController::class);
-    Route::resource('kelas', KelasController::class);
-    
-});
+        // Tambahkan route untuk CRUD Siswa
+        Route::resource('siswa', SiswaController::class);
+        Route::resource('kelas', KelasController::class);
+        Route::resource('mata-pelajaran', MataPelajaranController::class);
+         Route::resource('orang-tua-wali', OrangTuaWaliController::class);
+        
+    });
 
     // Route untuk resource lain yang mungkin hanya untuk admin
     // Route::resource('tahun-ajaran', TahunAjaranController::class);

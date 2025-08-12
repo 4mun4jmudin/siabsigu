@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('tbl_tahun_ajaran', function (Blueprint $table) {
-        $table->string('id_tahun_ajaran', 20)->primary();
-        $table->string('tahun_ajaran', 10);
-        $table->enum('semester', ['Ganjil', 'Genap']);
-        $table->enum('status', ['Aktif', 'Tidak Aktif']);
-        $table->timestamps();
-        $table->softDeletes();
-    });
+        Schema::create('tbl_tahun_ajaran', function (Blueprint $table) {
+            $table->string('id_tahun_ajaran', 20)->primary();
+            $table->string('tahun_ajaran', 10);
+            $table->enum('semester', ['Ganjil', 'Genap']);
+            $table->enum('status', ['Aktif', 'Tidak Aktif']);
+            $table->timestamps();
+            $table->softDeletes();
+        });
     }
 
     /**

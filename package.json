@@ -26,6 +26,8 @@
     "dependencies": {
         "@heroicons/react": "^2.2.0",
         "lodash.debounce": "^4.0.8",
-        "lucide-react": "^0.536.0"
+        "lucide-react": "^0.536.0",
+        "react-hot-toast": "^2.5.2",
+        "ziggy-js": "github:tightenco/ziggy"
     }
 }
