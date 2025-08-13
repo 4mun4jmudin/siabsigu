@@ -1,7 +1,12 @@
-import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { ArrowLeftIcon, PencilIcon, UserCircleIcon, AcademicCapIcon, FingerPrintIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PencilIcon, UserCircleIcon, AcademicCapIcon, KeyIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
+import Modal from '@/Components/Modal';
+import SecondaryButton from '@/Components/SecondaryButton';
+import DangerButton from '@/Components/DangerButton';
+import { toast } from 'react-hot-toast';
+import PrimaryButton from '@/Components/PrimaryButton';
 
 // Komponen untuk menampilkan baris data
 const DetailRow = ({ label, value, isBadge = false, children }) => (
@@ -22,6 +27,7 @@ const AbsensiStatusBadge = ({ status }) => {
     return <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status]}`}>{status}</span>;
 }
 
+// Komponen Badge Status Siswa
 const StatusBadge = ({ status }) => {
     const style = {
         'Aktif': 'bg-green-100 text-green-800',
@@ -33,6 +39,30 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function Show({ auth, wali, absensiSiswa }) {
+    const { flash } = usePage().props;
+    const [showConfirmReset, setShowConfirmReset] = useState(false);
+    const [newPassword, setNewPassword] = useState(null);
+    const { post, processing } = useForm();
+
+    useEffect(() => {
+        // Cek flash message dari controller untuk menampilkan modal password baru
+        if (flash.new_password) {
+            setNewPassword(flash.new_password);
+        }
+    }, [flash]);
+
+    const handleResetPassword = (e) => {
+        e.preventDefault();
+        post(route('orang-tua-wali.reset-password', wali.id_wali), {
+            onSuccess: () => setShowConfirmReset(false),
+        });
+    };
+    
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(newPassword);
+        toast.success('Password berhasil disalin!');
+    };
+
     return (
         <AdminLayout user={auth.user} header={`Detail Wali: ${wali.nama_lengkap}`}>
             <Head title={`Detail Wali ${wali.nama_lengkap}`} />
@@ -73,11 +103,18 @@ export default function Show({ auth, wali, absensiSiswa }) {
                         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                              <h3 className="text-lg font-bold text-gray-800 mb-4">Informasi Akun</h3>
                              <div className="space-y-2">
-                                {/* --- PERBAIKAN DI SINI --- */}
                                 <DetailRow label="Username" value={wali.pengguna?.username} />
                                 <DetailRow label="Email" value={wali.pengguna?.email} />
                                 <DetailRow label="Level Akun" value={wali.pengguna?.level} isBadge={true} />
                              </div>
+                             {wali.pengguna && (
+                                <div className="mt-6 border-t pt-4">
+                                    <button onClick={() => setShowConfirmReset(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-yellow-800 bg-yellow-100 rounded-lg hover:bg-yellow-200 transition">
+                                        <KeyIcon className="h-5 w-5" />
+                                        Reset Password
+                                    </button>
+                                </div>
+                             )}
                         </div>
                     </div>
 
@@ -127,6 +164,47 @@ export default function Show({ auth, wali, absensiSiswa }) {
                     </div>
                 </div>
             </div>
+
+            {/* Modal Konfirmasi Reset Password */}
+            <Modal show={showConfirmReset} onClose={() => setShowConfirmReset(false)}>
+                <form onSubmit={handleResetPassword} className="p-6">
+                    <h2 className="text-lg font-medium text-gray-900">Reset Password</h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                        Apakah Anda yakin ingin mereset password untuk akun "{wali.pengguna?.username}"? Password lama akan diganti dengan password baru yang dibuat acak.
+                    </p>
+                    <div className="mt-6 flex justify-end">
+                        <SecondaryButton type="button" onClick={() => setShowConfirmReset(false)}>Batal</SecondaryButton>
+                        <DangerButton className="ml-3" disabled={processing}>
+                            {processing ? 'Mereset...' : 'Ya, Reset Password'}
+                        </DangerButton>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Modal Menampilkan Password Baru */}
+            <Modal show={!!newPassword} onClose={() => setNewPassword(null)}>
+                <div className="p-6 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                        <KeyIcon className="h-6 w-6 text-green-600" />
+                    </div>
+                    <h2 className="mt-4 text-lg font-medium text-gray-900">Password Berhasil Direset</h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                        Password baru untuk akun "{wali.pengguna?.username}" adalah:
+                    </p>
+                    <div className="my-4 p-3 bg-gray-100 rounded-md font-mono text-lg tracking-wider text-gray-800 flex justify-between items-center">
+                        <span>{newPassword}</span>
+                        <button onClick={copyToClipboard} title="Salin ke Clipboard" className="p-2 rounded-md hover:bg-gray-200">
+                            <ClipboardDocumentIcon className="h-5 w-5 text-gray-600"/>
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                        Harap berikan password ini kepada pengguna dan sarankan untuk segera menggantinya setelah login.
+                    </p>
+                    <div className="mt-6">
+                        <PrimaryButton type="button" onClick={() => setNewPassword(null)}>Tutup</PrimaryButton>
+                    </div>
+                </div>
+            </Modal>
         </AdminLayout>
     );
 }

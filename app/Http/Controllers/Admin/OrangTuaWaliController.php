@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\OrangTuaWali;
 use App\Models\Siswa;
 use App\Models\User;
+use App\Models\AbsensiSiswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
-use App\Models\AbsensiSiswa;
+use Illuminate\Support\Str;
 
 class OrangTuaWaliController extends Controller
 {
@@ -110,6 +111,23 @@ class OrangTuaWaliController extends Controller
     }
 
     /**
+     * Menampilkan halaman detail lengkap untuk satu orang tua/wali.
+     */
+    public function show(OrangTuaWali $orangTuaWali)
+    {
+        $orangTuaWali->load(['siswa.kelas', 'pengguna']);
+        $absensiSiswa = AbsensiSiswa::where('id_siswa', $orangTuaWali->id_siswa)
+            ->latest('tanggal')
+            ->take(5)
+            ->get();
+
+        return Inertia::render('admin/OrangTuaWali/Show', [
+            'wali' => $orangTuaWali,
+            'absensiSiswa' => $absensiSiswa,
+        ]);
+    }
+
+    /**
      * Menampilkan form untuk mengedit data orang tua/wali.
      */
     public function edit(OrangTuaWali $orangTuaWali)
@@ -133,6 +151,7 @@ class OrangTuaWaliController extends Controller
     public function update(Request $request, OrangTuaWali $orangTuaWali)
     {
         $user = $orangTuaWali->pengguna;
+        $userId = $user ? $user->id_pengguna : null;
 
         $request->validate([
             'id_siswa' => ['required', 'exists:tbl_siswa,id_siswa', Rule::unique('tbl_orang_tua_wali')->ignore($orangTuaWali->id_wali, 'id_wali')],
@@ -144,40 +163,60 @@ class OrangTuaWaliController extends Controller
             'pendidikan_terakhir' => 'nullable|string',
             'pekerjaan' => 'nullable|string|max:50',
             'penghasilan_bulanan' => 'nullable|string',
-            'username' => ['required', 'string', 'max:50', Rule::unique('tbl_pengguna')->ignore($user->id_pengguna, 'id_pengguna')],
-            'email' => ['nullable', 'string', 'email', 'max:255', Rule::unique('tbl_pengguna')->ignore($user->id_pengguna, 'id_pengguna')],
+            'username' => ['required', 'string', 'max:50', Rule::unique('tbl_pengguna')->ignore($userId, 'id_pengguna')],
+            'email' => ['nullable', 'string', 'email', 'max:255', Rule::unique('tbl_pengguna')->ignore($userId, 'id_pengguna')],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
         ]);
 
         DB::transaction(function () use ($request, $orangTuaWali, $user) {
             $orangTuaWali->update($request->except(['username', 'email', 'password', 'password_confirmation']));
 
-            $user->nama_lengkap = $request->nama_lengkap;
-            $user->username = $request->username;
-            $user->email = $request->email;
-            if ($request->filled('password')) {
-                $user->password = Hash::make($request->password);
+            if ($user) {
+                $user->nama_lengkap = $request->nama_lengkap;
+                $user->username = $request->username;
+                $user->email = $request->email;
+                if ($request->filled('password')) {
+                    $user->password = Hash::make($request->password);
+                }
+                $user->save();
+            } else {
+                $newUser = User::create([
+                    'nama_lengkap' => $request->nama_lengkap,
+                    'username' => $request->username,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                    'level' => 'Orang Tua',
+                ]);
+                $orangTuaWali->id_pengguna = $newUser->id_pengguna;
+                $orangTuaWali->save();
             }
-            $user->save();
         });
 
         return to_route('orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil diperbarui.');
     }
 
-    public function show(OrangTuaWali $orangTuaWali)
+    /**
+     * Mereset password untuk akun orang tua/wali.
+     */
+    public function resetPassword(Request $request, OrangTuaWali $orangTuaWali)
     {
-        // Eager load relasi utama
-        $orangTuaWali->load(['siswa.kelas', 'pengguna']);
+        $user = $orangTuaWali->pengguna;
 
-        // Mengambil 5 data absensi terakhir dari siswa terkait
-        $absensiSiswa = AbsensiSiswa::where('id_siswa', $orangTuaWali->id_siswa)
-            ->latest('tanggal')
-            ->take(5)
-            ->get();
+        if (!$user) {
+            return back()->with('error', 'Wali ini tidak memiliki akun login untuk direset.');
+        }
 
-        return Inertia::render('admin/OrangTuaWali/Show', [
-            'wali' => $orangTuaWali,
-            'absensiSiswa' => $absensiSiswa,
+        // Generate password acak baru (8 karakter)
+        $newPassword = Str::random(8);
+
+        // Update password pengguna
+        $user->password = Hash::make($newPassword);
+        $user->save();
+
+        // Kirim password baru ke frontend melalui flash session agar bisa ditampilkan di modal
+        return back()->with([
+            'success' => 'Password berhasil direset!',
+            'new_password' => $newPassword
         ]);
     }
 

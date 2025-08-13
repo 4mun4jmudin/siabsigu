@@ -150,7 +150,7 @@ export default function AdminLayout({ user, header, children }) {
                         route().current("siswa.*") ||
                         route().current("kelas.*") ||
                         route().current("mata-pelajaran.*") ||
-                        route().current("orang-tua-wali.*")
+                        route().current("orang-tua-wali.*") 
                     }
                 >
                     <li>
@@ -209,9 +209,14 @@ export default function AdminLayout({ user, header, children }) {
                     title="Absensi"
                     icon={<ClipboardDocumentListIcon className="w-6 h-6" />}
                     isCollapsed={!isSidebarOpen && !isMobile}
+                    active={route().current("absensi-guru.*")} // <-- Perbarui kondisi active
                 >
                     <li>
-                        <NavLink href="#" isCollapsed={false}>
+                        <NavLink 
+                            href={route("absensi-guru.index")}
+                            active={route().current("absensi-guru.*")}
+                            isCollapsed={false}
+                        >
                             <UsersIcon className="w-5 h-5 mr-3" />
                             Absensi Guru
                         </NavLink>

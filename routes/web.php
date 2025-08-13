@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\SiswaController;
 use App\Http\Controllers\Admin\KelasController;
 use App\Http\Controllers\Admin\MataPelajaranController;
 use App\Http\Controllers\Admin\OrangTuaWaliController;
+use App\Http\Controllers\Admin\AbsensiGuruController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -39,8 +40,10 @@ Route::middleware('auth')->group(function () {
         Route::resource('siswa', SiswaController::class);
         Route::resource('kelas', KelasController::class);
         Route::resource('mata-pelajaran', MataPelajaranController::class);
-         Route::resource('orang-tua-wali', OrangTuaWaliController::class);
-        
+        Route::resource('orang-tua-wali', OrangTuaWaliController::class);
+        Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
+        Route::get('absensi-guru', [AbsensiGuruController::class, 'index'])->name('absensi-guru.index');
+        Route::post('absensi-guru', [AbsensiGuruController::class, 'store'])->name('absensi-guru.store');
     });
 
     // Route untuk resource lain yang mungkin hanya untuk admin
