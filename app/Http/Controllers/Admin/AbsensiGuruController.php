@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Validation\Rule; // Untuk validasi enum
 
 class AbsensiGuruController extends Controller
 {
@@ -192,5 +193,92 @@ class AbsensiGuruController extends Controller
         );
 
         return back()->with('success', 'Absensi manual berhasil disimpan.');
+    }
+
+    /**
+     * Menangani permintaan untuk ekspor laporan absensi ke Excel (SINTAKS VERSI 1.1).
+     */
+    public function export(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:bulanan,semester',
+            'bulan' => 'required_if:type,bulanan|integer',
+            'tahun' => 'required_if:type,bulanan|integer',
+            'id_tahun_ajaran' => 'required_if:type,semester|string',
+        ]);
+
+        $type = $request->type;
+        $data = collect();
+        $reportTitle = '';
+        $fileName = 'laporan_absensi_guru';
+
+        if ($type === 'bulanan') {
+            $bulan = $request->bulan;
+            $tahun = $request->tahun;
+            $reportTitle = 'Bulan: ' . Carbon::create()->month($bulan)->translatedFormat('F') . ' ' . $tahun;
+            $fileName .= "_{$bulan}_{$tahun}";
+
+            $data = Guru::where('status', 'Aktif')
+                ->withCount([
+                    'absensi as hadir' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Hadir'),
+                    'absensi as sakit' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Sakit'),
+                    'absensi as izin' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Izin'),
+                    'absensi as alfa' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Alfa'),
+                ])
+                ->get();
+
+        } elseif ($type === 'semester') {
+            $tahunAjaran = TahunAjaran::findOrFail($request->id_tahun_ajaran);
+            $reportTitle = "Semester {$tahunAjaran->semester} / TA {$tahunAjaran->tahun_ajaran}";
+            $fileName .= "_semester_{$tahunAjaran->id_tahun_ajaran}";
+
+            $tahun = explode('/', $tahunAjaran->tahun_ajaran)[0];
+            if ($tahunAjaran->semester === 'Ganjil') {
+                $startDate = Carbon::create($tahun, 7, 1)->startOfMonth();
+                $endDate = Carbon::create($tahun, 12, 31)->endOfMonth();
+            } else {
+                $tahun++;
+                $startDate = Carbon::create($tahun, 1, 1)->startOfMonth();
+                $endDate = Carbon::create($tahun, 6, 30)->endOfMonth();
+            }
+
+            $data = Guru::where('status', 'Aktif')
+                ->withCount([
+                    'absensi as hadir' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Hadir'),
+                    'absensi as sakit' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Sakit'),
+                    'absensi as izin' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Izin'),
+                    'absensi as alfa' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Alfa'),
+                ])
+                ->get();
+        }
+
+        $exportData = $data->map(function ($guru) {
+            return [
+                'nip' => $guru->nip,
+                'nama_lengkap' => $guru->nama_lengkap,
+                'hadir' => $guru->hadir,
+                'sakit' => $guru->sakit,
+                'izin' => $guru->izin,
+                'alfa' => $guru->alfa,
+                'total' => $guru->hadir + $guru->sakit + $guru->izin + $guru->alfa,
+            ];
+        })->toArray();
+        
+        return \Excel::create($fileName, function($excel) use ($exportData, $reportTitle) {
+            $excel->sheet('Laporan Absensi', function($sheet) use ($exportData, $reportTitle) {
+                $sheet->mergeCells('A1:G1');
+                $sheet->row(1, ['Laporan Absensi Guru']);
+                $sheet->row(1, function($row) { $row->setFontWeight('bold')->setFontSize(16)->setAlignment('center'); });
+
+                $sheet->mergeCells('A2:G2');
+                $sheet->row(2, [$reportTitle]);
+                $sheet->row(2, function($row) { $row->setAlignment('center'); });
+                
+                $sheet->row(4, ['NIP', 'Nama Guru', 'Hadir', 'Sakit', 'Izin', 'Alfa', 'Total Kehadiran']);
+                $sheet->row(4, function($row) { $row->setFontWeight('bold'); });
+                
+                $sheet->fromArray($exportData, null, 'A5', false, false);
+            });
+        })->download('xlsx');
     }
 }

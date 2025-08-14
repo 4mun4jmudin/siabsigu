@@ -128,18 +128,16 @@ export default function AdminLayout({ user, header, children }) {
 
             {/* Menu */}
             <ul className="space-y-2 font-medium p-4 flex-1 overflow-y-auto">
-                <li>
-                    <NavLink
-                        href={route("dashboard")}
-                        active={route().current("dashboard")}
-                        isCollapsed={!isSidebarOpen && !isMobile}
-                    >
-                        <HomeIcon className="w-6 h-6" />
-                        {(isSidebarOpen || isMobile) && (
-                            <span className="ml-3">Dashboard</span>
-                        )}
-                    </NavLink>
-                </li>
+                <NavLink
+                    href={route("admin.dashboard")}
+                    active={route().current("admin.dashboard")}
+                    isCollapsed={!isSidebarOpen && !isMobile}
+                >
+                    <HomeIcon className="w-6 h-6" />
+                    {(isSidebarOpen || isMobile) && (
+                        <span className="ml-3">Dashboard</span>
+                    )}
+                </NavLink>
 
                 <CollapsibleNavGroup
                     title="Master Data"
@@ -150,7 +148,7 @@ export default function AdminLayout({ user, header, children }) {
                         route().current("siswa.*") ||
                         route().current("kelas.*") ||
                         route().current("mata-pelajaran.*") ||
-                        route().current("orang-tua-wali.*") 
+                        route().current("orang-tua-wali.*")
                     }
                 >
                     <li>
@@ -212,7 +210,7 @@ export default function AdminLayout({ user, header, children }) {
                     active={route().current("absensi-guru.*")} // <-- Perbarui kondisi active
                 >
                     <li>
-                        <NavLink 
+                        <NavLink
                             href={route("absensi-guru.index")}
                             active={route().current("absensi-guru.*")}
                             isCollapsed={false}
