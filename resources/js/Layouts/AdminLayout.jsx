@@ -252,7 +252,11 @@ export default function AdminLayout({ user, header, children }) {
                     </NavLink>
                 </li>
                 <li>
-                    <NavLink href="#" isCollapsed={!isSidebarOpen && !isMobile}>
+                    <NavLink
+                        href={route("admin.pengaturan.index")}
+                        active={route().current("admin.pengaturan.index")}
+                        isCollapsed={!isSidebarOpen && !isMobile}
+                    >
                         <Cog6ToothIcon className="w-6 h-6" />
                         {(isSidebarOpen || isMobile) && (
                             <span className="ml-3">Pengaturan</span>

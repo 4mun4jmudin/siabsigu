@@ -7,7 +7,8 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
-// Mengimpor ikon yang diperlukan, termasuk PrinterIcon untuk PDF
+// PERUBAHAN 1: Impor komponen chart yang baru kita buat
+import WeeklyAttendanceChart from './Components/WeeklyAttendanceChart'; 
 import { 
     PlusIcon, 
     UserGroupIcon, 
@@ -17,11 +18,12 @@ import {
     InformationCircleIcon, 
     PencilIcon, 
     DocumentArrowDownIcon,
-    PrinterIcon 
+    PrinterIcon,
+    EyeIcon // Ditambahkan untuk tombol detail
 } from '@heroicons/react/24/solid';
 import { debounce } from 'lodash';
 
-// Komponen Kartu Statistik (Tidak ada perubahan)
+// Komponen StatCard (Tidak ada perubahan)
 const StatCard = ({ title, value, description, icon, color }) => (
     <div className="bg-white p-5 rounded-lg shadow-sm flex items-center justify-between border-l-4" style={{borderColor: color}}>
         <div>
@@ -33,7 +35,7 @@ const StatCard = ({ title, value, description, icon, color }) => (
     </div>
 );
 
-// Komponen Badge Status (Tidak ada perubahan)
+// Komponen StatusBadge (Tidak ada perubahan)
 const StatusBadge = ({ status }) => {
     const styles = {
         Hadir: 'bg-green-100 text-green-800',
@@ -45,7 +47,7 @@ const StatusBadge = ({ status }) => {
     return <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status] || 'bg-gray-100 text-gray-800'}`}>{status}</span>;
 };
 
-// Komponen Tab (Tidak ada perubahan)
+// Komponen TabLink (Tidak ada perubahan)
 const TabLink = ({ href, isActive, children }) => (
     <Link
         href={href}
@@ -59,8 +61,19 @@ const TabLink = ({ href, isActive, children }) => (
     </Link>
 );
 
-// Mengubah nama prop `laporanSemester` menjadi `laporanSemesteran` agar sinkron dengan Controller
-export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwayatAbsensi, laporanBulanan, laporanSemesteran, tahunAjaranOptions, filters }) {
+// Komponen Paginasi (untuk tab riwayat)
+const Pagination = ({ links }) => (
+    <div className="mt-6 flex justify-center">
+        {links.map((link, key) => (
+            link.url === null ?
+                (<div key={key} className="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded" dangerouslySetInnerHTML={{ __html: link.label }} />) :
+                (<Link key={key} className={`mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded hover:bg-white focus:border-indigo-500 focus:text-indigo-500 ${link.active ? 'bg-white' : ''}`} href={link.url} dangerouslySetInnerHTML={{ __html: link.label }} />)
+        ))}
+    </div>
+);
+
+// PERUBAHAN 2: Tambahkan `chartData` ke dalam daftar props yang diterima
+export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwayatAbsensi, laporanBulanan, laporanSemesteran, tahunAjaranOptions, filters, chartData }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     
@@ -73,17 +86,14 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
         keterangan: '',
     });
 
-    // --- Handlers ---
-    // Menggunakan nama rute yang benar dan terstruktur (`admin.absensi-guru.index`)
     const handleFilterChange = (key, value) => {
         router.get(route('admin.absensi-guru.index'), { ...filters, [key]: value }, { preserveState: true, replace: true, preserveScroll: true });
     };
 
     const handleSearch = debounce((e) => handleFilterChange('search', e.target.value), 300);
     
-    // Logika Modal tidak berubah
     const openModal = (absen = null) => {
-        if (absen) { // Mode Edit
+        if (absen) {
             setIsEditMode(true);
             setData({
                 tanggal: filters.tanggal,
@@ -94,7 +104,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                 jam_pulang: absen.jam_pulang || '',
                 keterangan: absen.keterangan || '',
             });
-        } else { // Mode Tambah
+        } else {
             setIsEditMode(false);
             reset();
             setData('tanggal', filters.tanggal);
@@ -103,7 +113,6 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
     };
     const closeModal = () => setIsModalOpen(false);
     
-    // Menggunakan nama rute yang benar dan terstruktur (`admin.absensi-guru.store`)
     const submitManualAbsensi = (e) => {
         e.preventDefault();
         post(route('admin.absensi-guru.store'), {
@@ -112,7 +121,6 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
         });
     };
 
-    // Fungsi baru yang dinamis untuk menangani semua jenis ekspor
     const handleExport = (format) => {
         const params = new URLSearchParams();
         let exportUrl = '';
@@ -147,7 +155,6 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
         <AdminLayout user={auth.user} header="Absensi Guru">
             <Head title="Absensi Guru" />
             <div className="space-y-8">
-                {/* Header */}
                 <div className="flex justify-between items-center">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-800">Absensi Guru</h1>
@@ -159,7 +166,6 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                     </button>
                 </div>
 
-                {/* Kartu Statistik */}
                 {filters.tab === 'harian' && stats && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                         <StatCard title="Total Guru" value={stats.total_guru} description="Guru aktif" icon={<UserGroupIcon className="h-8 w-8 text-gray-400"/>} color="#6b7280" />
@@ -170,7 +176,6 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                     </div>
                 )}
 
-                {/* Navigasi Tab */}
                 <div className="bg-gray-100 p-1 rounded-lg flex space-x-2">
                     <TabLink href={route('admin.absensi-guru.index', { tab: 'harian' })} isActive={filters.tab === 'harian'}>Absensi Hari Ini</TabLink>
                     <TabLink href={route('admin.absensi-guru.index', { tab: 'riwayat' })} isActive={filters.tab === 'riwayat'}>Riwayat Absensi</TabLink>
@@ -178,10 +183,14 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                     <TabLink href={route('admin.absensi-guru.index', { tab: 'laporan_semester' })} isActive={filters.tab === 'laporan_semester'}>Laporan Semester</TabLink>
                 </div>
 
-                {/* Konten Tab */}
                 <div>
                     {filters.tab === 'harian' && (
                         <div className="space-y-6 animate-fade-in">
+                            {/* PERUBAHAN 3: Tampilkan komponen chart jika datanya ada */}
+                            {chartData && (
+                                <WeeklyAttendanceChart chartData={chartData} />
+                            )}
+
                             <div className="bg-white p-6 rounded-lg shadow-sm">
                                 <h3 className="text-lg font-bold text-gray-800 mb-4">Filter Absensi</h3>
                                 <div className="flex items-center gap-4">
@@ -195,7 +204,8 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                {['NIP', 'Nama Guru', 'Jam Masuk', 'Jam Pulang', 'Status', 'Metode', 'Keterangan', 'Aksi'].map(head => (
+                                                {/* PERUBAHAN 4: Perbarui header tabel */}
+                                                {['NIP', 'Nama Guru', 'Jam Masuk', 'Status', 'Keterlambatan', 'Aksi'].map(head => (
                                                     <th key={head} className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{head}</th>
                                                 ))}
                                             </tr>
@@ -206,15 +216,29 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{absen.guru.nip || '-'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{absen.guru.nama_lengkap}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{absen.jam_masuk || '-'}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{absen.jam_pulang || '-'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={absen.status_kehadiran} /></td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{absen.metode_absen}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{absen.keterangan || '-'}</td>
-                                                    <td className="px-6 py-4"><button onClick={() => openModal(absen)} className="text-blue-600 hover:text-blue-800"><PencilIcon className="h-5 w-5"/></button></td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                        {absen.menit_keterlambatan > 0 ? (
+                                                            <span className="text-red-600 font-semibold">{absen.menit_keterlambatan} menit</span>
+                                                        ) : (
+                                                            absen.status_kehadiran === 'Hadir' ? <span className="text-green-600">Tepat Waktu</span> : '-'
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        <div className="flex items-center gap-x-3">
+                                                            {/* PERUBAHAN 5: Tambahkan link ke halaman detail guru */}
+                                                            <Link href={route('admin.absensi-guru.show', absen.id_guru)} className="text-gray-400 hover:text-blue-600 transition" title="Lihat Detail Riwayat">
+                                                                <EyeIcon className="h-5 w-5"/>
+                                                            </Link>
+                                                            <button onClick={() => openModal(absen)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Absensi">
+                                                                <PencilIcon className="h-5 w-5"/>
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             ))}
                                             {absensiData?.length === 0 && (
-                                                <tr><td colSpan="8" className="text-center py-8 text-gray-500">Belum ada data absensi untuk tanggal ini.</td></tr>
+                                                <tr><td colSpan="6" className="text-center py-8 text-gray-500">Belum ada data absensi untuk tanggal ini.</td></tr>
                                             )}
                                         </tbody>
                                     </table>
@@ -248,6 +272,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                                         ))}
                                     </tbody>
                                 </table>
+                                {riwayatAbsensi && <Pagination links={riwayatAbsensi.links} />}
                             </div>
                         </div>
                     )}
@@ -337,8 +362,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                     )}
                 </div>
             </div>
-
-            {/* Modal */}
+            
             <Modal show={isModalOpen} onClose={closeModal}>
                 <form onSubmit={submitManualAbsensi} className="p-6">
                     <h2 className="text-lg font-bold text-gray-900 mb-4">{isEditMode ? 'Edit Absensi' : 'Input Absensi Manual'}</h2>

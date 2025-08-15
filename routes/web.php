@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\KelasController;
 use App\Http\Controllers\Admin\MataPelajaranController;
 use App\Http\Controllers\Admin\OrangTuaWaliController;
 use App\Http\Controllers\Admin\AbsensiGuruController;
+use App\Http\Controllers\Admin\PengaturanController;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,12 +59,18 @@ Route::middleware('auth')->group(function () {
         Route::resource('orang-tua-wali', OrangTuaWaliController::class);
 
         Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
+        Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('pengaturan.index');
+        Route::put('/pengaturan', [PengaturanController::class, 'update'])->name('pengaturan.update');
+        Route::post('guru/{guru}/register-fingerprint', [GuruController::class, 'registerFingerprint'])->name('guru.register-fingerprint');
+        Route::post('guru/{guru}/generate-barcode', [GuruController::class, 'generateBarcode'])->name('guru.generate-barcode');
+
+
 
         // --- Grup Khusus untuk Absensi Guru ---
         Route::prefix('absensi-guru')->name('absensi-guru.')->group(function () {
             Route::get('/', [AbsensiGuruController::class, 'index'])->name('index');
             Route::post('/', [AbsensiGuruController::class, 'store'])->name('store');
-
+            Route::get('/{guru}', [AbsensiGuruController::class, 'show'])->name('show');
             // Rute Ekspor yang Baru
             Route::get('/export-excel', [AbsensiGuruController::class, 'exportExcel'])->name('export-excel');
             Route::get('/export-pdf', [AbsensiGuruController::class, 'exportPdf'])->name('export-pdf');

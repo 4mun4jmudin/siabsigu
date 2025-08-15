@@ -12,6 +12,7 @@ use App\Models\JurnalMengajar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str; // <-- 1. Impor Str helper untuk membuat string random
 use Inertia\Inertia;
 
 class GuruController extends Controller
@@ -21,7 +22,6 @@ class GuruController extends Controller
      */
     public function index(Request $request)
     {
-        // Menghitung statistik untuk kartu di bagian atas
         $stats = [
             'total' => Guru::count(),
             'aktif' => Guru::where('status', 'Aktif')->count(),
@@ -29,7 +29,6 @@ class GuruController extends Controller
             'sidikJari' => Guru::whereNotNull('sidik_jari_template')->count(),
         ];
 
-        // Query untuk mengambil daftar guru dengan pencarian dan paginasi
         $gurus = Guru::with(['pengguna', 'kelasWali'])
             ->when($request->input('search'), function ($query, $search) {
                 $query->where('nama_lengkap', 'like', "%{$search}%")
@@ -51,22 +50,18 @@ class GuruController extends Controller
      */
     public function show(Guru $guru)
     {
-        // Eager load relasi utama
         $guru->load(['pengguna', 'kelasWali']);
 
-        // Ambil data untuk tab "Jadwal Mengajar"
         $jadwalMengajar = JadwalMengajar::where('id_guru', $guru->id_guru)
             ->with(['kelas', 'mataPelajaran', 'tahunAjaran'])
             ->get()
-            ->groupBy('hari'); // Kelompokkan berdasarkan hari
+            ->groupBy('hari');
 
-        // Ambil data untuk tab "Riwayat Absensi" (contoh: 15 data terakhir)
         $riwayatAbsensi = AbsensiGuru::where('id_guru', $guru->id_guru)
             ->latest('tanggal')
             ->take(15)
             ->get();
             
-        // Ambil data untuk tab "Jurnal Mengajar" (contoh: 15 data terakhir)
         $jurnalMengajar = JurnalMengajar::whereHas('jadwalMengajar', function ($query) use ($guru) {
                 $query->where('id_guru', $guru->id_guru);
             })
@@ -88,7 +83,6 @@ class GuruController extends Controller
      */
     public function create()
     {
-        // Ambil user dengan level 'Guru' yang belum terhubung ke data guru manapun
         $users = User::where('level', 'Guru')->whereDoesntHave('guru')->get();
         return Inertia::render('admin/Guru/Create', [
             'users' => $users,
@@ -118,7 +112,8 @@ class GuruController extends Controller
         }
 
         Guru::create($validated);
-        return to_route('admin.guru.index')->with('message', 'Data Guru berhasil ditambahkan.');
+        // Menggunakan 'success' agar sesuai dengan ToastNotification di frontend
+        return to_route('admin.guru.index')->with('success', 'Data Guru berhasil ditambahkan.');
     }
 
     /**
@@ -126,7 +121,6 @@ class GuruController extends Controller
      */
     public function edit(Guru $guru)
     {
-        // Ambil user yang belum terpakai ATAU user yang sedang dipakai oleh guru ini
         $users = User::where('level', 'Guru')
             ->where(function ($query) use ($guru) {
                 $query->whereDoesntHave('guru')
@@ -154,22 +148,19 @@ class GuruController extends Controller
             'sidik_jari_template' => 'nullable|string',
         ]);
 
-        // Handle file upload secara terpisah untuk update
         if ($request->hasFile('foto_profil')) {
             $request->validate(['foto_profil' => 'nullable|image|max:2048']);
             
-            // Hapus foto lama jika ada
             if ($guru->foto_profil) {
                 Storage::disk('public')->delete($guru->foto_profil);
             }
-            // Simpan foto baru
             $path = $request->file('foto_profil')->store('foto_profil_guru', 'public');
             $validated['foto_profil'] = $path;
         }
 
         $guru->update($validated);
         
-        return to_route('admin.guru.index')->with('message', 'Data Guru berhasil diperbarui.');
+        return to_route('admin.guru.index')->with('success', 'Data Guru berhasil diperbarui.');
     }
 
     /**
@@ -177,13 +168,45 @@ class GuruController extends Controller
      */
     public function destroy(Guru $guru)
     {
-        // Hapus foto dari storage jika ada
         if ($guru->foto_profil) {
             Storage::disk('public')->delete($guru->foto_profil);
         }
         
         $guru->delete();
         
-        return to_route('admin.guru.index')->with('message', 'Data Guru berhasil dihapus.');
+        return to_route('admin.guru.index')->with('success', 'Data Guru berhasil dihapus.');
+    }
+
+    // --- 2. METHOD BARU UNTUK REGISTRASI SIDIK JARI ---
+    /**
+     * Menyimpan data template sidik jari untuk guru yang spesifik.
+     */
+    public function registerFingerprint(Request $request, Guru $guru)
+    {
+        $request->validate([
+            'sidik_jari_template' => 'required|string',
+        ]);
+
+        $guru->update([
+            'sidik_jari_template' => $request->sidik_jari_template,
+        ]);
+
+        return back()->with('success', 'Sidik jari untuk ' . $guru->nama_lengkap . ' berhasil diregistrasi.');
+    }
+
+    // --- 3. METHOD BARU UNTUK MEMBUAT/RESET BARCODE ---
+    /**
+     * Membuat atau mereset Barcode ID untuk seorang guru.
+     */
+    public function generateBarcode(Request $request, Guru $guru)
+    {
+        // Buat ID unik. Format: GURU-[ID GURU]-[6 KARAKTER RANDOM]
+        $newBarcodeId = 'GURU-' . $guru->id_guru . '-' . strtoupper(Str::random(6));
+
+        $guru->update([
+            'barcode_id' => $newBarcodeId,
+        ]);
+
+        return back()->with('success', 'Barcode ID baru (' . $newBarcodeId . ') untuk ' . $guru->nama_lengkap . ' berhasil dibuat.');
     }
 }
