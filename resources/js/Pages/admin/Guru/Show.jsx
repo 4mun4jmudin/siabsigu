@@ -163,11 +163,11 @@ export default function Show({ auth, guru, jadwalMengajar, riwayatAbsensi, jurna
                                 <p className="text-sm text-gray-500">Informasi lengkap mengenai guru.</p>
                             </div>
                             <div className="flex items-center gap-x-2 flex-shrink-0">
-                                 <Link href={route('guru.index')} className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-200">
+                                 <Link href={route('admin.guru.index')} className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-200">
                                     <ArrowLeftIcon className="-ml-0.5 h-5 w-5" />
                                     Kembali
                                 </Link>
-                                <Link href={route('guru.edit', guru.id_guru)} className="inline-flex items-center gap-x-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                                <Link href={route('admin.guru.edit', guru.id_guru)} className="inline-flex items-center gap-x-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
                                     <PencilIcon className="-ml-0.5 h-5 w-5" />
                                     Edit
                                 </Link>

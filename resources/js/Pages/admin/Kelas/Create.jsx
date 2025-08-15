@@ -105,7 +105,7 @@ export default function Create({ auth, guruOptions }) {
                             {processing ? 'Menyimpan...' : 'Simpan Kelas'}
                         </button>
                         <Link 
-                            href={route('kelas.index')} 
+                            href={route('admin.kelas.index')} 
                             className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-semibold text-xs uppercase hover:bg-gray-300 transition"
                         >
                             Batal

@@ -65,7 +65,7 @@ export default function Index({ auth, stats, mataPelajaran, guruPengampuList, fi
     };
 
     const handleSearch = debounce((e) => {
-        router.get(route('mata-pelajaran.index'), { search: e.target.value }, {
+        router.get(route('admin.mata-pelajaran.index'), { search: e.target.value }, {
             preserveState: true,
             replace: true,
         });
@@ -82,7 +82,7 @@ export default function Index({ auth, stats, mataPelajaran, guruPengampuList, fi
                         <h1 className="text-3xl font-bold text-gray-800">Mata Pelajaran</h1>
                         <p className="text-sm text-gray-500 mt-1">Kelola mata pelajaran dan kurikulum sekolah</p>
                     </div>
-                    <Link href={route('mata-pelajaran.create')}>
+                    <Link href={route('admin.mata-pelajaran.create')}>
                         <button className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
                             <PlusIcon className="h-5 w-5 mr-2" />
                             Tambah Mata Pelajaran
@@ -135,10 +135,10 @@ export default function Index({ auth, stats, mataPelajaran, guruPengampuList, fi
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">{mapel.jumlah_jp}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 text-center">{mapel.kkm}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2 flex items-center">
-                                            <Link href={route('mata-pelajaran.show', mapel.id_mapel)} className="text-gray-600 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100" title="Lihat Detail">
+                                            <Link href={route('admin.mata-pelajaran.show', mapel.id_mapel)} className="text-gray-600 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100" title="Lihat Detail">
                                                 <EyeIcon className="h-5 w-5"/>
                                             </Link>
-                                            <Link href={route('mata-pelajaran.edit', mapel.id_mapel)} className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-gray-100" title="Edit">
+                                            <Link href={route('admin.mata-pelajaran.edit', mapel.id_mapel)} className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-gray-100" title="Edit">
                                                 <PencilIcon className="h-5 w-5"/>
                                             </Link>
                                             <button onClick={() => openDeleteModal(mapel)} className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-gray-100" title="Hapus">

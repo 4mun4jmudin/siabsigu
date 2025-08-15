@@ -347,7 +347,7 @@ export default function Create({ auth, gurus, kelasList }) {
                     {/* Tombol Aksi */}
                     <div className="flex items-center justify-end mt-6">
                         <Link
-                            href={route("mata-pelajaran.index")}
+                            href={route("admin.mata-pelajaran.index")}
                             className="text-sm text-gray-600 hover:text-gray-900 mr-4"
                         >
                             Batal

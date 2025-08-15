@@ -44,7 +44,7 @@ export default function Edit({ auth, mataPelajaran, gurus, kelasList }) {
 
     const submit = (e) => {
         e.preventDefault();
-        put(route('mata-pelajaran.update', mataPelajaran.id_mapel));
+        put(route('admin.mata-pelajaran.update', mataPelajaran.id_mapel));
     };
 
     return (
@@ -147,7 +147,7 @@ export default function Edit({ auth, mataPelajaran, gurus, kelasList }) {
 
                     {/* Tombol Aksi */}
                     <div className="flex items-center justify-end mt-6">
-                        <Link href={route('mata-pelajaran.index')} className="text-sm text-gray-600 hover:text-gray-900 mr-4">
+                        <Link href={route('admin.mata-pelajaran.index')} className="text-sm text-gray-600 hover:text-gray-900 mr-4">
                             Batal
                         </Link>
                         <PrimaryButton disabled={processing}>

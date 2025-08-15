@@ -7,10 +7,21 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { PlusIcon, UserGroupIcon, CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, PencilIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
+// Mengimpor ikon yang diperlukan, termasuk PrinterIcon untuk PDF
+import { 
+    PlusIcon, 
+    UserGroupIcon, 
+    CheckCircleIcon, 
+    XCircleIcon, 
+    ExclamationTriangleIcon, 
+    InformationCircleIcon, 
+    PencilIcon, 
+    DocumentArrowDownIcon,
+    PrinterIcon 
+} from '@heroicons/react/24/solid';
 import { debounce } from 'lodash';
 
-// Komponen Kartu Statistik
+// Komponen Kartu Statistik (Tidak ada perubahan)
 const StatCard = ({ title, value, description, icon, color }) => (
     <div className="bg-white p-5 rounded-lg shadow-sm flex items-center justify-between border-l-4" style={{borderColor: color}}>
         <div>
@@ -22,7 +33,7 @@ const StatCard = ({ title, value, description, icon, color }) => (
     </div>
 );
 
-// Komponen Badge Status
+// Komponen Badge Status (Tidak ada perubahan)
 const StatusBadge = ({ status }) => {
     const styles = {
         Hadir: 'bg-green-100 text-green-800',
@@ -31,10 +42,10 @@ const StatusBadge = ({ status }) => {
         Alfa: 'bg-red-100 text-red-800',
         'Dinas Luar': 'bg-purple-100 text-purple-800',
     };
-    return <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status]}`}>{status}</span>;
+    return <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status] || 'bg-gray-100 text-gray-800'}`}>{status}</span>;
 };
 
-// Komponen Tab sekarang menggunakan Link dari Inertia
+// Komponen Tab (Tidak ada perubahan)
 const TabLink = ({ href, isActive, children }) => (
     <Link
         href={href}
@@ -48,7 +59,8 @@ const TabLink = ({ href, isActive, children }) => (
     </Link>
 );
 
-export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwayatAbsensi, laporanBulanan, laporanSemester, tahunAjaranOptions, filters }) {
+// Mengubah nama prop `laporanSemester` menjadi `laporanSemesteran` agar sinkron dengan Controller
+export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwayatAbsensi, laporanBulanan, laporanSemesteran, tahunAjaranOptions, filters }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     
@@ -62,11 +74,14 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
     });
 
     // --- Handlers ---
+    // Menggunakan nama rute yang benar dan terstruktur (`admin.absensi-guru.index`)
     const handleFilterChange = (key, value) => {
-        router.get(route('absensi-guru.index'), { ...filters, [key]: value }, { preserveState: true, replace: true, preserveScroll: true });
+        router.get(route('admin.absensi-guru.index'), { ...filters, [key]: value }, { preserveState: true, replace: true, preserveScroll: true });
     };
+
     const handleSearch = debounce((e) => handleFilterChange('search', e.target.value), 300);
     
+    // Logika Modal tidak berubah
     const openModal = (absen = null) => {
         if (absen) { // Mode Edit
             setIsEditMode(true);
@@ -88,18 +103,49 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
     };
     const closeModal = () => setIsModalOpen(false);
     
+    // Menggunakan nama rute yang benar dan terstruktur (`admin.absensi-guru.store`)
     const submitManualAbsensi = (e) => {
         e.preventDefault();
-        post(route('absensi-guru.store'), {
+        post(route('admin.absensi-guru.store'), {
             onSuccess: () => closeModal(),
             preserveScroll: true,
         });
     };
 
+    // Fungsi baru yang dinamis untuk menangani semua jenis ekspor
+    const handleExport = (format) => {
+        const params = new URLSearchParams();
+        let exportUrl = '';
+
+        if (filters.tab === 'laporan_bulanan') {
+            if (filters.bulan && filters.tahun) {
+                params.append('bulan', filters.bulan);
+                params.append('tahun', filters.tahun);
+            } else {
+                alert('Peringatan: Silakan pilih Bulan dan Tahun terlebih dahulu.');
+                return;
+            }
+        } else if (filters.tab === 'laporan_semester') {
+            if (filters.id_tahun_ajaran) {
+                params.append('id_tahun_ajaran', filters.id_tahun_ajaran);
+            } else {
+                alert('Peringatan: Silakan pilih Tahun Ajaran terlebih dahulu.');
+                return;
+            }
+        } else {
+            return;
+        }
+
+        exportUrl = format === 'excel'
+            ? route('admin.absensi-guru.export-excel')
+            : route('admin.absensi-guru.export-pdf');
+
+        window.open(`${exportUrl}?${params.toString()}`, '_blank');
+    };
+
     return (
         <AdminLayout user={auth.user} header="Absensi Guru">
             <Head title="Absensi Guru" />
-
             <div className="space-y-8">
                 {/* Header */}
                 <div className="flex justify-between items-center">
@@ -113,7 +159,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                     </button>
                 </div>
 
-                {/* Kartu Statistik (Hanya tampil di tab harian) */}
+                {/* Kartu Statistik */}
                 {filters.tab === 'harian' && stats && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                         <StatCard title="Total Guru" value={stats.total_guru} description="Guru aktif" icon={<UserGroupIcon className="h-8 w-8 text-gray-400"/>} color="#6b7280" />
@@ -126,10 +172,10 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
 
                 {/* Navigasi Tab */}
                 <div className="bg-gray-100 p-1 rounded-lg flex space-x-2">
-                    <TabLink href={route('absensi-guru.index', { tab: 'harian' })} isActive={filters.tab === 'harian'}>Absensi Hari Ini</TabLink>
-                    <TabLink href={route('absensi-guru.index', { tab: 'riwayat' })} isActive={filters.tab === 'riwayat'}>Riwayat Absensi</TabLink>
-                    <TabLink href={route('absensi-guru.index', { tab: 'laporan_bulanan' })} isActive={filters.tab === 'laporan_bulanan'}>Laporan Bulanan</TabLink>
-                    <TabLink href={route('absensi-guru.index', { tab: 'laporan_semester' })} isActive={filters.tab === 'laporan_semester'}>Laporan Semester</TabLink>
+                    <TabLink href={route('admin.absensi-guru.index', { tab: 'harian' })} isActive={filters.tab === 'harian'}>Absensi Hari Ini</TabLink>
+                    <TabLink href={route('admin.absensi-guru.index', { tab: 'riwayat' })} isActive={filters.tab === 'riwayat'}>Riwayat Absensi</TabLink>
+                    <TabLink href={route('admin.absensi-guru.index', { tab: 'laporan_bulanan' })} isActive={filters.tab === 'laporan_bulanan'}>Laporan Bulanan</TabLink>
+                    <TabLink href={route('admin.absensi-guru.index', { tab: 'laporan_semester' })} isActive={filters.tab === 'laporan_semester'}>Laporan Semester</TabLink>
                 </div>
 
                 {/* Konten Tab */}
@@ -144,7 +190,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                                 </div>
                             </div>
                             <div className="bg-white p-6 rounded-lg shadow-sm">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">Daftar Absensi Guru - {new Date(filters.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">Daftar Absensi Guru - {new Date(filters.tanggal + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
@@ -207,7 +253,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                     )}
                     {filters.tab === 'laporan_bulanan' && (
                         <div className="bg-white p-6 rounded-lg shadow-sm animate-fade-in">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
                                 <h3 className="text-lg font-bold text-gray-800">Laporan Bulanan</h3>
                                 <div className="flex items-center gap-4">
                                     <select onChange={(e) => handleFilterChange('bulan', e.target.value)} value={filters.bulan} className="border-gray-300 rounded-md shadow-sm">
@@ -216,8 +262,11 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                                     <select onChange={(e) => handleFilterChange('tahun', e.target.value)} value={filters.tahun} className="border-gray-300 rounded-md shadow-sm">
                                         {Array.from({length: 5}, (_, i) => <option key={i}>{new Date().getFullYear() - i}</option>)}
                                     </select>
-                                    <button className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg shadow-sm hover:bg-green-700 transition text-sm">
-                                        <DocumentArrowDownIcon className="h-5 w-5 mr-2"/> Export Excel
+                                    <button onClick={() => handleExport('pdf')} className="flex items-center bg-red-600 text-white px-3 py-2 rounded-lg shadow-sm hover:bg-red-700 transition text-sm">
+                                        <PrinterIcon className="h-5 w-5 mr-2"/> PDF
+                                    </button>
+                                    <button onClick={() => handleExport('excel')} className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg shadow-sm hover:bg-green-700 transition text-sm">
+                                        <DocumentArrowDownIcon className="h-5 w-5 mr-2"/> Excel
                                     </button>
                                 </div>
                             </div>
@@ -247,14 +296,18 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                     )}
                     {filters.tab === 'laporan_semester' && (
                         <div className="bg-white p-6 rounded-lg shadow-sm animate-fade-in">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
                                 <h3 className="text-lg font-bold text-gray-800">Laporan Semester</h3>
                                 <div className="flex items-center gap-4">
                                     <select onChange={(e) => handleFilterChange('id_tahun_ajaran', e.target.value)} value={filters.id_tahun_ajaran || ''} className="border-gray-300 rounded-md shadow-sm">
+                                        <option value="">Pilih Tahun Ajaran</option>
                                         {tahunAjaranOptions?.map(ta => <option key={ta.id_tahun_ajaran} value={ta.id_tahun_ajaran}>{ta.tahun_ajaran} - {ta.semester}</option>)}
                                     </select>
-                                    <button className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg shadow-sm hover:bg-green-700 transition text-sm">
-                                        <DocumentArrowDownIcon className="h-5 w-5 mr-2"/> Export Excel
+                                    <button onClick={() => handleExport('pdf')} className="flex items-center bg-red-600 text-white px-3 py-2 rounded-lg shadow-sm hover:bg-red-700 transition text-sm">
+                                        <PrinterIcon className="h-5 w-5 mr-2"/> PDF
+                                    </button>
+                                    <button onClick={() => handleExport('excel')} className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg shadow-sm hover:bg-green-700 transition text-sm">
+                                        <DocumentArrowDownIcon className="h-5 w-5 mr-2"/> Excel
                                     </button>
                                 </div>
                             </div>
@@ -268,7 +321,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {laporanSemester?.map(guru => (
+                                        {laporanSemesteran?.map(guru => (
                                             <tr key={guru.id_guru}>
                                                 <td className="px-6 py-4 font-medium">{guru.nama_lengkap}</td>
                                                 <td className="px-6 py-4 text-center">{guru.hadir}</td>
@@ -285,7 +338,7 @@ export default function Index({ auth, absensiData, stats, guruBelumAbsen, riwaya
                 </div>
             </div>
 
-            {/* Modal Input/Edit Absensi Manual */}
+            {/* Modal */}
             <Modal show={isModalOpen} onClose={closeModal}>
                 <form onSubmit={submitManualAbsensi} className="p-6">
                     <h2 className="text-lg font-bold text-gray-900 mb-4">{isEditMode ? 'Edit Absensi' : 'Input Absensi Manual'}</h2>

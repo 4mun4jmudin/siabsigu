@@ -107,7 +107,7 @@ class OrangTuaWaliController extends Controller
             ]);
         });
 
-        return to_route('orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil ditambahkan.');
+        return to_route('admin.orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil ditambahkan.');
     }
 
     /**
@@ -192,7 +192,7 @@ class OrangTuaWaliController extends Controller
             }
         });
 
-        return to_route('orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil diperbarui.');
+        return to_route('admin.orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil diperbarui.');
     }
 
     /**
@@ -235,6 +235,6 @@ class OrangTuaWaliController extends Controller
             }
         });
 
-        return to_route('orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil dihapus.');
+        return to_route('admin.orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil dihapus.');
     }
 }

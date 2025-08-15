@@ -42,7 +42,7 @@ export default function Edit({ auth, siswa, kelasOptions }) {
                     <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md" disabled={processing}>
                         Update
                     </button>
-                    <Link href={route('siswa.index')} className="px-4 py-2 bg-gray-200 rounded-md">
+                    <Link href={route('admin.siswa.index')} className="px-4 py-2 bg-gray-200 rounded-md">
                         Batal
                     </Link>
                 </div>

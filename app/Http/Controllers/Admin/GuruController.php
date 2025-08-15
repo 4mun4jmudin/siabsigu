@@ -118,7 +118,7 @@ class GuruController extends Controller
         }
 
         Guru::create($validated);
-        return to_route('guru.index')->with('message', 'Data Guru berhasil ditambahkan.');
+        return to_route('admin.guru.index')->with('message', 'Data Guru berhasil ditambahkan.');
     }
 
     /**
@@ -169,7 +169,7 @@ class GuruController extends Controller
 
         $guru->update($validated);
         
-        return to_route('guru.index')->with('message', 'Data Guru berhasil diperbarui.');
+        return to_route('admin.guru.index')->with('message', 'Data Guru berhasil diperbarui.');
     }
 
     /**
@@ -184,6 +184,6 @@ class GuruController extends Controller
         
         $guru->delete();
         
-        return to_route('guru.index')->with('message', 'Data Guru berhasil dihapus.');
+        return to_route('admin.guru.index')->with('message', 'Data Guru berhasil dihapus.');
     }
 }

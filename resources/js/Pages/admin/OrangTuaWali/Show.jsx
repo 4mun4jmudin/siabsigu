@@ -70,11 +70,11 @@ export default function Show({ auth, wali, absensiSiswa }) {
             <div className="space-y-6">
                 {/* Header Halaman */}
                 <div className="flex justify-between items-center">
-                    <Link href={route('orang-tua-wali.index')} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800">
+                    <Link href={route('admin.orang-tua-wali.index')} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800">
                         <ArrowLeftIcon className="h-4 w-4" />
                         Kembali ke Daftar Wali
                     </Link>
-                    <Link href={route('orang-tua-wali.edit', wali.id_wali)} className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
+                    <Link href={route('admin.orang-tua-wali.edit', wali.id_wali)} className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
                         <PencilIcon className="h-5 w-5 mr-2" />
                         Edit Data Wali
                     </Link>

@@ -133,7 +133,7 @@ export default function Create({ auth, siswaOptions }) {
                     </div>
 
                     <div className="flex items-center justify-end mt-6">
-                        <Link href={route('orang-tua-wali.index')} className="text-sm text-gray-600 hover:text-gray-900 mr-4">Batal</Link>
+                        <Link href={route('admin.orang-tua-wali.index')} className="text-sm text-gray-600 hover:text-gray-900 mr-4">Batal</Link>
                         <PrimaryButton disabled={processing}>{processing ? 'Menyimpan...' : 'Simpan Data'}</PrimaryButton>
                     </div>
                 </form>

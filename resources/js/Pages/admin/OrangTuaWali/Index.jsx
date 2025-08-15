@@ -56,14 +56,14 @@ export default function Index({ auth, waliList, stats, filters }) {
     };
     
     const handleSearch = debounce((e) => {
-        router.get(route('orang-tua-wali.index'), { ...filters, search: e.target.value }, {
+        router.get(route('admin.orang-tua-wali.index'), { ...filters, search: e.target.value }, {
             preserveState: true,
             replace: true,
         });
     }, 300);
 
     const handleFilterHubungan = (e) => {
-        router.get(route('orang-tua-wali.index'), { ...filters, hubungan: e.target.value }, {
+        router.get(route('admin.orang-tua-wali.index'), { ...filters, hubungan: e.target.value }, {
             preserveState: true,
             replace: true,
         });
@@ -80,7 +80,7 @@ export default function Index({ auth, waliList, stats, filters }) {
                         <h1 className="text-3xl font-bold text-gray-800">Data Orang Tua/Wali</h1>
                         <p className="text-sm text-gray-500 mt-1">Kelola data orang tua dan wali siswa</p>
                     </div>
-                    <Link href={route('orang-tua-wali.create')}>
+                    <Link href={route('admin.orang-tua-wali.create')}>
                         <button className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
                             <PlusIcon className="h-5 w-5 mr-2" />
                             Tambah Orang Tua/Wali
@@ -146,8 +146,8 @@ export default function Index({ auth, waliList, stats, filters }) {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{wali.penghasilan_bulanan || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{wali.no_telepon_wa}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2 flex items-center">
-                                            <Link href={route('orang-tua-wali.show', wali.id_wali)} className="text-gray-600 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
-                                            <Link href={route('orang-tua-wali.edit', wali.id_wali)} className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-gray-100" title="Edit"><PencilIcon className="h-5 w-5"/></Link>
+                                            <Link href={route('admin.orang-tua-wali.show', wali.id_wali)} className="text-gray-600 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
+                                            <Link href={route('admin.orang-tua-wali.edit', wali.id_wali)} className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-gray-100" title="Edit"><PencilIcon className="h-5 w-5"/></Link>
                                             <button onClick={() => openDeleteModal(wali)} className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-gray-100" title="Hapus"><TrashIcon className="h-5 w-5"/></button>
                                         </td>
                                     </tr>

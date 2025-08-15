@@ -5,7 +5,6 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\Admin\AdminDashboardController;
-use App\Http\Controllers\TahunAjaranController;
 use App\Http\Controllers\Admin\GuruController;
 use App\Http\Controllers\Admin\SiswaController;
 use App\Http\Controllers\Admin\KelasController;
@@ -13,6 +12,13 @@ use App\Http\Controllers\Admin\MataPelajaranController;
 use App\Http\Controllers\Admin\OrangTuaWaliController;
 use App\Http\Controllers\Admin\AbsensiGuruController;
 
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
+// Rute Halaman Utama
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
@@ -22,32 +28,47 @@ Route::get('/', function () {
     ]);
 });
 
+// Rute Dasbor Pengguna Biasa
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+// Grup untuk semua rute yang memerlukan autentikasi
 Route::middleware('auth')->group(function () {
+
+    // Rute Profil Pengguna
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
-        ->name('admin.dashboard');
-    Route::resource('guru', GuruController::class);
-    Route::middleware('auth')->group(function () {
-        // ... (route lainnya seperti guru, dll)
 
-        // Tambahkan route untuk CRUD Siswa
+    // =========================================================================
+    // GRUP UTAMA UNTUK SEMUA FITUR PANEL ADMIN
+    // ->prefix('admin') membuat URL diawali dengan /admin/...
+    // ->name('admin.') membuat nama rute diawali dengan admin...
+    // =========================================================================
+    Route::prefix('admin')->name('admin.')->group(function () {
+
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+        // Manajemen Data Master (CRUD)
+        Route::resource('guru', GuruController::class);
         Route::resource('siswa', SiswaController::class);
         Route::resource('kelas', KelasController::class);
         Route::resource('mata-pelajaran', MataPelajaranController::class);
         Route::resource('orang-tua-wali', OrangTuaWaliController::class);
-        Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
-        Route::get('absensi-guru', [AbsensiGuruController::class, 'index'])->name('absensi-guru.index');
-        Route::post('absensi-guru', [AbsensiGuruController::class, 'store'])->name('absensi-guru.store');
-    });
 
-    // Route untuk resource lain yang mungkin hanya untuk admin
-    // Route::resource('tahun-ajaran', TahunAjaranController::class);
+        Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
+
+        // --- Grup Khusus untuk Absensi Guru ---
+        Route::prefix('absensi-guru')->name('absensi-guru.')->group(function () {
+            Route::get('/', [AbsensiGuruController::class, 'index'])->name('index');
+            Route::post('/', [AbsensiGuruController::class, 'store'])->name('store');
+
+            // Rute Ekspor yang Baru
+            Route::get('/export-excel', [AbsensiGuruController::class, 'exportExcel'])->name('export-excel');
+            Route::get('/export-pdf', [AbsensiGuruController::class, 'exportPdf'])->name('export-pdf');
+        });
+    });
 });
 
 require __DIR__ . '/auth.php';

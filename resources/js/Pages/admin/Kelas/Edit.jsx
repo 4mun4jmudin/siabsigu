@@ -11,7 +11,7 @@ export default function Edit({ auth, kelas, guruOptions }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        put(route('kelas.update', kelas.id_kelas));
+        put(route('admin.kelas.update', kelas.id_kelas));
     };
 
     return (
@@ -101,7 +101,7 @@ export default function Edit({ auth, kelas, guruOptions }) {
                             {processing ? 'Memperbarui...' : 'Update Kelas'}
                         </button>
                         <Link 
-                            href={route('kelas.index')} 
+                            href={route('admin.kelas.index')} 
                             className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-semibold text-xs uppercase hover:bg-gray-300 transition"
                         >
                             Batal

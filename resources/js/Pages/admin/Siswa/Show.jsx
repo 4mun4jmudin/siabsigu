@@ -139,7 +139,7 @@ export default function Show({ auth, siswa, orangTuaWali, riwayatAbsensi }) {
             
             <div className="max-w-7xl mx-auto">
                 <div className="mb-6">
-                    <Link href={route('siswa.index')} className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 mb-2">
+                    <Link href={route('admin.siswa.index')} className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 mb-2">
                         <ChevronLeft className="h-5 w-5 mr-1" />
                         Kembali ke Daftar Siswa
                     </Link>
@@ -159,7 +159,7 @@ export default function Show({ auth, siswa, orangTuaWali, riwayatAbsensi }) {
                         </div>
                         <div className="flex items-center space-x-2">
                             <button className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200"><Printer size={20} /></button>
-                            <Link href={route('siswa.edit', siswa.id_siswa)} className="p-2 bg-yellow-100 rounded-lg text-yellow-700 hover:bg-yellow-200"><Edit size={20} /></Link>
+                            <Link href={route('admin.siswa.edit', siswa.id_siswa)} className="p-2 bg-yellow-100 rounded-lg text-yellow-700 hover:bg-yellow-200"><Edit size={20} /></Link>
                             <button onClick={confirmDeletion} className="p-2 bg-red-100 rounded-lg text-red-700 hover:bg-red-200"><Trash2 size={20} /></button>
                         </div>
                     </div>

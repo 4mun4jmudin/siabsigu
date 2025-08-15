@@ -51,7 +51,7 @@ const EmptyState = () => (
         <h3 className="mt-2 text-sm font-semibold text-gray-900">Tidak ada data guru</h3>
         <p className="mt-1 text-sm text-gray-500">Silakan mulai dengan menambahkan data guru baru.</p>
         <div className="mt-6">
-            <Link href={route('guru.create')} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            <Link href={route('admin.guru.create')} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                 <PlusIcon className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
                 Tambah Guru
             </Link>
@@ -91,7 +91,7 @@ export default function Index({ auth, gurus, stats, filters }) {
     
     const deleteItem = (e) => {
         e.preventDefault();
-        destroy(route('guru.destroy', itemToDelete.id_guru), {
+        destroy(route('admin.guru.destroy', itemToDelete.id_guru), {
             preserveScroll: true,
             onSuccess: () => closeModal(),
             onError: () => closeModal(),
@@ -99,7 +99,7 @@ export default function Index({ auth, gurus, stats, filters }) {
     };
 
     const debouncedSearch = useCallback(debounce((value) => {
-        router.get(route('guru.index'), { search: value }, {
+        router.get(route('admin.guru.index'), { search: value }, {
             preserveState: true,
             replace: true,
         });
@@ -128,7 +128,7 @@ export default function Index({ auth, gurus, stats, filters }) {
                         <h2 className="text-2xl font-bold text-gray-800">Data Guru</h2>
                         <p className="text-sm text-gray-500">Kelola data guru dan informasi kepegawaian.</p>
                     </div>
-                    <Link href={route('guru.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 active:bg-blue-600 disabled:opacity-25 transition">
+                    <Link href={route('admin.guru.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 active:bg-blue-600 disabled:opacity-25 transition">
                         + Tambah Guru
                     </Link>
                 </div>
@@ -186,8 +186,8 @@ export default function Index({ auth, gurus, stats, filters }) {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                         <div className="flex items-center gap-x-3">
-                                                            <Link href={route('guru.show', guru.id_guru)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
-                                                            <Link href={route('guru.edit', guru.id_guru)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5"/></Link>
+                                                            <Link href={route('admin.guru.show', guru.id_guru)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
+                                                            <Link href={route('admin.guru.edit', guru.id_guru)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5"/></Link>
                                                             <button onClick={(e) => confirmDeletion(e, guru)} className="text-gray-400 hover:text-red-600 transition" title="Hapus Data"><TrashIcon className="h-5 w-5"/></button>
                                                         </div>
                                                     </td>

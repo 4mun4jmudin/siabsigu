@@ -140,7 +140,7 @@ class MataPelajaranController extends Controller
             }
         });
 
-        return to_route('mata-pelajaran.index')->with('success', 'Mata Pelajaran dan jadwalnya berhasil ditambahkan.');
+        return to_route('admin.mata-pelajaran.index')->with('success', 'Mata Pelajaran dan jadwalnya berhasil ditambahkan.');
     }
 
     /**
@@ -178,7 +178,7 @@ class MataPelajaranController extends Controller
             'jadwal.*.jam_selesai' => 'required|after:jadwal.*.jam_mulai',
         ]);
 
-         $this->validateScheduleClashes($request->jadwal, $mataPelajaran->id_mapel);
+        $this->validateScheduleClashes($request->jadwal, $mataPelajaran->id_mapel);
 
         DB::transaction(function () use ($request, $mataPelajaran) {
             // 1. Update Mata Pelajaran
@@ -205,7 +205,7 @@ class MataPelajaranController extends Controller
             }
         });
 
-        return to_route('mata-pelajaran.index')->with('success', 'Mata Pelajaran dan jadwalnya berhasil diperbarui.');
+        return to_route('admin.mata-pelajaran.index')->with('success', 'Mata Pelajaran dan jadwalnya berhasil diperbarui.');
     }
     public function show(MataPelajaran $mataPelajaran)
     {
@@ -229,7 +229,7 @@ class MataPelajaranController extends Controller
         ]);
     }
 
-     private function validateScheduleClashes(array $schedules, ?string $excludeMapelId = null)
+    private function validateScheduleClashes(array $schedules, ?string $excludeMapelId = null)
     {
         foreach ($schedules as $index => $schedule) {
             $hari = $schedule['hari'];
@@ -243,7 +243,7 @@ class MataPelajaranController extends Controller
                 ->where('hari', $hari)
                 ->where(function ($query) use ($jamMulai, $jamSelesai) {
                     $query->where('jam_mulai', '<', $jamSelesai)
-                          ->where('jam_selesai', '>', $jamMulai);
+                        ->where('jam_selesai', '>', $jamMulai);
                 })
                 ->when($excludeMapelId, function ($query) use ($excludeMapelId) {
                     $query->where('id_mapel', '!=', $excludeMapelId);
@@ -262,7 +262,7 @@ class MataPelajaranController extends Controller
                 ->where('hari', $hari)
                 ->where(function ($query) use ($jamMulai, $jamSelesai) {
                     $query->where('jam_mulai', '<', $jamSelesai)
-                          ->where('jam_selesai', '>', $jamMulai);
+                        ->where('jam_selesai', '>', $jamMulai);
                 })
                 ->when($excludeMapelId, function ($query) use ($excludeMapelId) {
                     $query->where('id_mapel', '!=', $excludeMapelId);
@@ -289,6 +289,6 @@ class MataPelajaranController extends Controller
 
         $mataPelajaran->delete();
 
-        return to_route('mata-pelajaran.index')->with('success', 'Mata Pelajaran berhasil dihapus.');
+        return to_route('admin.mata-pelajaran.index')->with('success', 'Mata Pelajaran berhasil dihapus.');
     }
 }

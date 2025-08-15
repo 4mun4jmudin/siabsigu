@@ -23,7 +23,7 @@ export default function Edit({ auth, guru, users }) {
         e.preventDefault();
         // Gunakan method POST untuk update karena form berisi file
         // Laravel akan membaca _method: 'PUT' untuk routing
-        post(route('guru.update', guru.id_guru), {
+        post(route('admin.guru.update', guru.id_guru), {
             forceFormData: true, // Paksa Inertia menggunakan FormData
         });
     };
@@ -41,7 +41,7 @@ export default function Edit({ auth, guru, users }) {
                     <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md" disabled={processing}>
                         Update
                     </button>
-                    <Link href={route('guru.index')} className="px-4 py-2 bg-gray-200 rounded-md">
+                    <Link href={route('admin.guru.index')} className="px-4 py-2 bg-gray-200 rounded-md">
                         Batal
                     </Link>
                 </div>

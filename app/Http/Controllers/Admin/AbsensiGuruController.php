@@ -10,160 +10,130 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
-use Illuminate\Validation\Rule; // Untuk validasi enum
+use App\Exports\AbsensiGuruExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class AbsensiGuruController extends Controller
 {
     /**
-     * Menampilkan halaman dasbor absensi guru dengan data dinamis per tab.
+     * Menampilkan halaman utama manajemen absensi guru.
      */
     public function index(Request $request)
     {
-        // Validasi semua kemungkinan parameter filter dari semua tab
-        $request->validate([
-            'tab' => 'nullable|string|in:harian,riwayat,laporan_bulanan,laporan_semester',
-            'tanggal' => 'nullable|date',
-            'search' => 'nullable|string',
-            'bulan' => 'nullable|integer|min:1|max:12',
-            'tahun' => 'nullable|integer|min:2000',
-            'id_tahun_ajaran' => 'nullable|string|exists:tbl_tahun_ajaran,id_tahun_ajaran',
+        $filters = $request->all(
+            'tab', 'search', 'tanggal', 'bulan', 'tahun', 'id_tahun_ajaran'
+        );
+
+        $filters['tab'] = $filters['tab'] ?? 'harian';
+        $filters['tanggal'] = $filters['tanggal'] ?? now()->toDateString();
+        $filters['bulan'] = $filters['bulan'] ?? now()->month;
+        $filters['tahun'] = $filters['tahun'] ?? now()->year;
+        
+        $tahunAjaranOptions = TahunAjaran::orderBy('tahun_ajaran', 'desc')->get();
+
+        return Inertia::render('admin/AbsensiGuru/Index', [
+            'filters' => $filters,
+            'tahunAjaranOptions' => $tahunAjaranOptions,
+            'absensiData' => fn () => $this->getAbsensiHarian($filters),
+            'stats' => fn () => $this->getStatsHarian($filters),
+            'guruBelumAbsen' => fn () => $this->getGuruBelumAbsen($filters),
+            'riwayatAbsensi' => fn () => $this->getRiwayatAbsensi($filters),
+            'laporanBulanan' => fn () => $this->getLaporanBulanan($filters),
+            'laporanSemesteran' => fn () => $this->getLaporanSemesteran($filters),
         ]);
-
-        $activeTab = $request->input('tab', 'harian');
-        
-        // Inisialisasi semua props dengan nilai default untuk mencegah error di frontend
-        $props = [
-            'absensiData' => collect(),
-            'stats' => null,
-            'guruBelumAbsen' => collect(),
-            'riwayatAbsensi' => null,
-            'laporanBulanan' => collect(),
-            'laporanSemester' => collect(),
-            'tahunAjaranOptions' => TahunAjaran::latest()->get(),
-        ];
-
-        // Memanggil method yang sesuai untuk mengambil data berdasarkan tab aktif
-        if ($activeTab === 'harian') {
-            $this->prepareDataHarian($request, $props);
-        } elseif ($activeTab === 'riwayat') {
-            $this->prepareDataRiwayat($request, $props);
-        } elseif ($activeTab === 'laporan_bulanan') {
-            $this->prepareDataLaporanBulanan($request, $props);
-        } elseif ($activeTab === 'laporan_semester') {
-            $this->prepareDataLaporanSemester($request, $props);
-        }
-        
-        // Menambahkan semua parameter filter ke props untuk dikirim ke frontend
-        $props['filters'] = $request->all();
-        // Menetapkan nilai default untuk filter jika tidak ada di request
-        if (empty($props['filters']['tanggal'])) $props['filters']['tanggal'] = now()->toDateString();
-        if (empty($props['filters']['bulan'])) $props['filters']['bulan'] = now()->month;
-        if (empty($props['filters']['tahun'])) $props['filters']['tahun'] = now()->year;
-        $props['filters']['tab'] = $activeTab;
-
-        return Inertia::render('admin/AbsensiGuru/Index', $props);
     }
 
-    /**
-     * Menyiapkan data untuk tab "Absensi Hari Ini".
-     */
-    private function prepareDataHarian(Request $request, array &$props)
+    // --- Kumpulan Private Method untuk Mengambil Data ---
+
+    private function getAbsensiHarian(array $filters)
     {
-        $tanggal = $request->input('tanggal') ? Carbon::parse($request->input('tanggal')) : Carbon::today();
+        if (($filters['tab'] ?? 'harian') !== 'harian') return null;
         
-        $absensiData = AbsensiGuru::with('guru')
-            ->whereDate('tanggal', $tanggal->toDateString())
-            ->when($request->input('search'), function ($query, $search) {
-                $query->whereHas('guru', function ($q) use ($search) {
-                    $q->where('nama_lengkap', 'like', "%{$search}%")->orWhere('nip', 'like', "%{$search}%");
-                });
+        return AbsensiGuru::with('guru')
+            ->whereDate('tanggal', $filters['tanggal'])
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->whereHas('guru', fn ($q) => $q->where('nama_lengkap', 'like', "%{$search}%")->orWhere('nip', 'like', "%{$search}%"));
             })
             ->get();
+    }
 
-        $props['stats'] = [
+    private function getStatsHarian(array $filters)
+    {
+        if (($filters['tab'] ?? 'harian') !== 'harian') return null;
+
+        $absensiData = $this->getAbsensiHarian($filters);
+        return [
             'total_guru' => Guru::where('status', 'Aktif')->count(),
             'hadir' => $absensiData->where('status_kehadiran', 'Hadir')->count(),
             'izin' => $absensiData->where('status_kehadiran', 'Izin')->count(),
             'sakit' => $absensiData->where('status_kehadiran', 'Sakit')->count(),
             'alfa' => $absensiData->where('status_kehadiran', 'Alfa')->count(),
         ];
-        
-        $guruSudahAbsenIds = $absensiData->pluck('id_guru');
-        $props['guruBelumAbsen'] = Guru::where('status', 'Aktif')->whereNotIn('id_guru', $guruSudahAbsenIds)->get(['id_guru', 'nama_lengkap', 'nip']);
-        $props['absensiData'] = $absensiData;
     }
 
-    /**
-     * Menyiapkan data untuk tab "Riwayat Absensi" (30 hari terakhir).
-     */
-    private function prepareDataRiwayat(Request $request, array &$props)
+    private function getGuruBelumAbsen(array $filters)
     {
-        $props['riwayatAbsensi'] = AbsensiGuru::with('guru')
+        if (($filters['tab'] ?? 'harian') !== 'harian') return null;
+
+        $guruSudahAbsenIds = AbsensiGuru::whereDate('tanggal', $filters['tanggal'])->pluck('id_guru');
+        return Guru::where('status', 'Aktif')->whereNotIn('id_guru', $guruSudahAbsenIds)->get(['id_guru', 'nama_lengkap', 'nip']);
+    }
+
+    private function getRiwayatAbsensi(array $filters)
+    {
+        if (($filters['tab'] ?? 'harian') !== 'riwayat') return null;
+
+        return AbsensiGuru::with('guru')
             ->whereBetween('tanggal', [now()->subDays(30), now()])
-            ->when($request->input('search'), function ($query, $search) {
-                $query->whereHas('guru', function ($q) use ($search) {
-                    $q->where('nama_lengkap', 'like', "%{$search}%")->orWhere('nip', 'like', "%{$search}%");
-                });
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->whereHas('guru', fn ($q) => $q->where('nama_lengkap', 'like', "%{$search}%")->orWhere('nip', 'like', "%{$search}%"));
             })
-            ->latest('tanggal')
-            ->paginate(15)
-            ->withQueryString();
+            ->latest('tanggal')->paginate(15)->withQueryString();
     }
 
-    /**
-     * Menyiapkan data untuk tab "Laporan Bulanan".
-     */
-    private function prepareDataLaporanBulanan(Request $request, array &$props)
+    private function getLaporanBulanan(array $filters)
     {
-        $bulan = $request->input('bulan', now()->month);
-        $tahun = $request->input('tahun', now()->year);
+        if (!($filters['bulan'] && $filters['tahun'])) return [];
 
-        $props['laporanBulanan'] = Guru::where('status', 'Aktif')
+        return Guru::where('status', 'Aktif')
             ->withCount([
-                'absensi as hadir' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Hadir'),
-                'absensi as sakit' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Sakit'),
-                'absensi as izin' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Izin'),
-                'absensi as alfa' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Alfa'),
-            ])
-            ->get();
+                'absensi as hadir' => fn($q) => $q->whereMonth('tanggal', $filters['bulan'])->whereYear('tanggal', $filters['tahun'])->where('status_kehadiran', 'Hadir'),
+                'absensi as sakit' => fn($q) => $q->whereMonth('tanggal', $filters['bulan'])->whereYear('tanggal', $filters['tahun'])->where('status_kehadiran', 'Sakit'),
+                'absensi as izin' => fn($q) => $q->whereMonth('tanggal', $filters['bulan'])->whereYear('tanggal', $filters['tahun'])->where('status_kehadiran', 'Izin'),
+                'absensi as alfa' => fn($q) => $q->whereMonth('tanggal', $filters['bulan'])->whereYear('tanggal', $filters['tahun'])->where('status_kehadiran', 'Alfa'),
+            ])->get();
     }
 
-    /**
-     * Menyiapkan data untuk tab "Laporan Semester".
-     */
-    private function prepareDataLaporanSemester(Request $request, array &$props)
+    private function getLaporanSemesteran(array $filters)
     {
-        $tahunAjaranAktif = TahunAjaran::where('status', 'Aktif')->first();
-        $idTahunAjaran = $request->input('id_tahun_ajaran', $tahunAjaranAktif->id_tahun_ajaran ?? null);
-
-        if (!$idTahunAjaran) {
-            return; // Tidak melakukan query jika tidak ada tahun ajaran terpilih
-        }
-
-        $selectedTahunAjaran = TahunAjaran::find($idTahunAjaran);
-        $tahun = explode('/', $selectedTahunAjaran->tahun_ajaran)[0];
+        if (empty($filters['id_tahun_ajaran'])) return [];
         
-        if ($selectedTahunAjaran->semester === 'Ganjil') {
-            $startDate = Carbon::create($tahun, 7, 1)->startOfMonth(); // 1 Juli
-            $endDate = Carbon::create($tahun, 12, 31)->endOfMonth(); // 31 Desember
+        $tahunAjaran = TahunAjaran::find($filters['id_tahun_ajaran']);
+        if (!$tahunAjaran) return [];
+
+        $tahun = explode('/', $tahunAjaran->tahun_ajaran)[0];
+
+        if ($tahunAjaran->semester === 'Ganjil') {
+            $startDate = Carbon::create($tahun, 7, 1)->startOfMonth();
+            $endDate = Carbon::create($tahun, 12, 31)->endOfMonth();
         } else { // Genap
-            $tahun++; // Tahun ajaran berikutnya
-            $startDate = Carbon::create($tahun, 1, 1)->startOfMonth(); // 1 Januari
-            $endDate = Carbon::create($tahun, 6, 30)->endOfMonth(); // 30 Juni
+            $tahun++;
+            $startDate = Carbon::create($tahun, 1, 1)->startOfMonth();
+            $endDate = Carbon::create($tahun, 6, 30)->endOfMonth();
         }
 
-        $props['laporanSemester'] = Guru::where('status', 'Aktif')
+        return Guru::where('status', 'Aktif')
             ->withCount([
                 'absensi as hadir' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Hadir'),
                 'absensi as sakit' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Sakit'),
                 'absensi as izin' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Izin'),
                 'absensi as alfa' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Alfa'),
-            ])
-            ->get();
+            ])->get();
     }
-
+    
     /**
-     * Menyimpan atau memperbarui data absensi manual dari modal.
+     * Menyimpan data absensi manual baru atau memperbarui yang sudah ada.
      */
     public function store(Request $request)
     {
@@ -177,10 +147,7 @@ class AbsensiGuruController extends Controller
         ]);
 
         AbsensiGuru::updateOrCreate(
-            [
-                'id_guru' => $request->id_guru,
-                'tanggal' => $request->tanggal,
-            ],
+            [ 'id_guru' => $request->id_guru, 'tanggal' => $request->tanggal ],
             [
                 'id_absensi' => 'AG-' . Carbon::parse($request->tanggal)->format('ymd') . '-' . $request->id_guru,
                 'status_kehadiran' => $request->status_kehadiran,
@@ -195,90 +162,55 @@ class AbsensiGuruController extends Controller
         return back()->with('success', 'Absensi manual berhasil disimpan.');
     }
 
-    /**
-     * Menangani permintaan untuk ekspor laporan absensi ke Excel (SINTAKS VERSI 1.1).
-     */
-    public function export(Request $request)
+    // --- Metode untuk Ekspor Laporan ---
+
+    public function exportExcel(Request $request)
     {
-        $request->validate([
-            'type' => 'required|in:bulanan,semester',
-            'bulan' => 'required_if:type,bulanan|integer',
-            'tahun' => 'required_if:type,bulanan|integer',
-            'id_tahun_ajaran' => 'required_if:type,semester|string',
-        ]);
+        $fileName = 'laporan_absensi_guru_' . now()->format('Ymd_His') . '.xlsx';
+        return Excel::download(new AbsensiGuruExport($request), $fileName);
+    }
 
-        $type = $request->type;
+    public function exportPdf(Request $request)
+    {
         $data = collect();
-        $reportTitle = '';
-        $fileName = 'laporan_absensi_guru';
+        $title = 'Laporan Absensi Guru';
+        $fileName = 'laporan_absensi_guru_' . now()->format('Ymd_His') . '.pdf';
 
-        if ($type === 'bulanan') {
-            $bulan = $request->bulan;
-            $tahun = $request->tahun;
-            $reportTitle = 'Bulan: ' . Carbon::create()->month($bulan)->translatedFormat('F') . ' ' . $tahun;
-            $fileName .= "_{$bulan}_{$tahun}";
-
-            $data = Guru::where('status', 'Aktif')
-                ->withCount([
-                    'absensi as hadir' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Hadir'),
-                    'absensi as sakit' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Sakit'),
-                    'absensi as izin' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Izin'),
-                    'absensi as alfa' => fn($q) => $q->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->where('status_kehadiran', 'Alfa'),
-                ])
-                ->get();
-
-        } elseif ($type === 'semester') {
-            $tahunAjaran = TahunAjaran::findOrFail($request->id_tahun_ajaran);
-            $reportTitle = "Semester {$tahunAjaran->semester} / TA {$tahunAjaran->tahun_ajaran}";
-            $fileName .= "_semester_{$tahunAjaran->id_tahun_ajaran}";
-
-            $tahun = explode('/', $tahunAjaran->tahun_ajaran)[0];
-            if ($tahunAjaran->semester === 'Ganjil') {
-                $startDate = Carbon::create($tahun, 7, 1)->startOfMonth();
-                $endDate = Carbon::create($tahun, 12, 31)->endOfMonth();
+        if ($request->has('bulan') && $request->has('tahun')) {
+            $data = $this->getLaporanBulanan($request->all());
+            // PERBAIKAN: Ubah nilai bulan menjadi integer sebelum digunakan oleh Carbon
+            $bulan = Carbon::create()->month((int)$request->get('bulan'))->translatedFormat('F');
+            $title = "BULAN " . strtoupper($bulan) . " TAHUN " . $request->get('tahun');
+        } elseif ($request->has('id_tahun_ajaran')) {
+            $data = $this->getLaporanSemesteran($request->all());
+            $tahunAjaran = TahunAjaran::find($request->id_tahun_ajaran);
+            
+            // PERBAIKAN: Tambahkan pengecekan jika tahun ajaran tidak ditemukan
+            if ($tahunAjaran) {
+                $title = "SEMESTER " . strtoupper($tahunAjaran->semester) . " TAHUN AJARAN " . $tahunAjaran->tahun_ajaran;
             } else {
-                $tahun++;
-                $startDate = Carbon::create($tahun, 1, 1)->startOfMonth();
-                $endDate = Carbon::create($tahun, 6, 30)->endOfMonth();
+                return redirect()->back()->with('error', 'Tahun ajaran yang dipilih tidak valid.');
             }
-
-            $data = Guru::where('status', 'Aktif')
-                ->withCount([
-                    'absensi as hadir' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Hadir'),
-                    'absensi as sakit' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Sakit'),
-                    'absensi as izin' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Izin'),
-                    'absensi as alfa' => fn($q) => $q->whereBetween('tanggal', [$startDate, $endDate])->where('status_kehadiran', 'Alfa'),
-                ])
-                ->get();
         }
 
-        $exportData = $data->map(function ($guru) {
-            return [
-                'nip' => $guru->nip,
-                'nama_lengkap' => $guru->nama_lengkap,
-                'hadir' => $guru->hadir,
-                'sakit' => $guru->sakit,
-                'izin' => $guru->izin,
-                'alfa' => $guru->alfa,
-                'total' => $guru->hadir + $guru->sakit + $guru->izin + $guru->alfa,
-            ];
-        })->toArray();
-        
-        return \Excel::create($fileName, function($excel) use ($exportData, $reportTitle) {
-            $excel->sheet('Laporan Absensi', function($sheet) use ($exportData, $reportTitle) {
-                $sheet->mergeCells('A1:G1');
-                $sheet->row(1, ['Laporan Absensi Guru']);
-                $sheet->row(1, function($row) { $row->setFontWeight('bold')->setFontSize(16)->setAlignment('center'); });
+        if ($data->isEmpty()) {
+            return redirect()->back()->with('error', 'Tidak ada data untuk diekspor pada periode yang dipilih.');
+        }
 
-                $sheet->mergeCells('A2:G2');
-                $sheet->row(2, [$reportTitle]);
-                $sheet->row(2, function($row) { $row->setAlignment('center'); });
-                
-                $sheet->row(4, ['NIP', 'Nama Guru', 'Hadir', 'Sakit', 'Izin', 'Alfa', 'Total Kehadiran']);
-                $sheet->row(4, function($row) { $row->setFontWeight('bold'); });
-                
-                $sheet->fromArray($exportData, null, 'A5', false, false);
-            });
-        })->download('xlsx');
+        $totals = [
+            'hadir' => $data->sum('hadir'),
+            'sakit' => $data->sum('sakit'),
+            'izin'  => $data->sum('izin'),
+            'alfa'  => $data->sum('alfa'),
+        ];
+
+        $pdf = PDF::loadView('exports.laporan_absensi_guru_pdf', [
+            'data'   => $data,
+            'title'  => $title,
+            'totals' => $totals,
+        ]);
+        
+        $pdf->setPaper('a4', 'landscape');
+        return $pdf->download($fileName);
     }
 }

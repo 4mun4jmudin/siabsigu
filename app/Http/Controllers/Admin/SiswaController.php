@@ -116,7 +116,7 @@ class SiswaController extends Controller
         }
 
         Siswa::create($validated);
-        return to_route('siswa.index')->with('message', 'Data Siswa berhasil ditambahkan.');
+        return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil ditambahkan.');
     }
 
     /**
@@ -161,7 +161,7 @@ class SiswaController extends Controller
         }
 
         $siswa->update($validated);
-        return to_route('siswa.index')->with('message', 'Data Siswa berhasil diperbarui.');
+        return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil diperbarui.');
     }
 
     /**
@@ -173,6 +173,6 @@ class SiswaController extends Controller
             Storage::disk('public')->delete($siswa->foto_profil);
         }
         $siswa->delete();
-        return to_route('siswa.index')->with('message', 'Data Siswa berhasil dihapus.');
+        return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil dihapus.');
     }
 }

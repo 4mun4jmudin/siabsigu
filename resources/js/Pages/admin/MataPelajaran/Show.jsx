@@ -30,11 +30,11 @@ export default function Show({ auth, mataPelajaran, detailStats }) {
             <div className="space-y-6">
                 {/* Header Halaman */}
                 <div className="flex justify-between items-center">
-                    <Link href={route('mata-pelajaran.index')} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800">
+                    <Link href={route('admin.mata-pelajaran.index')} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800">
                         <ArrowLeftIcon className="h-4 w-4" />
                         Kembali ke Daftar Mata Pelajaran
                     </Link>
-                    <Link href={route('mata-pelajaran.edit', mataPelajaran.id_mapel)} className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
+                    <Link href={route('admin.mata-pelajaran.edit', mataPelajaran.id_mapel)} className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
                         <PencilIcon className="h-5 w-5 mr-2" />
                         Edit Mata Pelajaran
                     </Link>

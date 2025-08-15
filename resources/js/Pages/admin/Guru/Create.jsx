@@ -21,7 +21,7 @@ export default function Create({ auth, users }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('guru.store'), {
+        post(route('admin.guru.store'), {
             // Inertia akan otomatis handle multipart/form-data
         });
     };
@@ -39,7 +39,7 @@ export default function Create({ auth, users }) {
                     <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md" disabled={processing}>
                         Simpan
                     </button>
-                    <Link href={route('guru.index')} className="px-4 py-2 bg-gray-200 rounded-md">
+                    <Link href={route('admin.guru.index')} className="px-4 py-2 bg-gray-200 rounded-md">
                         Batal
                     </Link>
                 </div>

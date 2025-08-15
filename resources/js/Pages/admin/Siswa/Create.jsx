@@ -24,7 +24,7 @@ export default function Create({ auth, kelasOptions }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('siswa.store'));
+        post(route('admin.siswa.store'));
     };
 
     return (
@@ -41,7 +41,7 @@ export default function Create({ auth, kelasOptions }) {
                     <button type="submit" className="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 active:bg-gray-900 focus:outline-none focus:border-gray-900 focus:ring ring-gray-300 disabled:opacity-25 transition ease-in-out duration-150" disabled={processing}>
                         {processing ? 'Menyimpan...' : 'Simpan'}
                     </button>
-                    <Link href={route('siswa.index')} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-semibold text-xs uppercase hover:bg-gray-300 transition">
+                    <Link href={route('admin.siswa.index')} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-semibold text-xs uppercase hover:bg-gray-300 transition">
                         Batal
                     </Link>
                 </div>

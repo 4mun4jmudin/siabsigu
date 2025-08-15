@@ -102,7 +102,7 @@ class KelasController extends Controller
         ]);
 
         Kelas::create($validated);
-        return to_route('kelas.index')->with('message', 'Data Kelas berhasil ditambahkan.');
+        return to_route('admin.kelas.index')->with('message', 'Data Kelas berhasil ditambahkan.');
     }
 
     /**
@@ -135,7 +135,7 @@ class KelasController extends Controller
         ]);
 
         $kela->update($validated);
-        return to_route('kelas.index')->with('message', 'Data Kelas berhasil diperbarui.');
+        return to_route('admin.kelas.index')->with('message', 'Data Kelas berhasil diperbarui.');
     }
 
     /**
@@ -148,6 +148,6 @@ class KelasController extends Controller
         }
         
         $kela->delete();
-        return to_route('kelas.index')->with('message', 'Data Kelas berhasil dihapus.');
+        return to_route('admin.kelas.index')->with('message', 'Data Kelas berhasil dihapus.');
     }
 }

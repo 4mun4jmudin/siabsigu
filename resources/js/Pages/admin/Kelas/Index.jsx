@@ -47,7 +47,7 @@ const EmptyState = () => (
         <h3 className="mt-2 text-sm font-semibold text-gray-900">Tidak ada data kelas</h3>
         <p className="mt-1 text-sm text-gray-500">Silakan mulai dengan menambahkan data kelas baru.</p>
         <div className="mt-6">
-            <Link href={route('kelas.create')} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+            <Link href={route('admin.kelas.create')} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
                 <PlusIcon className="-ml-0.5 mr-1.5 h-5 w-5" />
                 Tambah Kelas
             </Link>
@@ -75,7 +75,7 @@ export default function Index({ auth, kelasList, stats, filters }) {
     }, [flash, errors]);
 
     const debouncedSearch = useCallback(debounce((value) => {
-        router.get(route('kelas.index'), { search: value }, { preserveState: true, replace: true });
+        router.get(route('admin.kelas.index'), { search: value }, { preserveState: true, replace: true });
     }, 300), []);
 
     useEffect(() => {
@@ -119,7 +119,7 @@ export default function Index({ auth, kelasList, stats, filters }) {
                         <h2 className="text-2xl font-bold text-gray-800">Data Kelas</h2>
                         <p className="text-sm text-gray-500">Kelola data kelas dan wali kelas.</p>
                     </div>
-                    <Link href={route('kelas.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-600 transition">
+                    <Link href={route('admin.kelas.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-600 transition">
                         + Tambah Kelas
                     </Link>
                 </div>
@@ -179,8 +179,8 @@ export default function Index({ auth, kelasList, stats, filters }) {
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                         <div className="flex items-center gap-x-3">
                                                             {/* --- PERBAIKAN ADA DI BARIS INI --- */}
-                                                            <Link href={route('kelas.show', kelas.id_kelas)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
-                                                            <Link href={route('kelas.edit', kelas.id_kelas)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5"/></Link>
+                                                            <Link href={route('admin.kelas.show', kelas.id_kelas)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
+                                                            <Link href={route('admin.kelas.edit', kelas.id_kelas)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5"/></Link>
                                                             <button onClick={(e) => confirmDeletion(e, kelas)} className="text-gray-400 hover:text-red-600 transition" title="Hapus Data"><TrashIcon className="h-5 w-5"/></button>
                                                         </div>
                                                     </td>

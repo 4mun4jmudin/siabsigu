@@ -144,17 +144,17 @@ export default function AdminLayout({ user, header, children }) {
                     icon={<RectangleStackIcon className="w-6 h-6" />}
                     isCollapsed={!isSidebarOpen && !isMobile}
                     active={
-                        route().current("guru.*") ||
-                        route().current("siswa.*") ||
-                        route().current("kelas.*") ||
-                        route().current("mata-pelajaran.*") ||
-                        route().current("orang-tua-wali.*")
+                        route().current("admin.guru.*") ||
+                        route().current("admin.siswa.*") ||
+                        route().current("admin.kelas.*") ||
+                        route().current("admin.mata-pelajaran.*") ||
+                        route().current("admin.orang-tua-wali.*")
                     }
                 >
                     <li>
                         <NavLink
-                            href={route("guru.index")}
-                            active={route().current("guru.*")}
+                            href={route("admin.guru.index")}
+                            active={route().current("admin.guru.*")}
                             isCollapsed={false}
                         >
                             <UsersIcon className="w-5 h-5 mr-3" />
@@ -163,8 +163,8 @@ export default function AdminLayout({ user, header, children }) {
                     </li>
                     <li>
                         <NavLink
-                            href={route("siswa.index")}
-                            active={route().current("siswa.*")}
+                            href={route("admin.siswa.index")}
+                            active={route().current("admin.siswa.*")}
                             isCollapsed={false}
                         >
                             <AcademicCapIcon className="w-5 h-5 mr-3" />
@@ -173,8 +173,8 @@ export default function AdminLayout({ user, header, children }) {
                     </li>
                     <li>
                         <NavLink
-                            href={route("kelas.index")}
-                            active={route().current("kelas.*")}
+                            href={route("admin.kelas.index")}
+                            active={route().current("admin.kelas.*")}
                             isCollapsed={false}
                         >
                             <BuildingOffice2Icon className="w-5 h-5 mr-3" />
@@ -183,8 +183,8 @@ export default function AdminLayout({ user, header, children }) {
                     </li>
                     <li>
                         <NavLink
-                            href={route("mata-pelajaran.index")}
-                            active={route().current("mata-pelajaran.*")}
+                            href={route("admin.mata-pelajaran.index")}
+                            active={route().current("admin.mata-pelajaran.*")}
                             isCollapsed={false}
                         >
                             <BookOpenIcon className="w-5 h-5 mr-3" />
@@ -193,8 +193,8 @@ export default function AdminLayout({ user, header, children }) {
                     </li>
                     <li>
                         <NavLink
-                            href={route("orang-tua-wali.index")}
-                            active={route().current("orang-tua-wali.*")}
+                            href={route("admin.orang-tua-wali.index")}
+                            active={route().current("admin.orang-tua-wali.*")}
                             isCollapsed={false}
                         >
                             <UserGroupIcon className="w-5 h-5 mr-3" />
@@ -207,12 +207,12 @@ export default function AdminLayout({ user, header, children }) {
                     title="Absensi"
                     icon={<ClipboardDocumentListIcon className="w-6 h-6" />}
                     isCollapsed={!isSidebarOpen && !isMobile}
-                    active={route().current("absensi-guru.*")} // <-- Perbarui kondisi active
+                    active={route().current("admin.absensi-guru.*")}
                 >
                     <li>
                         <NavLink
-                            href={route("absensi-guru.index")}
-                            active={route().current("absensi-guru.*")}
+                            href={route("admin.absensi-guru.index")}
+                            active={route().current("admin.absensi-guru.*")}
                             isCollapsed={false}
                         >
                             <UsersIcon className="w-5 h-5 mr-3" />

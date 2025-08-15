@@ -28,7 +28,7 @@ export default function Edit({ auth, wali, siswaOptions }) {
 
     const submit = (e) => {
         e.preventDefault();
-        put(route('orang-tua-wali.update', wali.id_wali));
+        put(route('admin.orang-tua-wali.update', wali.id_wali));
     };
 
     return (
@@ -136,7 +136,7 @@ export default function Edit({ auth, wali, siswaOptions }) {
                     </div>
 
                     <div className="flex items-center justify-end mt-6">
-                        <Link href={route('orang-tua-wali.index')} className="text-sm text-gray-600 hover:text-gray-900 mr-4">Batal</Link>
+                        <Link href={route('admin.orang-tua-wali.index')} className="text-sm text-gray-600 hover:text-gray-900 mr-4">Batal</Link>
                         <PrimaryButton disabled={processing}>{processing ? 'Mengupdate...' : 'Update Data'}</PrimaryButton>
                     </div>
                 </form>

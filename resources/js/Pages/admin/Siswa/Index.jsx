@@ -34,7 +34,7 @@ const EmptyState = () => (
         <h3 className="mt-2 text-sm font-semibold text-gray-900">Tidak ada data siswa</h3>
         <p className="mt-1 text-sm text-gray-500">Silakan mulai dengan menambahkan data siswa baru.</p>
         <div className="mt-6">
-            <Link href={route('siswa.create')} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+            <Link href={route('admin.siswa.create')} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
                 <PlusIcon className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
                 Tambah Siswa
             </Link>
@@ -63,7 +63,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
 
     // Fungsi untuk debounce pencarian dan filter
     const debouncedSearch = useCallback(debounce((searchVal, kelasVal) => {
-        router.get(route('siswa.index'), { search: searchVal, kelas: kelasVal }, {
+        router.get(route('admin.siswa.index'), { search: searchVal, kelas: kelasVal }, {
             preserveState: true,
             replace: true,
         });
@@ -111,7 +111,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                         <h2 className="text-2xl font-bold text-gray-800">Data Siswa</h2>
                         <p className="text-sm text-gray-500">Kelola data siswa dan informasi akademik.</p>
                     </div>
-                    <Link href={route('siswa.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-600 transition">
+                    <Link href={route('admin.siswa.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-600 transition">
                         + Tambah Siswa
                     </Link>
                 </div>
@@ -180,8 +180,8 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                         <div className="flex items-center gap-x-3">
-                                                            <Link href={route('siswa.show', siswa.id_siswa)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
-                                                            <Link href={route('siswa.edit', siswa.id_siswa)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5"/></Link>
+                                                            <Link href={route('admin.siswa.show', siswa.id_siswa)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
+                                                            <Link href={route('admin.siswa.edit', siswa.id_siswa)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5"/></Link>
                                                             <button onClick={(e) => confirmDeletion(e, siswa)} className="text-gray-400 hover:text-red-600 transition" title="Hapus Data"><TrashIcon className="h-5 w-5"/></button>
                                                         </div>
                                                     </td>
