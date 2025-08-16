@@ -21,6 +21,7 @@ class AbsensiSiswa extends Model
         'tanggal',
         'jam_masuk',
         'jam_pulang',
+        'menit_keterlambatan',
         'status_kehadiran',
         'metode_absen',
         'keterangan',

@@ -19,222 +19,191 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
+
 class AbsensiSiswaController extends Controller
 {
     public function index(Request $request)
     {
-        $request->validate([
-            'id_tahun_ajaran' => 'nullable|string|exists:tbl_tahun_ajaran,id_tahun_ajaran',
+        // Validasi request filter
+        $filters = $request->validate([
             'id_kelas' => 'nullable|string|exists:tbl_kelas,id_kelas',
             'tanggal' => 'nullable|date',
             'search' => 'nullable|string',
-            'show_all' => 'nullable|boolean',
         ]);
 
-        try {
-            $tahunAjaranOptions = TahunAjaran::orderBy('tahun_ajaran', 'desc')->get();
-            $kelasOptions = Kelas::with('waliKelas:id_guru,nama_lengkap')->orderBy('tingkat')->get();
+        // Inisialisasi filter dengan nilai default jika tidak ada
+        $activeKelasId = $filters['id_kelas'] ?? Kelas::orderBy('tingkat')->first()?->id_kelas;
+        $activeTanggal = Carbon::parse($filters['tanggal'] ?? now());
+        $searchTerm = $filters['search'] ?? '';
 
-            $activeTahunAjaranId = $request->input('id_tahun_ajaran')
-                ?? ($tahunAjaranOptions->firstWhere('status', 'Aktif')->id_tahun_ajaran ?? $tahunAjaranOptions->first()->id_tahun_ajaran ?? null);
+        // Query siswa berdasarkan kelas dan pencarian
+        $siswaDiKelas = Siswa::query()
+            ->where('status', 'Aktif')
+            ->when($activeKelasId, fn ($q) => $q->where('id_kelas', $activeKelasId))
+            ->when($searchTerm, fn ($q) => $q->where(fn($sq) => $sq->where('nama_lengkap', 'like', "%{$searchTerm}%")->orWhere('nis', 'like', "%{$searchTerm}%")))
+            ->orderBy('nama_lengkap')
+            ->get();
+        
+        // Ambil data absensi untuk siswa di kelas tersebut pada tanggal yang dipilih
+        $absensiSudahAda = AbsensiSiswa::whereIn('id_siswa', $siswaDiKelas->pluck('id_siswa'))
+            ->whereDate('tanggal', $activeTanggal)
+            ->get()
+            ->keyBy('id_siswa');
 
-            $activeKelasId = $request->input('id_kelas', $kelasOptions->first()->id_kelas ?? null);
-            $activeTanggal = Carbon::parse($request->input('tanggal', now()));
-            $showAll = filter_var($request->input('show_all', false), FILTER_VALIDATE_BOOLEAN);
+        // Ambil pengaturan jam masuk sekolah
+        $jamMasukSekolah = Pengaturan::where('key', 'jam_masuk')->value('value') ?? '07:30:00';
 
-            $siswaQuery = Siswa::query()
-                ->when($activeKelasId, fn($q) => $q->where('id_kelas', $activeKelasId))
-                ->when(!$showAll, fn($q) => $q->where('status', 'Aktif'))
-                ->when($request->input('search'), function ($query, $search) {
-                    $query->where(function($q) use ($search) {
-                        $q->where('nama_lengkap', 'like', "%{$search}%")
-                          ->orWhere('nis', 'like', "%{$search}%");
-                    });
-                })
-                ->orderBy('nama_lengkap');
+        // Proses data siswa dan absensinya untuk ditampilkan
+        $siswaWithAbsensi = $siswaDiKelas->map(function ($siswa) use ($absensiSudahAda, $jamMasukSekolah) {
+            $absen = $absensiSudahAda->get($siswa->id_siswa);
+            $siswa->absensi = $absen; // Lampirkan data absensi ke objek siswa
 
-            $siswaDiKelas = $siswaQuery->get();
-            $siswaIds = $siswaDiKelas->pluck('id_siswa')->filter()->values()->all();
+            // Hitung keterlambatan jika siswa hadir dan jam masuk terisi
+            if ($absen && $absen->status_kehadiran === 'Hadir' && $absen->jam_masuk) {
+                try {
+                    $jamMasukSiswa = Carbon::parse($absen->jam_masuk);
+                    $batasMasuk = Carbon::parse($jamMasukSekolah);
+                    
+                    // =============================================================
+                    // INI ADALAH PERBAIKAN UTAMA PADA LOGIKA TAMPILAN
+                    // =============================================================
+                    $selisihMenit = $batasMasuk->diffInMinutes($jamMasukSiswa, false);
 
-            $absensiSudahAda = collect();
-            $izinAktif = collect();
-
-            if (!empty($siswaIds)) {
-                $absensiSudahAda = AbsensiSiswa::whereIn('id_siswa', $siswaIds)
-                    ->whereDate('tanggal', $activeTanggal->toDateString())
-                    ->get()
-                    ->keyBy('id_siswa');
-
-                $izinAktif = SuratIzin::whereIn('id_siswa', $siswaIds)
-                    ->where('status_pengajuan', 'Disetujui')
-                    ->whereDate('tanggal_mulai_izin', '<=', $activeTanggal->toDateString())
-                    ->whereDate('tanggal_selesai_izin', '>=', $activeTanggal->toDateString())
-                    ->get()
-                    ->keyBy('id_siswa');
+                    $absen->menit_keterlambatan = $selisihMenit > 0 ? $selisihMenit : 0;
+                } catch (\Exception $e) {
+                    Log::error("Gagal parse waktu untuk siswa {$siswa->id_siswa}: " . $e->getMessage());
+                    $absen->menit_keterlambatan = 0;
+                }
             }
+            return $siswa;
+        });
 
-            // Ambil jam masuk sekolah dari pengaturan (string 'HH:MM' atau 'HH:MM:SS')
-            $jamMasukSekolah = Cache::remember('jam_masuk_sekolah', now()->addHour(), function () {
-                $p = Pengaturan::find('jam_masuk');
-                return optional($p)->value ?? '07:15';
-            });
+        // Hitung statistik untuk ditampilkan di kartu atas
+        $stats = [
+            'total' => $siswaWithAbsensi->count(),
+            'hadir' => $absensiSudahAda->where('status_kehadiran', 'Hadir')->count(),
+            'sakit' => $absensiSudahAda->where('status_kehadiran', 'Sakit')->count(),
+            'izin' => $absensiSudahAda->where('status_kehadiran', 'Izin')->count(),
+            'alfa' => $absensiSudahAda->where('status_kehadiran', 'Alfa')->count(),
+            'terlambat' => $siswaWithAbsensi->filter(fn($s) => ($s->absensi->menit_keterlambatan ?? 0) > 0)->count(),
+        ];
+        $stats['belum_diinput'] = $stats['total'] - ($stats['hadir'] + $stats['sakit'] + $stats['izin'] + $stats['alfa']);
 
-            $stats = [
-                'total' => $siswaDiKelas->count(),
-                'hadir' => 0,
-                'sakit' => 0,
-                'izin'  => 0,
-                'alfa'  => 0,
-                'terlambat' => 0,
-            ];
-
-            $siswaWithAbsensi = $siswaDiKelas->map(function ($siswa) use ($absensiSudahAda, $izinAktif, $jamMasukSekolah, &$stats) {
-                $absen = $absensiSudahAda->get($siswa->id_siswa);
-                $izin = $izinAktif->get($siswa->id_siswa);
-
-                $siswa->absensi = $absen;
-                $siswa->izin_terkait = $izin;
-
-                $absenStatus = $absen ? ($absen->status_kehadiran ?? null) : null;
-                $izinStatus = $izin ? ($izin->jenis_izin ?? null) : null;
-                $statusFinal = $absenStatus ?? $izinStatus;
-                $siswa->status_final = $statusFinal;
-
-                // Statistik kehadiran
-                if ($statusFinal) {
-                    $k = strtolower($statusFinal);
-                    if (array_key_exists($k, $stats)) $stats[$k] += 1;
-                }
-
-                // Hitung keterlambatan (on-the-fly) dan tentukan label waktu_status
-                $keterlambatanMinutes = 0;
-                $waktuStatus = '-';
-
-                if ($absen && $absenStatus === 'Hadir' && !empty($absen->jam_masuk)) {
-                    try {
-                        $jamMasukAbsensi = Carbon::parse($absen->jam_masuk);
-                        $jamMasukRef = Carbon::parse($jamMasukSekolah);
-
-                        $diff = $jamMasukAbsensi->diffInMinutes($jamMasukRef, false); // bisa negatif
-                        if ($diff > 0) {
-                            $keterlambatanMinutes = $diff;
-                            $waktuStatus = 'Terlambat ' . $keterlambatanMinutes . ' mnt';
-                            $stats['terlambat'] += 1;
-                        } else {
-                            // <= 0 => tepat waktu atau lebih awal
-                            $keterlambatanMinutes = 0;
-                            $waktuStatus = 'Tepat Waktu';
-                        }
-                    } catch (\Exception $e) {
-                        Log::warning('Gagal parse jam_masuk untuk siswa ' . $siswa->id_siswa . ': ' . $e->getMessage());
-                        $keterlambatanMinutes = 0;
-                        $waktuStatus = '-';
-                    }
-                } else {
-                    // Jika tidak Hadir (Sakit/Izin/Alfa) atau belum input jam, beri keterangan sesuai kondisi
-                    if ($statusFinal === 'Sakit' || $statusFinal === 'Izin') {
-                        $waktuStatus = '-';
-                    } elseif ($statusFinal === 'Alfa' || !$statusFinal) {
-                        $waktuStatus = '-';
-                    } elseif ($statusFinal === 'Hadir' && empty($absen->jam_masuk)) {
-                        // Hadir tapi jam_masuk belum diisi — beri tanda belum diinput
-                        $waktuStatus = 'Belum Diinput';
-                    }
-                }
-
-                // Sertakan hasil ke objek siswa (untuk frontend)
-                $siswa->keterlambatan_menit = (int) $keterlambatanMinutes;
-                $siswa->waktu_status = $waktuStatus;
-
-                return $siswa;
-            });
-
-            $stats['belum_diinput'] = $stats['total'] - ($stats['hadir'] + $stats['sakit'] + $stats['izin'] + $stats['alfa']);
-
-            return Inertia::render('admin/AbsensiSiswa/Index', [
-                'tahunAjaranOptions' => $tahunAjaranOptions,
-                'kelasOptions' => $kelasOptions,
-                'siswaWithAbsensi' => $siswaWithAbsensi,
-                'stats' => $stats,
-                'filters' => [
-                    'id_tahun_ajaran' => $activeTahunAjaranId,
-                    'id_kelas' => $activeKelasId,
-                    'tanggal' => $activeTanggal->toDateString(),
-                    'search' => $request->input('search') ?? '',
-                    'show_all' => $showAll,
-                ],
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('AbsensiSiswaController@index error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-            return back()->with('error', 'Terjadi kesalahan saat memuat data absensi. Cek log untuk detail.');
-        }
+        return Inertia::render('admin/AbsensiSiswa/Index', [
+            'kelasOptions' => fn () => Kelas::orderBy('tingkat')->get(),
+            'siswaWithAbsensi' => $siswaWithAbsensi,
+            'stats' => $stats,
+            'filters' => [
+                'id_kelas' => $activeKelasId,
+                'tanggal' => $activeTanggal->toDateString(),
+                'search' => $searchTerm,
+            ],
+        ]);
     }
 
-    public function storeMassal(Request $request)
-{
-    $jamMasuk = Pengaturan::where('key', 'jam_masuk')->value('value'); // ex: 07:30
-    $jamPulang = Pengaturan::where('key', 'jam_pulang')->value('value'); // ex: 15:00
+    public function storeManual(Request $request)
+    {
+        $validated = $request->validate([
+            'id_siswa' => 'required|string|exists:tbl_siswa,id_siswa',
+            'tanggal' => 'required|date',
+            'status_kehadiran' => 'required|string|in:Hadir,Sakit,Izin,Alfa',
+            'jam_masuk' => 'nullable|date_format:H:i',
+            'jam_pulang' => 'nullable|date_format:H:i',
+            'keterangan' => 'nullable|string',
+        ]);
 
-    foreach ($request->absensi as $data) {
-        $waktuMasuk = isset($data['waktu_masuk']) ? Carbon::parse($data['waktu_masuk']) : null;
-        $waktuPulang = isset($data['waktu_pulang']) ? Carbon::parse($data['waktu_pulang']) : null;
+        $menitKeterlambatan = null;
 
-        $statusMasuk = null;
-        $ketMasuk = null;
-        $statusPulang = null;
-        $ketPulang = null;
+        if ($validated['status_kehadiran'] === 'Hadir' && !empty($validated['jam_masuk'])) {
+            // =============================================================
+            // PERUBAIKAN UTAMA ADA DI SINI
+            // Menggunakan 'jam_masuk' agar sesuai dengan key di tabel pengaturan Anda.
+            // =============================================================
+            $jamMasukSekolahString = Pengaturan::where('key', 'jam_masuk')->value('value') ?? '07:30:00';
 
-        // ==================== LOGIKA MASUK ====================
-        if ($waktuMasuk) {
-            $batasMasuk = Carbon::createFromFormat('H:i', $jamMasuk);
+            $jamMasukSekolah = Carbon::parse($jamMasukSekolahString);
+            $jamAbsenSiswa = Carbon::parse($validated['jam_masuk']);
 
-            if ($waktuMasuk->greaterThan($batasMasuk)) {
-                $menitTerlambat = $batasMasuk->diffInMinutes($waktuMasuk);
-                $statusMasuk = 'Terlambat';
-                $ketMasuk = "Terlambat {$menitTerlambat} menit";
-            } else {
-                $statusMasuk = 'Tepat Waktu';
-                $ketMasuk = 'Masuk Tepat Waktu';
-            }
+            $selisihMenit = $jamMasukSekolah->diffInMinutes($jamAbsenSiswa, false);
+
+            $menitKeterlambatan = $selisihMenit > 0 ? $selisihMenit : 0;
         }
-
-        // ==================== LOGIKA PULANG ====================
-        if ($waktuPulang) {
-            $batasPulang = Carbon::createFromFormat('H:i', $jamPulang);
-
-            if ($waktuPulang->lessThan($batasPulang)) {
-                $menitCepat = $waktuPulang->diffInMinutes($batasPulang);
-                $statusPulang = 'Pulang Cepat';
-                $ketPulang = "Pulang {$menitCepat} menit lebih awal";
-            } elseif ($waktuPulang->greaterThan($batasPulang)) {
-                $menitTerlambatPulang = $batasPulang->diffInMinutes($waktuPulang);
-                $statusPulang = 'Terlambat Pulang';
-                $ketPulang = "Terlambat pulang {$menitTerlambatPulang} menit";
-            } else {
-                $statusPulang = 'Tepat Waktu';
-                $ketPulang = 'Pulang Tepat Waktu';
-            }
-        }
-
-        // ==================== SIMPAN DB ====================
+        
         AbsensiSiswa::updateOrCreate(
             [
-                'id_siswa' => $data['id_siswa'],
-                'tanggal' => $data['tanggal'],
+                'id_siswa' => $validated['id_siswa'],
+                'tanggal' => $validated['tanggal'],
             ],
             [
-                'waktu_masuk'   => $waktuMasuk,
-                'status_masuk'  => $statusMasuk,
-                'ket_masuk'     => $ketMasuk,
-                'waktu_pulang'  => $waktuPulang,
-                'status_pulang' => $statusPulang,
-                'ket_pulang'    => $ketPulang,
+                'id_absensi' => 'AS-' . Carbon::parse($validated['tanggal'])->format('ymd') . '-' . $validated['id_siswa'],
+                'status_kehadiran' => $validated['status_kehadiran'],
+                'jam_masuk' => $validated['jam_masuk'],
+                'jam_pulang' => $validated['jam_pulang'],
+                'menit_keterlambatan' => $menitKeterlambatan, // <-- Data ini sekarang akan tersimpan
+                'keterangan' => $validated['keterangan'],
+                'metode_absen' => 'Manual',
+                'id_penginput_manual' => Auth::id(),
             ]
         );
+
+        return back()->with('success', 'Absensi siswa berhasil diperbarui.');
     }
 
-    return back()->with('success', 'Absensi berhasil disimpan.');
-}
+     public function storeMassal(Request $request)
+    {
+        $validated = $request->validate([
+            'tanggal' => 'required|date',
+            'id_kelas' => 'required|string|exists:tbl_kelas,id_kelas',
+            'absensi' => 'required|array',
+            'absensi.*.id_siswa' => 'required|string|exists:tbl_siswa,id_siswa',
+            'absensi.*.status_kehadiran' => 'required|string|in:Hadir,Sakit,Izin,Alfa',
+        ]);
+
+        $tanggalAbsen = Carbon::parse($validated['tanggal'])->toDateString();
+        $adminId = Auth::id();
+
+        foreach ($validated['absensi'] as $data) {
+            // Cari data absensi yang mungkin sudah ada
+            $absensi = AbsensiSiswa::where('tanggal', $tanggalAbsen)
+                ->where('id_siswa', $data['id_siswa'])
+                ->first();
+
+            $newStatus = $data['status_kehadiran'];
+
+            if ($absensi) {
+                // JIKA DATA SUDAH ADA, UPDATE SECARA HATI-HATI
+                $absensi->status_kehadiran = $newStatus;
+                $absensi->id_penginput_manual = $adminId; // Perbarui siapa yang terakhir mengubah
+
+                // Jika status diubah menjadi TIDAK HADIR, maka reset data waktu.
+                // Ini logis karena siswa yang sakit/izin/alfa tidak mungkin terlambat.
+                if ($newStatus !== 'Hadir') {
+                    $absensi->jam_masuk = null;
+                    $absensi->menit_keterlambatan = 0;
+                }
+                
+                // Jika statusnya 'Hadir', kita TIDAK mengubah jam_masuk atau menit_keterlambatan.
+                // Ini akan menjaga data waktu yang sudah diinput manual.
+                
+                $absensi->save();
+
+            } else {
+                // JIKA DATA BELUM ADA, BUAT BARU
+                AbsensiSiswa::create([
+                    'id_absensi' => 'AS-' . Carbon::parse($tanggalAbsen)->format('ymd') . '-' . $data['id_siswa'],
+                    'id_siswa' => $data['id_siswa'],
+                    'tanggal' => $tanggalAbsen,
+                    'status_kehadiran' => $newStatus,
+                    'metode_absen' => 'Manual',
+                    'id_penginput_manual' => $adminId,
+                    'jam_masuk' => null,
+                    'menit_keterlambatan' => 0,
+                ]);
+            }
+        }
+
+        return back()->with('success', 'Absensi massal berhasil diperbarui.');
+    }
     public function updateIndividual(Request $request)
     {
         $validated = $request->validate([
@@ -313,7 +282,6 @@ class AbsensiSiswaController extends Controller
                 'aksi' => 'Edit Absensi Individual',
                 'keterangan' => $keteranganLog,
             ]);
-
         } catch (\Throwable $e) {
             Log::error('updateIndividual error: ' . $e->getMessage());
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());

@@ -83,6 +83,7 @@ Route::middleware('auth')->group(function () {
             // Rute untuk menyimpan data absensi massal dari modal
             Route::post('/store-massal', [AbsensiSiswaController::class, 'storeMassal'])->name('store.massal');
             Route::post('/update-individual', [AbsensiSiswaController::class, 'updateIndividual'])->name('update.individual');
+            Route::post('/store-manual', [AbsensiSiswaController::class, 'storeManual'])->name('storeManual');
         });
     });
 });

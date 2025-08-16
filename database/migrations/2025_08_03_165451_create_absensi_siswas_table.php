@@ -20,6 +20,7 @@ return new class extends Migration
             $table->date('tanggal');
             $table->time('jam_masuk')->nullable();
             $table->time('jam_pulang')->nullable();
+            $table->integer('menit_keterlambatan')->nullable();
             $table->enum('status_kehadiran', ['Hadir', 'Sakit', 'Izin', 'Alfa']);
             $table->enum('metode_absen', ['Sidik Jari', 'Barcode', 'Manual']);
             $table->text('keterangan')->nullable();
