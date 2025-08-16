@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\MataPelajaranController;
 use App\Http\Controllers\Admin\OrangTuaWaliController;
 use App\Http\Controllers\Admin\AbsensiGuruController;
 use App\Http\Controllers\Admin\PengaturanController;
+use App\Http\Controllers\Admin\AbsensiSiswaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,6 +75,14 @@ Route::middleware('auth')->group(function () {
             // Rute Ekspor yang Baru
             Route::get('/export-excel', [AbsensiGuruController::class, 'exportExcel'])->name('export-excel');
             Route::get('/export-pdf', [AbsensiGuruController::class, 'exportPdf'])->name('export-pdf');
+        });
+        Route::prefix('absensi-siswa')->name('absensi-siswa.')->group(function () {
+            // Rute untuk menampilkan halaman utama
+            Route::get('/', [AbsensiSiswaController::class, 'index'])->name('index');
+
+            // Rute untuk menyimpan data absensi massal dari modal
+            Route::post('/store-massal', [AbsensiSiswaController::class, 'storeMassal'])->name('store.massal');
+            Route::post('/update-individual', [AbsensiSiswaController::class, 'updateIndividual'])->name('update.individual');
         });
     });
 });

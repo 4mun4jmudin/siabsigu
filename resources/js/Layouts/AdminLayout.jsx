@@ -148,7 +148,9 @@ export default function AdminLayout({ user, header, children }) {
                         route().current("admin.siswa.*") ||
                         route().current("admin.kelas.*") ||
                         route().current("admin.mata-pelajaran.*") ||
-                        route().current("admin.orang-tua-wali.*")
+                        route().current("admin.orang-tua-wali.*") ||
+                        route().current("admin.absensi-guru.*") ||
+                        route().current("admin.absensi-siswa.*")
                     }
                 >
                     <li>
@@ -220,7 +222,11 @@ export default function AdminLayout({ user, header, children }) {
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink href="#" isCollapsed={false}>
+                        <NavLink
+                            href={route("admin.absensi-siswa.index")}
+                            active={route().current("admin.absensi-siswa.*")}
+                            isCollapsed={false}
+                        >
                             <AcademicCapIcon className="w-5 h-5 mr-3" />
                             Absensi Siswa
                         </NavLink>
