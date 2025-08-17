@@ -84,6 +84,8 @@ Route::middleware('auth')->group(function () {
             Route::post('/store-massal', [AbsensiSiswaController::class, 'storeMassal'])->name('store.massal');
             Route::post('/update-individual', [AbsensiSiswaController::class, 'updateIndividual'])->name('update.individual');
             Route::post('/store-manual', [AbsensiSiswaController::class, 'storeManual'])->name('storeManual');
+            Route::get('/export/excel', [AbsensiSiswaController::class, 'exportExcel'])->name('export.excel');
+            Route::get('/export/pdf', [AbsensiSiswaController::class, 'exportPdf'])->name('export.pdf');
         });
     });
 });

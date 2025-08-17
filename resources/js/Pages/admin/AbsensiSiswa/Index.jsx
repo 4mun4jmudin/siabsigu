@@ -24,6 +24,8 @@ import {
     XCircleIcon,
 } from "@heroicons/react/24/outline";
 import debounce from "lodash.debounce";
+import { DocumentArrowDownIcon, TableCellsIcon } from "@heroicons/react/24/outline";
+
 
 // --- Komponen-komponen UI Kecil ---
 
@@ -70,6 +72,15 @@ export default function Index({
         tanggal: filters.tanggal || "",
         search: filters.search || "",
     });
+
+    const buildExportUrl = (format) => {
+        const params = new URLSearchParams({
+            id_kelas: localFilters.id_kelas,
+            tanggal: localFilters.tanggal,
+            search: localFilters.search,
+        });
+        return route(`admin.absensi-siswa.export.${format}`) + '?' + params.toString();
+    };
 
     const isFirstRender = useRef(true);
 
@@ -274,6 +285,26 @@ export default function Index({
                             <h2 className="text-xl font-bold text-gray-800">
                                 Daftar Kehadiran - {tanggalTampilan}
                             </h2>
+                            <div className="flex items-center gap-x-2">
+                            {/* ============================================== */}
+                            {/* TAMBAHKAN DUA TOMBOL BARU INI */}
+                            {/* ============================================== */}
+                            <a
+                                href={buildExportUrl('excel')}
+                                target="_blank"
+                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
+                            >
+                                <TableCellsIcon className="h-4 w-4 mr-2" />
+                                Excel
+                            </a>
+                             <a
+                                href={buildExportUrl('pdf')}
+                                target="_blank"
+                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
+                            >
+                                <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+                                PDF
+                            </a>
                             <PrimaryButton
                                 onClick={openMassalModal}
                                 disabled={(siswaWithAbsensi || []).length === 0}
@@ -281,6 +312,14 @@ export default function Index({
                                 <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
                                 Input Absensi Kelas
                             </PrimaryButton>
+                        </div>
+                            {/* <PrimaryButton
+                                onClick={openMassalModal}
+                                disabled={(siswaWithAbsensi || []).length === 0}
+                            >
+                                <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
+                                Input Absensi Kelas
+                            </PrimaryButton> */}
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">

@@ -18,6 +18,9 @@ use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Exports\AbsensiSiswaExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 
 class AbsensiSiswaController extends Controller
@@ -39,11 +42,11 @@ class AbsensiSiswaController extends Controller
         // Query siswa berdasarkan kelas dan pencarian
         $siswaDiKelas = Siswa::query()
             ->where('status', 'Aktif')
-            ->when($activeKelasId, fn ($q) => $q->where('id_kelas', $activeKelasId))
-            ->when($searchTerm, fn ($q) => $q->where(fn($sq) => $sq->where('nama_lengkap', 'like', "%{$searchTerm}%")->orWhere('nis', 'like', "%{$searchTerm}%")))
+            ->when($activeKelasId, fn($q) => $q->where('id_kelas', $activeKelasId))
+            ->when($searchTerm, fn($q) => $q->where(fn($sq) => $sq->where('nama_lengkap', 'like', "%{$searchTerm}%")->orWhere('nis', 'like', "%{$searchTerm}%")))
             ->orderBy('nama_lengkap')
             ->get();
-        
+
         // Ambil data absensi untuk siswa di kelas tersebut pada tanggal yang dipilih
         $absensiSudahAda = AbsensiSiswa::whereIn('id_siswa', $siswaDiKelas->pluck('id_siswa'))
             ->whereDate('tanggal', $activeTanggal)
@@ -63,7 +66,7 @@ class AbsensiSiswaController extends Controller
                 try {
                     $jamMasukSiswa = Carbon::parse($absen->jam_masuk);
                     $batasMasuk = Carbon::parse($jamMasukSekolah);
-                    
+
                     // =============================================================
                     // INI ADALAH PERBAIKAN UTAMA PADA LOGIKA TAMPILAN
                     // =============================================================
@@ -90,7 +93,7 @@ class AbsensiSiswaController extends Controller
         $stats['belum_diinput'] = $stats['total'] - ($stats['hadir'] + $stats['sakit'] + $stats['izin'] + $stats['alfa']);
 
         return Inertia::render('admin/AbsensiSiswa/Index', [
-            'kelasOptions' => fn () => Kelas::orderBy('tingkat')->get(),
+            'kelasOptions' => fn() => Kelas::orderBy('tingkat')->get(),
             'siswaWithAbsensi' => $siswaWithAbsensi,
             'stats' => $stats,
             'filters' => [
@@ -128,7 +131,7 @@ class AbsensiSiswaController extends Controller
 
             $menitKeterlambatan = $selisihMenit > 0 ? $selisihMenit : 0;
         }
-        
+
         AbsensiSiswa::updateOrCreate(
             [
                 'id_siswa' => $validated['id_siswa'],
@@ -149,7 +152,7 @@ class AbsensiSiswaController extends Controller
         return back()->with('success', 'Absensi siswa berhasil diperbarui.');
     }
 
-     public function storeMassal(Request $request)
+    public function storeMassal(Request $request)
     {
         $validated = $request->validate([
             'tanggal' => 'required|date',
@@ -181,12 +184,11 @@ class AbsensiSiswaController extends Controller
                     $absensi->jam_masuk = null;
                     $absensi->menit_keterlambatan = 0;
                 }
-                
+
                 // Jika statusnya 'Hadir', kita TIDAK mengubah jam_masuk atau menit_keterlambatan.
                 // Ini akan menjaga data waktu yang sudah diinput manual.
-                
-                $absensi->save();
 
+                $absensi->save();
             } else {
                 // JIKA DATA BELUM ADA, BUAT BARU
                 AbsensiSiswa::create([
@@ -288,5 +290,53 @@ class AbsensiSiswaController extends Controller
         }
 
         return back()->with('success', 'Absensi untuk siswa ' . optional($siswa)->nama_lengkap . ' berhasil diperbarui.');
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $filters = $request->validate([
+            'id_kelas' => 'nullable|string',
+            'tanggal' => 'required|date',
+            'search' => 'nullable|string',
+        ]);
+
+        $namaKelas = Kelas::find($filters['id_kelas'])?->nama_lengkap ?? 'Semua-Kelas';
+        $tanggal = Carbon::parse($filters['tanggal'])->format('d-m-Y');
+        $fileName = "absensi-siswa-{$namaKelas}-{$tanggal}.xlsx";
+
+        return Excel::download(new AbsensiSiswaExport($filters), $fileName);
+    }
+
+    /**
+     * Mengekspor data absensi siswa ke PDF.
+     */
+    public function exportPdf(Request $request)
+    {
+        $filters = $request->validate([
+            'id_kelas' => 'required|string|exists:tbl_kelas,id_kelas',
+            'tanggal' => 'required|date',
+            'search' => 'nullable|string',
+        ]);
+
+        // Logika query sama seperti di export Excel
+        $query = Siswa::query()
+            ->with(['absensi' => fn($q) => $q->whereDate('tanggal', $filters['tanggal'])])
+            ->where('id_kelas', $filters['id_kelas'])
+            ->when($filters['search'], fn($q, $s) => $q->where(fn($sq) => $sq->where('nama_lengkap', 'like', "%{$s}%")->orWhere('nis', 'like', "%{$s}%")))
+            ->orderBy('nama_lengkap')
+            ->get();
+
+        $kelas = Kelas::find($filters['id_kelas']);
+        $tanggal = $filters['tanggal'];
+        $fileName = "absensi-siswa-{$kelas->nama_kelas}-" . Carbon::parse($tanggal)->format('d-m-Y') . ".pdf";
+
+        // Buat PDF
+        $pdf = Pdf::loadView('pdf.absensi_siswa_pdf', [
+            'dataSiswa' => $query,
+            'namaKelas' => $kelas->nama_lengkap,
+            'tanggal' => $tanggal,
+        ]);
+
+        return $pdf->download($fileName);
     }
 }
