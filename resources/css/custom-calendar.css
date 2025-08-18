@@ -1,0 +1,46 @@
+@media (max-width: 640px) {
+  /* Aturan ini hanya berlaku untuk layar berukuran kecil (mobile) */
+
+  .rbc-toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem; /* Memberikan jarak antar grup tombol */
+  }
+  
+  /* Grup tombol navigasi (Hari Ini, Sebelumnya, Berikutnya) */
+  .rbc-btn-group:first-child {
+    flex: 1 1 100%; /* Memaksa grup ini untuk menempati satu baris penuh */
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .rbc-btn-group:first-child button {
+    flex: 1; /* Setiap tombol akan memiliki lebar yang sama */
+  }
+
+  /* Nama bulan/rentang tanggal */
+  .rbc-toolbar-label {
+    order: -1; /* Pindahkan nama bulan ke atas */
+    flex: 1 1 100%; /* Memaksa label menempati satu baris penuh */
+    text-align: center;
+    margin-bottom: 0.5rem;
+    font-size: 1.125rem; /* Tambahkan ukuran font agar lebih mudah dibaca */
+    font-weight: 600;
+  }
+
+  /* Grup tombol tampilan (Bulan, Minggu, Hari, Agenda) */
+  .rbc-btn-group:last-child {
+    flex: 1 1 100%; /* Memaksa grup ini untuk menempati satu baris penuh */
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .rbc-btn-group:last-child button {
+    flex: 1; /* Setiap tombol akan memiliki lebar yang sama */
+  }
+  
+  .rbc-toolbar button {
+    padding-left: 0.75rem; /* Padding horizontal yang lebih baik */
+    padding-right: 0.75rem; /* Padding horizontal yang lebih baik */
+  }
+}

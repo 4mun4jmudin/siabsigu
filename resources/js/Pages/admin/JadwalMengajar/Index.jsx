@@ -13,6 +13,8 @@ import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import moment from 'moment';
 import 'moment/locale/id'; // Import locale Bahasa Indonesia
+// import "resources/css/custom-calendar.css";
+
 
 import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -145,6 +147,9 @@ export default function Index({
     const [confirmFormat, setConfirmFormat] = useState(null); // 'pdf' | 'excel' | null
     const [autoPrint, setAutoPrint] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    
+    // NEW: Dropdown state
+    const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
 
     const { data, setData, post, put, delete: destroy, reset, processing, recentlySuccessful, clearErrors } =
         useForm({
@@ -305,6 +310,7 @@ export default function Index({
         setConfirmFormat(format); // 'pdf' | 'excel' | null
         setAutoPrint(false);
         setIsConfirmOpen(true);
+        setIsActionsDropdownOpen(false); // Close dropdown
     };
 
     const closeConfirm = () => {
@@ -532,7 +538,7 @@ export default function Index({
     const [importFile, setImportFile] = useState(null);
     const [importReport, setImportReport] = useState(null);
 
-   const safeScheduleGrid = scheduleGrid && Array.isArray(scheduleGrid) ? scheduleGrid : [];
+    const safeScheduleGrid = scheduleGrid && Array.isArray(scheduleGrid) ? scheduleGrid : [];
 
     // debug ringan (hapus nanti jika ingin bersih)
     useEffect(() => {
@@ -588,10 +594,10 @@ export default function Index({
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <StatCard label="Total Jadwal" value={stats.total_jadwal} icon={<CalendarDaysIcon />} color="#3b82f6"/>
                         <StatCard
-                        label="Total Jam / Minggu"
-                        value={Math.round(Number(stats.total_jam_per_minggu || 0))}
-                        icon={<ClockIcon />}
-                        color="#10b981"/>
+                            label="Total Jam / Minggu"
+                            value={Math.round(Number(stats.total_jam_per_minggu || 0))}
+                            icon={<ClockIcon />}
+                            color="#10b981"/>
                         <StatCard label="Jumlah Mata Pelajaran" value={stats.jumlah_mapel} icon={<BookOpenIcon />} color="#f97316"/>
                         <StatCard label="Jumlah Guru Mengajar" value={stats.jumlah_guru} icon={<UsersIcon />} color="#8b5cf6"/>
                     </div>
@@ -604,6 +610,7 @@ export default function Index({
                     </div>
                 </div>
 
+                {/* Perbaikan di bagian ini */}
                 <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm relative">
                     {/* Spinner overlay when exporting */}
                     {isExporting && (
@@ -618,68 +625,73 @@ export default function Index({
                         </div>
                     )}
 
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex gap-x-1 bg-gray-200 p-1 rounded-lg mr-3">
-                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md ${viewMode === 'calendar' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
-                                <CalendarDaysIcon className="h-5 w-5 inline-block md:mr-2" /><span className="hidden md:inline">Kalender</span>
+                    <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+                        {/* Pemilih Tampilan */}
+                        <div className="flex flex-grow justify-start gap-x-1 bg-gray-200 p-1 rounded-lg">
+                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md flex-1 ${viewMode === 'calendar' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
+                                <CalendarDaysIcon className="h-5 w-5 inline-block sm:mr-2" /><span className="hidden sm:inline">Kalender</span>
                             </button>
-                            <button onClick={() => setViewMode('grid')} className={`px-2 py-1 text-xs font-semibold rounded-md ${viewMode === 'grid' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
-                                <TableCellsIcon className="h-5 w-5 inline-block md:mr-2" /><span className="hidden md:inline">Grid Mingguan</span>
+                            <button onClick={() => setViewMode('grid')} className={`px-2 py-1 text-xs font-semibold rounded-md flex-1 ${viewMode === 'grid' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
+                                <TableCellsIcon className="h-5 w-5 inline-block sm:mr-2" /><span className="hidden sm:inline">Grid Mingguan</span>
                             </button>
-                            <button onClick={() => setViewMode('daily')} className={`px-3 py-1 text-sm font-semibold rounded-md ${viewMode === 'daily' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
-                                <TableCellsIcon className="h-5 w-5 inline-block md:mr-2" /><span className="hidden md:inline">Grid Harian</span>
+                            <button onClick={() => setViewMode('daily')} className={`px-3 py-1 text-sm font-semibold rounded-md flex-1 ${viewMode === 'daily' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
+                                <TableCellsIcon className="h-5 w-5 inline-block sm:mr-2" /><span className="hidden sm:inline">Grid Harian</span>
                             </button>
-                            <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-sm font-semibold rounded-md ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
-                                <QueueListIcon className="h-5 w-5 inline-block md:mr-2" /><span className="hidden md:inline">Daftar Jadwal</span>
+                            <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-sm font-semibold rounded-md flex-1 ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow' : 'text-gray-600'}`}>
+                                <QueueListIcon className="h-5 w-5 inline-block sm:mr-2" /><span className="hidden sm:inline">Daftar Jadwal</span>
                             </button>
                         </div>
-                         <div className="flex items-center gap-x-2">
-                            {/* ======================================= */}
-                            {/* TOMBOL EKSPOR + CETAK */}
-                            {/* ======================================= */}
-                            <button
-                                onClick={() => openConfirm('export', 'excel')}
-                                disabled={isExporting}
-                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 transition ease-in-out duration-150"
-                                title="Ekspor ke Excel"
-                            >
-                                <DocumentArrowDownIcon className="h-4 w-4 mr-2 text-green-600" />
-                                Excel
-                            </button>
 
-                            <button
-                                onClick={() => openConfirm('export', 'pdf')}
-                                disabled={isExporting}
-                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 transition ease-in-out duration-150"
-                                title="Ekspor ke PDF"
-                            >
-                                <DocumentArrowDownIcon className="h-4 w-4 mr-2 text-red-600" />
-                                PDF
-                            </button>
-
-                            <button
-                                onClick={() => openConfirm('print', null)}
-                                disabled={isExporting}
-                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 transition ease-in-out duration-150"
-                                title="Cetak Jadwal"
-                            >
-                                <PrinterIcon className="h-4 w-4 mr-2 text-indigo-600" />
-                                Cetak
-                            </button>
-
-                            <button
-                                onClick={() => setIsImportModalOpen(true)}
-                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 transition ease-in-out duration-150"
-                                title="Impor dari Excel"
-                            >
-                                <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12" strokeWidth="2"/><path d="M5 12l7-9 7 9" strokeWidth="2"/></svg>
-                                Impor
-                            </button>
-
-                            <PrimaryButton onClick={openAddModal}>
+                        {/* Tombol Aksi - Direvisi */}
+                        <div className="flex flex-wrap justify-end gap-2">
+                            <PrimaryButton onClick={openAddModal} className="order-last sm:order-none">
                                 <PlusCircleIcon className="h-5 w-5 mr-2" />
-                                Tambah Jadwal
+                                <span className="hidden sm:inline">Tambah Jadwal</span>
+                                <span className="sm:hidden">Tambah</span>
                             </PrimaryButton>
+                            
+                            <div className="relative inline-block text-left">
+                                <button
+                                    type="button"
+                                    className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 transition ease-in-out duration-150"
+                                    onClick={() => setIsActionsDropdownOpen(!isActionsDropdownOpen)}
+                                >
+                                    <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+                                    <span className="hidden sm:inline">Aksi Lainnya</span>
+                                    <span className="sm:hidden">Aksi</span>
+                                    <svg className="-mr-1 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
+                                {isActionsDropdownOpen && (
+                                    <div className="absolute left-0 sm:left-auto sm:right-0 z-10 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="menu-button">
+                                        <div className="py-1" role="none">
+                                            <button onClick={() => openConfirm('export', 'excel')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                                                <DocumentArrowDownIcon className="h-4 w-4 mr-2 inline-block text-green-600" /> Ekspor Excel
+                                            </button>
+                                            <button onClick={() => openConfirm('export', 'pdf')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                                                <DocumentArrowDownIcon className="h-4 w-4 mr-2 inline-block text-red-600" /> Ekspor PDF
+                                            </button>
+                                        </div>
+                                        <div className="py-1" role="none">
+                                            <button onClick={() => openConfirm('print', null)} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                                                <PrinterIcon className="h-4 w-4 mr-2 inline-block text-indigo-600" /> Cetak
+                                            </button>
+                                        </div>
+                                        <div className="py-1" role="none">
+                                            <button onClick={() => setIsImportModalOpen(true)} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                                                <svg className="h-4 w-4 mr-2 inline-block text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12" strokeWidth="2"/><path d="M5 12l7-9 7 9" strokeWidth="2"/></svg> Impor
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* <PrimaryButton onClick={openAddModal} className="order-last sm:order-none">
+                                <PlusCircleIcon className="h-5 w-5 mr-2" />
+                                <span className="hidden sm:inline">Tambah Jadwal</span>
+                                <span className="sm:hidden">Tambah</span>
+                            </PrimaryButton> */}
                         </div>
                     </div>
 
@@ -746,11 +758,11 @@ export default function Index({
                                             ))}
                                         </tr>
                                     )) : (
-                                    <tr>
-                                    <td colSpan={daysOrder.length + 1} className="text-center py-12 text-gray-500">
-                                        Tidak ada jadwal untuk ditampilkan.
-                                    </td>
-                                    </tr>
+                                        <tr>
+                                        <td colSpan={daysOrder.length + 1} className="text-center py-12 text-gray-500">
+                                            Tidak ada jadwal untuk ditampilkan.
+                                        </td>
+                                        </tr>
                                     )}
                                 </tbody>
                             </table>
@@ -849,7 +861,6 @@ export default function Index({
                             </table>
                         </div>
                     )}
-
                 </div>
             </div>
 
@@ -882,29 +893,37 @@ export default function Index({
             </Modal>
 
             <Modal show={isImportModalOpen} onClose={() => { setIsImportModalOpen(false); setImportFile(null); setImportReport(null); }} maxWidth="md">
-            <div className="p-6">
-                <h3 className="text-lg font-bold mb-3">Impor Jadwal dari Excel</h3>
-                <p className="text-sm text-gray-600 mb-4">Unduh <a href={route('admin.jadwal-mengajar.import.template')} className="text-indigo-600 underline">template</a> dulu, isi, lalu unggah. Kolom wajib: Hari, Jam Mulai, Jam Selesai, Kode Kelas, NIP Guru, Kode Mapel.</p>
+                <div className="p-6">
+                    <h3 className="text-lg font-bold mb-3">Impor Jadwal dari Excel</h3>
+                    <p className="text-sm text-gray-600 mb-4">Unduh <a href={route('admin.jadwal-mengajar.import.template')} className="text-indigo-600 underline">template</a> dulu, isi, lalu unggah. Kolom wajib: Hari, Jam Mulai, Jam Selesai, Kode Kelas, NIP Guru, Kode Mapel.</p>
 
-                <div className="mb-4">
-                    <input type="file" accept=".xls,.xlsx" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
-                </div>
+                    <div className="mb-4">
+                        <input type="file" accept=".xls,.xlsx" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
+                    </div>
 
-                {importReport && (
+                    {importReport && (
                     <div className="mb-4">
                         <div className="p-3 rounded border bg-gray-50">
-                            <p className="text-sm">Total baris: <strong>{importReport.total_rows}</strong></p>
-                            <p className="text-sm">Berhasil diimpor: <strong>{importReport.imported}</strong></p>
-                            <p className="text-sm">Gagal: <strong>{importReport.failed.length}</strong></p>
-                            {importReport.failed.length > 0 && (
+                            <p className="text-sm">Total baris: <strong>{importReport.total_rows || (importReport.failures ? importReport.failures.length : 0)}</strong></p>
+                            <p className="text-sm text-green-600">Berhasil diimpor: <strong>{importReport.imported || (importReport.failures ? importReport.total_rows - importReport.failures.length : 0)}</strong></p>
+                            <p className="text-sm text-red-600">Gagal: <strong>{importReport.failures ? importReport.failures.length : 0}</strong></p>
+                            
+                            {importReport.failures && importReport.failures.length > 0 && (
                                 <div className="mt-2 max-h-40 overflow-auto text-xs">
+                                    <h4 className="font-semibold text-red-500 mb-1">Daftar Baris yang Gagal:</h4>
                                     <table className="min-w-full text-left text-xs">
                                         <thead>
-                                            <tr><th className="font-semibold">Baris</th><th className="font-semibold">Alasan</th></tr>
+                                            <tr>
+                                                <th className="font-semibold">Baris</th>
+                                                <th className="font-semibold">Alasan</th>
+                                            </tr>
                                         </thead>
                                         <tbody>
-                                            {importReport.failed.map((f, i) => (
-                                                <tr key={i}><td className="py-1 pr-2">{f.row}</td><td className="py-1">{f.reason}</td></tr>
+                                            {importReport.failures.map((f, i) => (
+                                                <tr key={i}>
+                                                    <td className="py-1 pr-2">{f.row}</td>
+                                                    <td className="py-1">{f.errors?.join(', ') || f.reason}</td>
+                                                </tr>
                                             ))}
                                         </tbody>
                                     </table>
@@ -914,43 +933,59 @@ export default function Index({
                     </div>
                 )}
 
-                <div className="flex justify-end gap-3">
-                    <SecondaryButton onClick={() => { setIsImportModalOpen(false); setImportFile(null); setImportReport(null); }}>Tutup</SecondaryButton>
-                    <PrimaryButton
-                        onClick={async () => {
-                            if (!importFile) {
-                                toast.error('Pilih file terlebih dahulu.');
-                                return;
-                            }
-                            setImporting(true);
-                            setImportReport(null);
-                            try {
-                                const formData = new FormData();
-                                formData.append('file', importFile);
 
-                                const resp = await axios.post(route('admin.jadwal-mengajar.import'), formData, {
-                                    headers: { 'Content-Type': 'multipart/form-data' }
-                                });
-                                if (resp.data && resp.data.report) {
-                                    setImportReport(resp.data.report);
-                                    toast.success('Impor selesai. Lihat laporan di bawah.');
-                                } else {
-                                    toast.success('Impor selesai.');
+                    <div className="flex justify-end gap-3">
+                        <SecondaryButton onClick={() => { setIsImportModalOpen(false); setImportFile(null); setImportReport(null); }}>Tutup</SecondaryButton>
+                        <PrimaryButton
+                            onClick={async () => {
+                                if (!importFile) {
+                                    toast.error('Pilih file terlebih dahulu.');
+                                    return;
                                 }
-                            } catch (err) {
-                                console.error(err);
-                                const msg = err?.response?.data?.error || 'Gagal mengimpor. Periksa file atau format.';
-                                toast.error(msg);
-                            } finally {
-                                setImporting(false);
-                            }
-                        }}
-                        disabled={importing}
-                    >
-                        {importing ? 'Mengimpor...' : 'Mulai Impor'}
-                    </PrimaryButton>
+                                setImporting(true);
+                                setImportReport(null);
+                                try {
+                                    const formData = new FormData();
+                                    formData.append('file', importFile);
+
+                                    const resp = await axios.post(route('admin.jadwal-mengajar.import'), formData, {
+                                        headers: { 'Content-Type': 'multipart/form-data' }
+                                    });
+                                    
+                                    // --- LOGIKA BARU UNTUK MENANGANI RESPON DENGAN BENAR ---
+                                    if (resp.data.failures && resp.data.failures.length > 0) {
+                                        // Jika ada kegagalan, simpan laporan kegagalan dan tampilkan
+                                        setImportReport(resp.data);
+                                        toast.error(`Impor selesai, ${resp.data.failures.length} baris gagal.`);
+                                    } else {
+                                        // Jika semua berhasil
+                                        setImportReport(null); // Kosongkan laporan lama
+                                        toast.success('Semua data berhasil diimpor!');
+                                        setIsImportModalOpen(false);
+                                        router.reload({ preserveScroll: true }); // Muat ulang halaman
+                                    }
+
+                                } catch (err) {
+                                    console.error(err);
+                                    const msg = err?.response?.data?.error || 'Gagal mengimpor. Periksa file atau format.';
+                                    if (err?.response?.data?.failures) {
+                                        // Tangkap error validasi dari backend dan tampilkan
+                                        setImportReport(err.response.data);
+                                        toast.error('Validasi file gagal. Lihat laporan di bawah.');
+                                    } else {
+                                        // Error umum
+                                        toast.error(msg);
+                                    }
+                                } finally {
+                                    setImporting(false);
+                                }
+                            }}
+                            disabled={importing}
+                        >
+                            {importing ? 'Mengimpor...' : 'Mulai Impor'}
+                        </PrimaryButton>
+                    </div>
                 </div>
-            </div>
             </Modal>
 
 

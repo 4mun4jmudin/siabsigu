@@ -392,34 +392,28 @@ class JadwalMengajarController extends Controller
 
         $file = $request->file('file');
 
-        // tahun ajaran aktif sebagai default
-        $tahunAjaranAktif = TahunAjaran::where('status', 'Aktif')->first();
-        $tahunId = $tahunAjaranAktif?->id_tahun_ajaran ?? $request->input('id_tahun_ajaran');
-
-        // import
-        $import = new \App\Imports\JadwalMengajarImport($tahunId);
+        $import = new JadwalMengajarImport();
 
         try {
             Excel::import($import, $file);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            // fallback: tangani error validasi paket excel
+            // Ini akan menangkap kegagalan yang tidak bisa ditangani oleh kode kustom
             $failures = $e->failures();
-            $failed = [];
-            foreach ($failures as $f) {
-                $failed[] = [
-                    'row' => $f->row(),
-                    'attribute' => $f->attribute(),
-                    'errors' => $f->errors(),
-                    'values' => $f->values(),
-                ];
-            }
-            return response()->json(['error' => 'Validasi file gagal', 'failures' => $failed], 422);
+            return response()->json(['error' => 'Validasi file gagal', 'failures' => $failures], 422);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Gagal memproses file: ' . $e->getMessage()], 500);
         }
 
-        $report = $import->getReport();
-        return response()->json(['report' => $report]);
+        $failures = $import->getFailures(); // Ambil laporan kegagalan dari kelas impor
+
+        if (count($failures) > 0) {
+            return response()->json([
+                'message' => 'Impor selesai dengan beberapa kegagalan.',
+                'failures' => $failures,
+            ], 200);
+        }
+
+        return response()->json(['message' => 'Semua data berhasil diimpor!']);
     }
 
     public function downloadTemplate()
@@ -459,9 +453,9 @@ class JadwalMengajarController extends Controller
 
             [$hari, $jam_mulai, $jam_selesai, $kode_kelas, $nip, $kode_mapel] = $row;
 
-            $kelas = Kelas::where('kode', $kode_kelas)->first();
-            $guru = Guru::where('nip', $nip)->first();
-            $mapel = MataPelajaran::where('kode', $kode_mapel)->first();
+            $kelas = Kelas::where('id_kelas', $kode_kelas)->first();
+            $guru  = Guru::where('nip', $nip)->first();
+            $mapel = MataPelajaran::where('id_mapel', $kode_mapel)->first();
 
             $status = "OK";
 
@@ -471,13 +465,16 @@ class JadwalMengajarController extends Controller
             if (strtotime($jam_mulai) >= strtotime($jam_selesai)) $status = "Jam tidak valid";
 
             $preview[] = [
-                'hari' => $hari,
-                'jam_mulai' => $jam_mulai,
+                'hari'        => $hari,
+                'jam_mulai'   => $jam_mulai,
                 'jam_selesai' => $jam_selesai,
-                'kelas' => $kelas?->nama ?? $kode_kelas,
-                'guru' => $guru?->nama ?? $nip,
-                'mapel' => $mapel?->nama ?? $kode_mapel,
-                'status' => $status,
+                'kelas'       => $kelas?->nama_lengkap ?? $kode_kelas,
+                'guru'        => $guru?->nama_lengkap ?? $nip,
+                'mapel'       => $mapel?->nama_mapel ?? $kode_mapel,
+                'id_kelas'    => $kelas?->id_kelas,
+                'id_guru'     => $guru?->id_guru,
+                'id_mapel'    => $mapel?->id_mapel,
+                'status'      => $status,
             ];
 
             if ($status !== "OK") {
@@ -487,7 +484,7 @@ class JadwalMengajarController extends Controller
 
         return Inertia::render('Admin/JadwalMengajar/ImportPreview', [
             'preview' => $preview,
-            'errors' => $errors,
+            'errors'  => $errors,
         ]);
     }
 
@@ -506,17 +503,15 @@ class JadwalMengajarController extends Controller
                     continue;
                 }
 
-                $kelas = Kelas::where('nama', $row['kelas'])->first();
-                $guru = Guru::where('nama', $row['guru'])->first();
-                $mapel = MataPelajaran::where('nama', $row['mapel'])->first();
-
                 JadwalMengajar::create([
-                    'hari' => $row['hari'],
-                    'jam_mulai' => $row['jam_mulai'],
-                    'jam_selesai' => $row['jam_selesai'],
-                    'kelas_id' => $kelas->id,
-                    'guru_id' => $guru->id,
-                    'mapel_id' => $mapel->id,
+                    'id_jadwal'       => 'JDW-' . now()->format('ymdHis') . rand(10, 99),
+                    'id_tahun_ajaran' => TahunAjaran::where('status', 'Aktif')->value('id_tahun_ajaran'),
+                    'id_kelas'        => $row['id_kelas'],
+                    'id_guru'         => $row['id_guru'],
+                    'id_mapel'        => $row['id_mapel'],
+                    'hari'            => $row['hari'],
+                    'jam_mulai'       => $row['jam_mulai'],
+                    'jam_selesai'     => $row['jam_selesai'],
                 ]);
 
                 $success++;

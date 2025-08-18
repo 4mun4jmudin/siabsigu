@@ -7,10 +7,11 @@ export default function ImportPreview({ preview, errors }) {
     const { post } = useForm();
 
     const handleConfirm = () => {
-        post(route("admin.jadwal-mengajar.import.confirm"), {
-            data: preview,
+        post(route("admin.jadwal-mengajar.confirmImport"), {
+            data: preview, // preview sekarang sudah ada id_kelas, id_guru, id_mapel
         });
     };
+
 
     return (
         <div className="p-4">
