@@ -14,9 +14,16 @@ use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\JadwalMengajarExport;
 use Barryvdh\DomPDF\Facade\Pdf;
-// use Illuminate\Support\Facades\Validator;
-
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+// use App\Models\MataPelajaran;
+use App\Exports\JadwalTemplateExport; // Import baru
+use App\Imports\JadwalMengajarImport;
+use Maatwebsite\Excel\Concerns\WithValidation;
 use Illuminate\Validation\Rule;
 
 class JadwalMengajarController extends Controller
@@ -26,7 +33,6 @@ class JadwalMengajarController extends Controller
      */
     public function index(Request $request)
     {
-
         $filters = $request->validate([
             'filter_by' => 'nullable|in:kelas,guru',
             'kelas_id' => 'nullable|string|exists:tbl_kelas,id_kelas',
@@ -47,7 +53,7 @@ class JadwalMengajarController extends Controller
 
         $query = JadwalMengajar::query()
             ->with(['guru:id_guru,nama_lengkap', 'kelas:id_kelas,tingkat,jurusan', 'mapel:id_mapel,nama_mapel'])
-            ->where('id_tahun_ajaran', $tahunAjaranAktif?->id_tahun_ajaran)
+            ->when($tahunAjaranAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAjaranAktif->id_tahun_ajaran))
             ->orderBy('jam_mulai');
 
         // Terapkan filter berdasarkan pilihan
@@ -63,47 +69,93 @@ class JadwalMengajarController extends Controller
         $jadwal = $query->get();
         $jadwalByDay = $jadwal->groupBy('hari');
 
-        $totalJam = 0;
+        // Hitung total menit dulu, lalu konversi ke jam bulat (integer)
+        $totalMinutes = 0;
         foreach ($jadwal as $j) {
             $mulai = Carbon::parse($j->jam_mulai);
             $selesai = Carbon::parse($j->jam_selesai);
-            // Hitung selisih jam, bulatkan ke 2 desimal
-            $totalJam += round($mulai->diffInMinutes($selesai) / 60, 2);
+            if ($mulai->lte($selesai)) {
+                $totalMinutes += $mulai->diffInMinutes($selesai);
+            } else {
+                // Jika jam selesai lebih kecil (tidak biasa), abaikan atau tangani sesuai kebijakan
+            }
         }
+        // ubah ke jam, bulatkan ke integer (dibulatkan normal)
+        $totalJam = (int) round($totalMinutes / 60);
 
         $stats = [
             'total_jadwal' => $jadwal->count(),
-            'total_jam_per_minggu' => (int) round($totalJam),
+            'total_jam_per_minggu' => $totalJam,
             'jumlah_mapel' => $jadwal->unique('id_mapel')->count(),
             'jumlah_guru' => $jadwal->unique('id_guru')->count(),
         ];
 
+        // Kumpulkan slot waktu unik, normalisasi ke format H:i:s untuk perbandingan
         $timeSlots = [];
         foreach ($jadwal as $j) {
-            $slotStart = Carbon::parse($j->jam_mulai)->format('H:i');
-            $slotEnd = Carbon::parse($j->jam_selesai)->format('H:i');
-            $slot = $slotStart . ' - ' . $slotEnd;
-            if (!in_array($slot, $timeSlots)) {
-                $timeSlots[] = $slot;
+            // Pastikan parsing aman dan konsisten
+            try {
+                $startFormatted = Carbon::parse($j->jam_mulai)->format('H:i:s');
+                $endFormatted = Carbon::parse($j->jam_selesai)->format('H:i:s');
+            } catch (\Exception $e) {
+                // Jika gagal parse, skip slot ini
+                continue;
             }
-        }       
-        
-        usort($timeSlots, function($a, $b) {
-            list($aStart,) = explode(' - ', $a);
-            list($bStart,) = explode(' - ', $b);
-            return strtotime($aStart) <=> strtotime($bStart);
+
+            $slotKey = $startFormatted . ' - ' . $endFormatted;
+            if (!in_array($slotKey, $timeSlots)) {
+                $timeSlots[] = $slotKey;
+            }
+        }
+
+        // Urutkan slot berdasarkan waktu mulai
+        usort($timeSlots, function ($a, $b) {
+            [$aStart] = explode(' - ', $a);
+            [$bStart] = explode(' - ', $b);
+            return strcmp($aStart, $bStart);
         });
 
+        // Bangun grid: tampilkan waktu dalam H:i - H:i (tanpa detik) untuk UI
         $scheduleGrid = [];
         foreach ($timeSlots as $slot) {
-            $row = ['time' => $slot];
             list($start, $end) = explode(' - ', $slot);
+            // format untuk tampilan
+            $displayStart = Carbon::createFromFormat('H:i:s', $start)->format('H:i');
+            $displayEnd = Carbon::createFromFormat('H:i:s', $end)->format('H:i');
+
+            $row = ['time' => $displayStart . ' - ' . $displayEnd];
+
             foreach (['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $day) {
-                $row[$day] = $jadwal->where('hari', $day)
-                    ->where('jam_mulai', $start)
-                    ->where('jam_selesai', $end)
-                    ->first();
+                // Gunakan whereTime agar perbandingan berdasar waktu (bukan string exact)
+                $found = $jadwal->where('hari', $day)
+                    ->first(function ($item) use ($start, $end) {
+                        // item jam may be 'H:i' or 'H:i:s' -> normalisasi
+                        try {
+                            $itemStart = Carbon::parse($item->jam_mulai)->format('H:i:s');
+                            $itemEnd = Carbon::parse($item->jam_selesai)->format('H:i:s');
+                        } catch (\Exception $e) {
+                            return false;
+                        }
+                        return $itemStart === $start && $itemEnd === $end;
+                    });
+
+                // Jika tidak ditemukan dengan exact compare di atas, coba whereTime fallback pada collection
+                if (!$found) {
+                    $found = $jadwal->where('hari', $day)
+                        ->first(function ($item) use ($start, $end) {
+                            try {
+                                $itemStart = Carbon::parse($item->jam_mulai)->format('H:i:s');
+                                $itemEnd = Carbon::parse($item->jam_selesai)->format('H:i:s');
+                            } catch (\Exception $e) {
+                                return false;
+                            }
+                            return $itemStart === $start && $itemEnd === $end;
+                        });
+                }
+
+                $row[$day] = $found ?: null;
             }
+
             $scheduleGrid[] = $row;
         }
 
@@ -115,7 +167,6 @@ class JadwalMengajarController extends Controller
             'scheduleGrid' => $scheduleGrid,
             'tahunAjaranAktif' => $tahunAjaranAktif,
             'stats' => $stats,
-            // 'filters' => $currentFilters,
             'filters' => [
                 'filter_by' => $filterBy,
                 'kelas_id' => $selectedKelasId,
@@ -150,6 +201,7 @@ class JadwalMengajarController extends Controller
 
         return back()->with('success', 'Jadwal mengajar berhasil ditambahkan.');
     }
+
     /**
      * Memperbarui data jadwal mengajar yang sudah ada.
      */
@@ -204,7 +256,6 @@ class JadwalMengajarController extends Controller
         // Cek konflik di kelas yang sama
         $kelasConflict = (clone $query)->where('id_kelas', $data['id_kelas'])->first();
         if ($kelasConflict) {
-            // Gunakan ValidationException untuk mengirim pesan error yang rapi
             throw ValidationException::withMessages([
                 'id_kelas' => 'Jadwal bentrok! Sudah ada pelajaran lain di kelas ini pada jam tersebut.',
             ]);
@@ -213,31 +264,28 @@ class JadwalMengajarController extends Controller
         // Cek konflik untuk guru yang sama
         $guruConflict = (clone $query)->where('id_guru', $data['id_guru'])->first();
         if ($guruConflict) {
-            // Gunakan ValidationException untuk mengirim pesan error yang rapi
             throw ValidationException::withMessages([
                 'id_guru' => 'Jadwal bentrok! Guru ini sudah memiliki jadwal lain pada jam tersebut.',
             ]);
         }
     }
+
     public function show(JadwalMengajar $jadwalMengajar)
     {
-        // Eager load semua relasi yang dibutuhkan untuk modal detail
         $jadwalMengajar->load([
             'guru' => function ($query) {
-                // Memuat relasi dari guru ke pengguna untuk melihat username/email jika ada
                 $query->with('pengguna:id_pengguna,username,email');
             },
             'kelas' => function ($query) {
-                // Memuat relasi dari kelas ke wali kelasnya
                 $query->with('waliKelas:id_guru,nama_lengkap');
             },
-            'mapel', // Memuat detail mata pelajaran
-            'tahunAjaran' // Memuat detail tahun ajaran
+            'mapel',
+            'tahunAjaran'
         ]);
 
-        // Mengembalikan data sebagai respons JSON yang akan diambil oleh frontend
         return response()->json($jadwalMengajar);
     }
+
     public function updateTime(Request $request, JadwalMengajar $jadwalMengajar)
     {
         $validated = $request->validate([
@@ -248,16 +296,18 @@ class JadwalMengajarController extends Controller
         $start = Carbon::parse($validated['start']);
         $end = Carbon::parse($validated['end']);
 
-        // Terjemahkan nama hari dari Inggris ke Indonesia
         $englishDay = $start->format('l');
         $dayMap = [
-            'Monday'    => 'Senin', 'Tuesday'   => 'Selasa', 'Wednesday' => 'Rabu',
-            'Thursday'  => 'Kamis', 'Friday'    => 'Jumat',  'Saturday'  => 'Sabtu',
+            'Monday'    => 'Senin',
+            'Tuesday'   => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday'  => 'Kamis',
+            'Friday'    => 'Jumat',
+            'Saturday'  => 'Sabtu',
             'Sunday'    => 'Minggu',
         ];
         $indonesianDay = $dayMap[$englishDay] ?? $englishDay;
 
-        // Siapkan data baru untuk divalidasi konfliknya
         $newData = [
             'id_guru' => $jadwalMengajar->id_guru,
             'id_kelas' => $jadwalMengajar->id_kelas,
@@ -265,11 +315,9 @@ class JadwalMengajarController extends Controller
             'jam_mulai' => $start->format('H:i:s'),
             'jam_selesai' => $end->format('H:i:s'),
         ];
-        
-        // Gunakan kembali fungsi validasi konflik
+
         $this->validateConflict($newData, $jadwalMengajar->id_jadwal);
 
-        // Jika tidak ada konflik, perbarui data
         $jadwalMengajar->update([
             'hari' => $newData['hari'],
             'jam_mulai' => $newData['jam_mulai'],
@@ -286,9 +334,9 @@ class JadwalMengajarController extends Controller
             'kelas_id' => 'nullable|string',
             'guru_id' => 'nullable|string',
         ]);
-        
+
         $tahunAjaranAktif = TahunAjaran::where('status', 'Aktif')->first();
-        $filters['id_tahun_ajaran'] = $tahunAjaranAktif->id_tahun_ajaran;
+        $filters['id_tahun_ajaran'] = $tahunAjaranAktif->id_tahun_ajaran ?? null;
 
         $fileName = 'jadwal-mengajar.xlsx';
         return Excel::download(new JadwalMengajarExport($filters), $fileName);
@@ -303,12 +351,12 @@ class JadwalMengajarController extends Controller
         ]);
 
         $tahunAjaranAktif = TahunAjaran::where('status', 'Aktif')->first();
-        
+
         $query = JadwalMengajar::query()
             ->with(['guru', 'kelas', 'mapel'])
-            ->where('id_tahun_ajaran', $tahunAjaranAktif->id_tahun_ajaran)
+            ->when($tahunAjaranAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAjaranAktif->id_tahun_ajaran))
             ->orderBy('jam_mulai');
-        
+
         $title = 'Jadwal Mengajar';
         if ($filters['filter_by'] === 'kelas' && !empty($filters['kelas_id'])) {
             $query->where('id_kelas', $filters['kelas_id']);
@@ -330,5 +378,156 @@ class JadwalMengajarController extends Controller
         ]);
 
         return $pdf->download('jadwal-mengajar.pdf');
+    }
+
+    public function importExcel(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|mimes:xlsx,xls|max:5120', // max 5MB
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()->first()], 422);
+        }
+
+        $file = $request->file('file');
+
+        // tahun ajaran aktif sebagai default
+        $tahunAjaranAktif = TahunAjaran::where('status', 'Aktif')->first();
+        $tahunId = $tahunAjaranAktif?->id_tahun_ajaran ?? $request->input('id_tahun_ajaran');
+
+        // import
+        $import = new \App\Imports\JadwalMengajarImport($tahunId);
+
+        try {
+            Excel::import($import, $file);
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            // fallback: tangani error validasi paket excel
+            $failures = $e->failures();
+            $failed = [];
+            foreach ($failures as $f) {
+                $failed[] = [
+                    'row' => $f->row(),
+                    'attribute' => $f->attribute(),
+                    'errors' => $f->errors(),
+                    'values' => $f->values(),
+                ];
+            }
+            return response()->json(['error' => 'Validasi file gagal', 'failures' => $failed], 422);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal memproses file: ' . $e->getMessage()], 500);
+        }
+
+        $report = $import->getReport();
+        return response()->json(['report' => $report]);
+    }
+
+    public function downloadTemplate()
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Template Jadwal');
+
+        $headers = ["Hari", "Jam Mulai", "Jam Selesai", "Kode Kelas", "NIP Guru", "Kode Mapel"];
+        $sheet->fromArray([$headers], null, 'A1');
+
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $fileName = 'template_jadwal.xlsx';
+        $path = storage_path("app/public/{$fileName}");
+        $writer->save($path);
+
+        return response()->download($path)->deleteFileAfterSend(true);
+    }
+
+    // ✅ 2. Upload Excel → parsing → preview
+    public function previewImport(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls',
+        ]);
+
+        $file = $request->file('file');
+        $spreadsheet = IOFactory::load($file->getPathname());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray();
+
+        $preview = [];
+        $errors = [];
+
+        foreach ($rows as $index => $row) {
+            if ($index === 0) continue; // skip header
+
+            [$hari, $jam_mulai, $jam_selesai, $kode_kelas, $nip, $kode_mapel] = $row;
+
+            $kelas = Kelas::where('kode', $kode_kelas)->first();
+            $guru = Guru::where('nip', $nip)->first();
+            $mapel = MataPelajaran::where('kode', $kode_mapel)->first();
+
+            $status = "OK";
+
+            if (!$kelas) $status = "Kelas tidak ditemukan";
+            if (!$guru) $status = "Guru tidak ditemukan";
+            if (!$mapel) $status = "Mapel tidak ditemukan";
+            if (strtotime($jam_mulai) >= strtotime($jam_selesai)) $status = "Jam tidak valid";
+
+            $preview[] = [
+                'hari' => $hari,
+                'jam_mulai' => $jam_mulai,
+                'jam_selesai' => $jam_selesai,
+                'kelas' => $kelas?->nama ?? $kode_kelas,
+                'guru' => $guru?->nama ?? $nip,
+                'mapel' => $mapel?->nama ?? $kode_mapel,
+                'status' => $status,
+            ];
+
+            if ($status !== "OK") {
+                $errors[] = "Baris " . ($index + 1) . ": $status";
+            }
+        }
+
+        return Inertia::render('Admin/JadwalMengajar/ImportPreview', [
+            'preview' => $preview,
+            'errors' => $errors,
+        ]);
+    }
+
+    // ✅ 3. Konfirmasi import
+    public function confirmImport(Request $request)
+    {
+        $data = $request->input('data', []);
+        $success = 0;
+        $failed = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($data as $row) {
+                if ($row['status'] !== "OK") {
+                    $failed[] = $row;
+                    continue;
+                }
+
+                $kelas = Kelas::where('nama', $row['kelas'])->first();
+                $guru = Guru::where('nama', $row['guru'])->first();
+                $mapel = MataPelajaran::where('nama', $row['mapel'])->first();
+
+                JadwalMengajar::create([
+                    'hari' => $row['hari'],
+                    'jam_mulai' => $row['jam_mulai'],
+                    'jam_selesai' => $row['jam_selesai'],
+                    'kelas_id' => $kelas->id,
+                    'guru_id' => $guru->id,
+                    'mapel_id' => $mapel->id,
+                ]);
+
+                $success++;
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['import' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.jadwal-mengajar.index')
+            ->with('message', "Import selesai: {$success} berhasil, " . count($failed) . " gagal.");
     }
 }

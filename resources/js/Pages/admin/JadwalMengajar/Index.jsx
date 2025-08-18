@@ -527,6 +527,20 @@ export default function Index({
         closeConfirm();
     };
 
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importReport, setImportReport] = useState(null);
+
+   const safeScheduleGrid = scheduleGrid && Array.isArray(scheduleGrid) ? scheduleGrid : [];
+
+    // debug ringan (hapus nanti jika ingin bersih)
+    useEffect(() => {
+        if (!Array.isArray(scheduleGrid) || scheduleGrid.length === 0) {
+            console.debug('[JadwalMengajar] scheduleGrid kosong atau bukan array:', scheduleGrid);
+        }
+    }, [scheduleGrid]);
+
     return (
         <AdminLayout user={auth.user} header={`Jadwal Mengajar (T.A. ${tahunAjaranAktif?.tahun_ajaran || ''} - ${tahunAjaranAktif?.semester || ''})`}>
             <Head title="Jadwal Mengajar" />
@@ -653,6 +667,15 @@ export default function Index({
                                 Cetak
                             </button>
 
+                            <button
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 transition ease-in-out duration-150"
+                                title="Impor dari Excel"
+                            >
+                                <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12" strokeWidth="2"/><path d="M5 12l7-9 7 9" strokeWidth="2"/></svg>
+                                Impor
+                            </button>
+
                             <PrimaryButton onClick={openAddModal}>
                                 <PlusCircleIcon className="h-5 w-5 mr-2" />
                                 Tambah Jadwal
@@ -702,7 +725,7 @@ export default function Index({
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {scheduleGrid.length > 0 ? scheduleGrid.map((row, rowIndex) => (
+                                    {safeScheduleGrid.length > 0 ? safeScheduleGrid.map((row, rowIndex) => (
                                         <tr key={rowIndex}>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-800 sticky left-0 bg-white z-10">{row.time}</td>
                                             {daysOrder.map(day => (
@@ -723,7 +746,11 @@ export default function Index({
                                             ))}
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan={7} className="text-center py-12 text-gray-500">Tidak ada jadwal untuk ditampilkan.</td></tr>
+                                    <tr>
+                                    <td colSpan={daysOrder.length + 1} className="text-center py-12 text-gray-500">
+                                        Tidak ada jadwal untuk ditampilkan.
+                                    </td>
+                                    </tr>
                                     )}
                                 </tbody>
                             </table>
@@ -853,6 +880,79 @@ export default function Index({
                     </div>
                 </div>
             </Modal>
+
+            <Modal show={isImportModalOpen} onClose={() => { setIsImportModalOpen(false); setImportFile(null); setImportReport(null); }} maxWidth="md">
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-3">Impor Jadwal dari Excel</h3>
+                <p className="text-sm text-gray-600 mb-4">Unduh <a href={route('admin.jadwal-mengajar.import.template')} className="text-indigo-600 underline">template</a> dulu, isi, lalu unggah. Kolom wajib: Hari, Jam Mulai, Jam Selesai, Kode Kelas, NIP Guru, Kode Mapel.</p>
+
+                <div className="mb-4">
+                    <input type="file" accept=".xls,.xlsx" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
+                </div>
+
+                {importReport && (
+                    <div className="mb-4">
+                        <div className="p-3 rounded border bg-gray-50">
+                            <p className="text-sm">Total baris: <strong>{importReport.total_rows}</strong></p>
+                            <p className="text-sm">Berhasil diimpor: <strong>{importReport.imported}</strong></p>
+                            <p className="text-sm">Gagal: <strong>{importReport.failed.length}</strong></p>
+                            {importReport.failed.length > 0 && (
+                                <div className="mt-2 max-h-40 overflow-auto text-xs">
+                                    <table className="min-w-full text-left text-xs">
+                                        <thead>
+                                            <tr><th className="font-semibold">Baris</th><th className="font-semibold">Alasan</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {importReport.failed.map((f, i) => (
+                                                <tr key={i}><td className="py-1 pr-2">{f.row}</td><td className="py-1">{f.reason}</td></tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-3">
+                    <SecondaryButton onClick={() => { setIsImportModalOpen(false); setImportFile(null); setImportReport(null); }}>Tutup</SecondaryButton>
+                    <PrimaryButton
+                        onClick={async () => {
+                            if (!importFile) {
+                                toast.error('Pilih file terlebih dahulu.');
+                                return;
+                            }
+                            setImporting(true);
+                            setImportReport(null);
+                            try {
+                                const formData = new FormData();
+                                formData.append('file', importFile);
+
+                                const resp = await axios.post(route('admin.jadwal-mengajar.import'), formData, {
+                                    headers: { 'Content-Type': 'multipart/form-data' }
+                                });
+                                if (resp.data && resp.data.report) {
+                                    setImportReport(resp.data.report);
+                                    toast.success('Impor selesai. Lihat laporan di bawah.');
+                                } else {
+                                    toast.success('Impor selesai.');
+                                }
+                            } catch (err) {
+                                console.error(err);
+                                const msg = err?.response?.data?.error || 'Gagal mengimpor. Periksa file atau format.';
+                                toast.error(msg);
+                            } finally {
+                                setImporting(false);
+                            }
+                        }}
+                        disabled={importing}
+                    >
+                        {importing ? 'Mengimpor...' : 'Mulai Impor'}
+                    </PrimaryButton>
+                </div>
+            </div>
+            </Modal>
+
 
             {/* Modals (form, delete, detail) tetap sama seperti sebelumnya */}
             <Modal show={isFormModalOpen} onClose={closeFormModal} maxWidth="2xl">

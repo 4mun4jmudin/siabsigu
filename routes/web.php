@@ -110,6 +110,14 @@ Route::middleware('auth')->group(function () {
         Route::patch('jadwal-mengajar/{jadwalMengajar}/update', [JadwalMengajarController::class, 'update'])->name('jadwal-mengajar.update');
         Route::get('jadwal-mengajar/export/excel', [JadwalMengajarController::class, 'exportExcel'])->name('jadwal-mengajar.export.excel');
         Route::get('jadwal-mengajar/export/pdf', [JadwalMengajarController::class, 'exportPdf'])->name('jadwal-mengajar.export.pdf');
+        // Download template impor
+        Route::get('jadwal-mengajar/import/template', [JadwalMengajarController::class, 'downloadTemplate'])->name('jadwal-mengajar.import.template');
+
+        // Endpoint impor (POST)
+        Route::post('jadwal-mengajar/import', [JadwalMengajarController::class, 'importExcel'])->name('jadwal-mengajar.import');
+        Route::get('template', [JadwalMengajarController::class, 'downloadTemplate'])->name('template');
+        Route::post('import/preview', [JadwalMengajarController::class, 'previewImport'])->name('import.preview');
+        Route::post('import/confirm', [JadwalMengajarController::class, 'confirmImport'])->name('import.confirm');
     });
 });
 
