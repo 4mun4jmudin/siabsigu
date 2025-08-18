@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\OrangTuaWaliController;
 use App\Http\Controllers\Admin\AbsensiGuruController;
 use App\Http\Controllers\Admin\PengaturanController;
 use App\Http\Controllers\Admin\AbsensiSiswaController;
+use App\Http\Controllers\Admin\JadwalMengajarController;
 
 /*
 |--------------------------------------------------------------------------
@@ -64,7 +65,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/pengaturan', [PengaturanController::class, 'update'])->name('pengaturan.update');
         Route::post('guru/{guru}/register-fingerprint', [GuruController::class, 'registerFingerprint'])->name('guru.register-fingerprint');
         Route::post('guru/{guru}/generate-barcode', [GuruController::class, 'generateBarcode'])->name('guru.generate-barcode');
-
+        Route::resource('jadwal-mengajar', JadwalMengajarController::class); // Rute ini sudah ada
+        Route::get('jadwal-mengajar/export-excel', [JadwalMengajarController::class, 'exportExcel'])->name('jadwal-mengajar.export-excel');
+        Route::get('jadwal-mengajar/export-pdf', [JadwalMengajarController::class, 'exportPdf'])->name('jadwal-mengajar.export-pdf');
 
 
         // --- Grup Khusus untuk Absensi Guru ---
@@ -87,6 +90,26 @@ Route::middleware('auth')->group(function () {
             Route::get('/export/excel', [AbsensiSiswaController::class, 'exportExcel'])->name('export.excel');
             Route::get('/export/pdf', [AbsensiSiswaController::class, 'exportPdf'])->name('export.pdf');
         });
+
+        Route::resource('jadwal-mengajar', JadwalMengajarController::class);
+
+        // =============================================================
+        // TAMBAHKAN RUTE BARU DI SINI UNTUK MENANGANI DRAG & DROP
+        // =============================================================
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-time', [JadwalMengajarController::class, 'updateTime'])->name('jadwal-mengajar.updateTime');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-time', [JadwalMengajarController::class, 'updateTime'])->name('jadwal-mengajar.updateTime');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-kelas', [JadwalMengajarController::class, 'updateKelas'])->name('jadwal-mengajar.updateKelas');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-guru', [JadwalMengajarController::class, 'updateGuru'])->name('jadwal-mengajar.updateGuru');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-mapel', [JadwalMengajarController::class, 'updateMapel'])->name('jadwal-mengajar.updateMapel');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-hari', [JadwalMengajarController::class, 'updateHari'])->name('jadwal-mengajar.updateHari');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-jam', [JadwalMengajarController::class, 'updateJam'])->name('jadwal-mengajar.updateJam');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-jam   -mulai', [JadwalMengajarController::class, 'updateJamMulai'])->name('jadwal-mengajar.updateJamMulai');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-jam-selesai', [JadwalMengajarController::class, 'updateJamSelesai'])->name('jadwal-mengajar.updateJamSelesai');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-tahun-ajaran', [JadwalMengajarController::class, 'updateTahunAjaran'])->name('jadwal-mengajar.updateTahunAjaran');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update-id', [JadwalMengajarController::class, 'updateId'])->name('jadwal-mengajar.updateId');
+        Route::patch('jadwal-mengajar/{jadwalMengajar}/update', [JadwalMengajarController::class, 'update'])->name('jadwal-mengajar.update');
+        Route::get('jadwal-mengajar/export/excel', [JadwalMengajarController::class, 'exportExcel'])->name('jadwal-mengajar.export.excel');
+        Route::get('jadwal-mengajar/export/pdf', [JadwalMengajarController::class, 'exportPdf'])->name('jadwal-mengajar.export.pdf');
     });
 });
 

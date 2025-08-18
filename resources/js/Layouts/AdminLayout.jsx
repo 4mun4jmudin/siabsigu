@@ -234,11 +234,13 @@ export default function AdminLayout({ user, header, children }) {
                 </CollapsibleNavGroup>
 
                 <li>
-                    <NavLink href="#" isCollapsed={!isSidebarOpen && !isMobile}>
-                        <CalendarDaysIcon className="w-6 h-6" />
-                        {(isSidebarOpen || isMobile) && (
-                            <span className="ml-3">Jadwal Mengajar</span>
-                        )}
+                    <NavLink
+                        href={route("admin.jadwal-mengajar.index")}
+                        active={route().current("admin.jadwal-mengajar.*")}
+                        isCollapsed={false}
+                    >
+                        <AcademicCapIcon className="w-5 h-5 mr-3" />
+                        Jadwal Mengajar
                     </NavLink>
                 </li>
                 <li>

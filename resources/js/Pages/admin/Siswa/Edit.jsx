@@ -24,7 +24,7 @@ export default function Edit({ auth, siswa, kelasOptions }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('siswa.update', siswa.id_siswa), {
+        post(route('admin.siswa.update', siswa.id_siswa), {
             forceFormData: true,
         });
     };

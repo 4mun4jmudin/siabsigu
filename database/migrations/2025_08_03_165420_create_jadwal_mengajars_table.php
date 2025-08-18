@@ -39,6 +39,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('jadwal_mengajars');
+        Schema::dropIfExists('tbl_jadwal_mengajar');
     }
 };
