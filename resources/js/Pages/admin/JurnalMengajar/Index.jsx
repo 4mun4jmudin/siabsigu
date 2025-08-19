@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -25,8 +25,15 @@ import {
     AcademicCapIcon,
     TagIcon,
     PencilSquareIcon as EditPencilIcon,
-    UserGroupIcon
+    UserGroupIcon,
+    PrinterIcon,
+    ChevronDownIcon
 } from '@heroicons/react/24/solid';
+import { Menu, Transition } from '@headlessui/react';
+
+function classNames(...classes) {
+    return classes.filter(Boolean).join(' ');
+}
 
 const StatCard = ({ icon, label, value, color }) => (
     <div className="bg-white p-4 rounded-lg shadow-sm flex items-center space-x-4 border-l-4" style={{ borderColor: color }}>
@@ -134,6 +141,73 @@ export default function Index({ auth, jurnals, stats, filters, guruOptions, kela
         return params ? `${base}?${params}` : base;
     };
 
+    // --- PERBAIKAN: Fungsi cetak langsung yang lebih baik ---
+    const handlePrintAll = () => {
+        const printContent = `
+            <html>
+            <head>
+                <title>Laporan Jurnal Mengajar</title>
+                <style>
+                    body { font-family: sans-serif; margin: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
+                    th { background-color: #f2f2f2; }
+                    h2 { text-align: center; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .header p { margin: 5px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>Laporan Jurnal Mengajar</h2>
+                    <p>Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Kelas</th>
+                            <th>Mata Pelajaran</th>
+                            <th>Guru Pengajar</th>
+                            <th>Waktu</th>
+                            <th>Status</th>
+                            <th>Guru Pengganti</th>
+                            <th>Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${jurnals.map(jurnal => `
+                            <tr>
+                                <td>${displayDate(jurnal.tanggal)}</td>
+                                <td>${jurnal.jadwal_mengajar?.kelas ? `${jurnal.jadwal_mengajar.kelas.tingkat} ${jurnal.jadwal_mengajar.kelas.jurusan}` : '-'}</td>
+                                <td>${jurnal.jadwal_mengajar?.mapel?.nama_mapel || jurnal.jadwal_mengajar?.mataPelajaran?.nama_mapel || '-'}</td>
+                                <td>${jurnal.jadwal_mengajar?.guru?.nama_lengkap || '-'}</td>
+                                <td>${displayTime(jurnal.jam_masuk_kelas)} - ${displayTime(jurnal.jam_keluar_kelas)}</td>
+                                <td>${jurnal.status_mengajar || '-'}</td>
+                                <td>${jurnal.guru_pengganti?.nama_lengkap || '-'}</td>
+                                <td>${jurnal.materi_pembahasan || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.open();
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            // Memberi sedikit waktu agar browser merender HTML sebelum mencetak
+            printWindow.onload = () => {
+                printWindow.print();
+            };
+        } else {
+            alert('Browser memblokir pop-up cetak. Izinkan pop-up dan coba lagi.');
+        }
+    };
+
     const copyMateri = async (text) => {
         if (!text) return;
         try {
@@ -147,24 +221,40 @@ export default function Index({ auth, jurnals, stats, filters, guruOptions, kela
     };
 
     const printDetail = () => {
-        // trik sederhana: buka window baru berisi markup ringkas untuk dicetak
         if (!selectedJurnalDetail) return;
         const html = `
             <html>
             <head>
                 <meta charset="utf-8" />
                 <title>Detail Jurnal - ${selectedJurnalDetail.id_jurnal}</title>
-                <style>body{font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding:20px; color:#111}</style>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding:20px; color:#111; line-height: 1.6; }
+                    h2 { font-size: 20px; margin-bottom: 5px; }
+                    h3 { font-size: 16px; margin-top: 20px; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                    p { margin: 0; }
+                    strong { color: #555; }
+                    .data-item { margin-bottom: 10px; }
+                    .prose { white-space: pre-wrap; word-wrap: break-word; }
+                </style>
             </head>
             <body>
                 <h2>Detail Jurnal Mengajar</h2>
                 <p><strong>Tanggal:</strong> ${displayDate(selectedJurnalDetail.tanggal)}</p>
                 <p><strong>Waktu:</strong> ${displayTime(selectedJurnalDetail.jam_masuk_kelas)} - ${displayTime(selectedJurnalDetail.jam_keluar_kelas)}</p>
-                <p><strong>Guru:</strong> ${selectedJurnalDetail.jadwal_mengajar?.guru?.nama_lengkap || '-'}</p>
-                <p><strong>Kelas:</strong> ${selectedJurnalDetail.jadwal_mengajar?.kelas?.tingkat || '-'} ${selectedJurnalDetail.jadwal_mengajar?.kelas?.jurusan || ''}</p>
-                <p><strong>Mapel:</strong> ${selectedJurnalDetail.jadwal_mengajar?.mapel?.nama_mapel || selectedJurnalDetail.jadwal_mengajar?.mataPelajaran?.nama_mapel || '-'}</p>
+                
+                <h3>Informasi Jurnal</h3>
+                <div class="data-item"><strong>Guru Pengajar:</strong> ${selectedJurnalDetail.jadwal_mengajar?.guru?.nama_lengkap || '-'}</div>
+                <div class="data-item"><strong>Kelas:</strong> ${selectedJurnalDetail.jadwal_mengajar?.kelas ? `${selectedJurnalDetail.jadwal_mengajar.kelas.tingkat} ${selectedJurnalDetail.jadwal_mengajar.kelas.jurusan}` : '-'}</div>
+                <div class="data-item"><strong>Mata Pelajaran:</strong> ${selectedJurnalDetail.jadwal_mengajar?.mapel?.nama_mapel || selectedJurnalDetail.jadwal_mengajar?.mataPelajaran?.nama_mapel || '-'}</div>
+                <div class="data-item"><strong>Status Mengajar:</strong> ${selectedJurnalDetail.status_mengajar || '-'}</div>
+                ${selectedJurnalDetail.status_mengajar === 'Digantikan' ? `<div class="data-item"><strong>Guru Pengganti:</strong> ${selectedJurnalDetail.guru_pengganti?.nama_lengkap || '-'}</div>` : ''}
+
                 <h3>Materi Pembahasan</h3>
-                <pre style="white-space:pre-wrap;line-height:1.4">${(selectedJurnalDetail.materi_pembahasan || '-')}</pre>
+                <div class="prose">${(selectedJurnalDetail.materi_pembahasan || 'Tidak ada materi tercatat.')}</div>
+
+                <h3>Metadata</h3>
+                <div class="data-item"><strong>Diinput oleh:</strong> ${selectedJurnalDetail.penginputManual?.nama_lengkap || '-'}</div>
+                <div class="data-item"><strong>Keterangan:</strong> ${selectedJurnalDetail.keterangan || '-'}</div>
             </body>
             </html>
         `;
@@ -196,24 +286,76 @@ export default function Index({ auth, jurnals, stats, filters, guruOptions, kela
                     <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                         <h3 className="text-lg font-semibold text-gray-800">Daftar Jurnal Mengajar</h3>
                         <div className="flex flex-wrap gap-2">
-                            <a
-                                href={buildExportUrl('excel')}
-                                className="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-500 transition"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
-                                Ekspor Excel
-                            </a>
-                            <a
-                                href={buildExportUrl('pdf')}
-                                className="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-500 transition"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
-                                Ekspor PDF
-                            </a>
+                            {/* Tombol Cetak & Export dalam Dropdown */}
+                            <Menu as="div" className="relative inline-block text-left">
+                                <div>
+                                    <Menu.Button className="inline-flex w-full justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                        <DocumentArrowDownIcon className="-ml-0.5 h-5 w-5 text-gray-400" aria-hidden="true" />
+                                        Opsi Cetak & Ekspor
+                                        <ChevronDownIcon className="-mr-1 h-5 w-5 text-gray-400" aria-hidden="true" />
+                                    </Menu.Button>
+                                </div>
+                                <Transition
+                                    as={Fragment}
+                                    enter="transition ease-out duration-100"
+                                    enterFrom="transform opacity-0 scale-95"
+                                    enterTo="transform opacity-100 scale-100"
+                                    leave="transition ease-in duration-75"
+                                    leaveFrom="transform opacity-100 scale-100"
+                                    leaveTo="transform opacity-0 scale-95"
+                                >
+                                    <Menu.Items className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                        <div className="py-1">
+                                            <Menu.Item>
+                                                {({ active }) => (
+                                                    <button
+                                                        onClick={handlePrintAll}
+                                                        className={classNames(
+                                                            active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                                                            'flex items-center w-full px-4 py-2 text-sm'
+                                                        )}
+                                                    >
+                                                        <PrinterIcon className="h-4 w-4 mr-2" />
+                                                        Cetak Semua Data
+                                                    </button>
+                                                )}
+                                            </Menu.Item>
+                                            <Menu.Item>
+                                                {({ active }) => (
+                                                    <a
+                                                        href={buildExportUrl('pdf')}
+                                                        className={classNames(
+                                                            active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                                                            'flex items-center w-full px-4 py-2 text-sm'
+                                                        )}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+                                                        Ekspor PDF
+                                                    </a>
+                                                )}
+                                            </Menu.Item>
+                                            <Menu.Item>
+                                                {({ active }) => (
+                                                    <a
+                                                        href={buildExportUrl('excel')}
+                                                        className={classNames(
+                                                            active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                                                            'flex items-center w-full px-4 py-2 text-sm'
+                                                        )}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
+                                                        Ekspor Excel
+                                                    </a>
+                                                )}
+                                            </Menu.Item>
+                                        </div>
+                                    </Menu.Items>
+                                </Transition>
+                            </Menu>
                             <Link href={route('admin.jurnal-mengajar.create')} className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 transition">
                                 <PlusCircleIcon className="h-5 w-5 mr-2" />
                                 Tambah Jurnal
@@ -333,18 +475,18 @@ export default function Index({ auth, jurnals, stats, filters, guruOptions, kela
 
             {/* Modal Detail (Ditingkatkan UI) */}
             <Modal show={isDetailModalOpen} onClose={closeDetailModal} maxWidth="3xl">
-                <div className="p-6">
-                    <div className="flex justify-between items-start pb-4 border-b">
+                <div className="p-6 overflow-y-auto max-h-[90vh]">
+                    <div className="flex items-start justify-between pb-4 border-b">
                         <div>
                             <h2 className="text-xl font-bold text-gray-800">Detail Jurnal Mengajar</h2>
                             <p className="text-sm text-gray-500 mt-1">
                                 {selectedJurnalDetail ? `${displayDate(selectedJurnalDetail.tanggal)} • ${displayTime(selectedJurnalDetail.jam_masuk_kelas)} - ${displayTime(selectedJurnalDetail.jam_keluar_kelas)}` : ''}
                             </p>
                         </div>
-
                         <div className="flex items-center gap-2">
+                            {/* Tombol Cetak Detail */}
                             <button onClick={printDetail} className="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-sm hover:bg-gray-50" title="Cetak detail">
-                                <DocumentArrowDownIcon className="h-4 w-4" />
+                                <PrinterIcon className="h-4 w-4" />
                                 Cetak
                             </button>
                             <button onClick={closeDetailModal} className="text-gray-400 hover:text-gray-600 p-2 rounded" title="Tutup">
@@ -354,14 +496,13 @@ export default function Index({ auth, jurnals, stats, filters, guruOptions, kela
                             </button>
                         </div>
                     </div>
-
                     {selectedJurnalDetail && (
                         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* Kolom kiri: ringkasan utama */}
                             <div className="md:col-span-1 bg-white border rounded-lg p-4 shadow-sm">
                                 <div className="flex items-center space-x-3">
                                     <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-semibold">
-                                        {selectedJurnalDetail.jadwal_mengajar?.guru?.nama_lengkap ? selectedJurnalDetail.jadwal_mengajar.guru.nama_lengkap.split(' ').map(n => n[0]).slice(0,2).join('') : 'GP'}
+                                        {selectedJurnalDetail.jadwal_mengajar?.guru?.nama_lengkap ? selectedJurnalDetail.jadwal_mengajar.guru.nama_lengkap.split(' ').map(n => n[0]).slice(0, 2).join('') : 'GP'}
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-700">{selectedJurnalDetail.jadwal_mengajar?.guru?.nama_lengkap ?? '-'}</p>
@@ -429,7 +570,6 @@ export default function Index({ auth, jurnals, stats, filters, guruOptions, kela
                             </div>
                         </div>
                     )}
-
                     <div className="mt-6 flex justify-end">
                         <SecondaryButton onClick={closeDetailModal}>Tutup</SecondaryButton>
                     </div>
