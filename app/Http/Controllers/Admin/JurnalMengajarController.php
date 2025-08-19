@@ -16,22 +16,28 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\JurnalMengajarExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class JurnalMengajarController extends Controller
 {
     public function index(Request $request)
     {
         $filters = $request->all(
-            'search', 'tanggal_mulai', 'tanggal_selesai', 'id_guru', 'id_kelas'
+            'search',
+            'tanggal_mulai',
+            'tanggal_selesai',
+            'id_guru',
+            'id_kelas'
         );
 
         $jurnals = JurnalMengajar::query()
             ->with([
-                'jadwalMengajar' => function($query) {
+                'jadwalMengajar' => function ($query) {
                     $query->with([
                         'guru' => fn($q) => $q->select('id_guru', 'nama_lengkap'),
                         'kelas' => fn($q) => $q->select('id_kelas', 'tingkat', 'jurusan'),
-                        // PERBAIKAN: Memuat kedua relasi sekaligus untuk memastikan ketersediaan data.
                         'mataPelajaran' => fn($q) => $q->select('id_mapel', 'nama_mapel'),
                         'mapel' => fn($q) => $q->select('id_mapel', 'nama_mapel'),
                     ]);
@@ -42,8 +48,8 @@ class JurnalMengajarController extends Controller
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->whereHas('jadwalMengajar.guru', fn($q) => $q->where('nama_lengkap', 'like', "%{$search}%"))
-                      ->orWhereHas('jadwalMengajar.kelas', fn($q) => $q->where('tingkat', 'like', "%{$search}%")->orWhere('jurusan', 'like', "%{$search}%"))
-                      ->orWhere('materi_pembahasan', 'like', "%{$search}%");
+                        ->orWhereHas('jadwalMengajar.kelas', fn($q) => $q->where('tingkat', 'like', "%{$search}%")->orWhere('jurusan', 'like', "%{$search}%"))
+                        ->orWhere('materi_pembahasan', 'like', "%{$search}%");
                 });
             })
             ->when($filters['tanggal_mulai'] ?? null, fn($query, $date) => $query->whereDate('tanggal', '>=', $date))
@@ -51,8 +57,7 @@ class JurnalMengajarController extends Controller
             ->when($filters['id_guru'] ?? null, fn($query, $guruId) => $query->whereHas('jadwalMengajar', fn($q) => $q->where('id_guru', $guruId)))
             ->when($filters['id_kelas'] ?? null, fn($query, $kelasId) => $query->whereHas('jadwalMengajar', fn($q) => $q->where('id_kelas', $kelasId)))
             ->latest('tanggal')
-            ->paginate(10)
-            ->withQueryString();
+            ->get();
 
         $stats = [
             'total_jurnal' => JurnalMengajar::count(),
@@ -69,10 +74,30 @@ class JurnalMengajarController extends Controller
             'kelasOptions' => Kelas::orderBy('tingkat')->get(['id_kelas', 'tingkat', 'jurusan']),
         ]);
     }
+    
+    // --- PERBAIKAN: Menambahkan metode show() ---
+    public function show(JurnalMengajar $jurnalMengajar)
+    {
+        $jurnalMengajar->load([
+            'jadwalMengajar' => function ($query) {
+                $query->with([
+                    'guru' => fn($q) => $q->select('id_guru', 'nama_lengkap'),
+                    'kelas' => fn($q) => $q->select('id_kelas', 'tingkat', 'jurusan'),
+                    'mataPelajaran' => fn($q) => $q->select('id_mapel', 'nama_mapel'),
+                    'mapel' => fn($q) => $q->select('id_mapel', 'nama_mapel'),
+                ]);
+            },
+            'guruPengganti' => fn($q) => $q->select('id_guru', 'nama_lengkap'),
+            'penginputManual' => fn($q) => $q->select('id_pengguna', 'nama_lengkap'),
+        ]);
 
+        return Inertia::render('admin/JurnalMengajar/Show', [
+            'jurnal' => $jurnalMengajar,
+        ]);
+    }
+    
     public function create(Request $request)
     {
-        // PERBAIKAN: Muat relasi 'mapel' juga di sini
         $jadwalOptions = JadwalMengajar::with(['guru', 'kelas', 'mataPelajaran', 'mapel'])->get();
         $guruOptions = Guru::orderBy('nama_lengkap')->get();
 
@@ -82,15 +107,13 @@ class JurnalMengajarController extends Controller
             'jadwalId' => $request->query('id_jadwal'),
         ]);
     }
-    
-    // ... metode edit() perlu diperbaiki juga untuk memuat 'mapel' ...
+
     public function edit(JurnalMengajar $jurnalMengajar)
     {
-        // PERBAIKAN: Muat relasi 'mapel' juga di sini
         $jurnalMengajar->load(['jadwalMengajar.guru', 'jadwalMengajar.kelas', 'jadwalMengajar.mataPelajaran', 'jadwalMengajar.mapel']);
         $jadwalOptions = JadwalMengajar::with(['guru', 'kelas', 'mataPelajaran', 'mapel'])->get();
         $guruOptions = Guru::orderBy('nama_lengkap')->get();
-        
+
         return Inertia::render('admin/JurnalMengajar/Edit', [
             'jurnal' => $jurnalMengajar,
             'jadwalOptions' => $jadwalOptions,
@@ -119,18 +142,7 @@ class JurnalMengajarController extends Controller
         return to_route('admin.jurnal-mengajar.index')->with('success', 'Jurnal mengajar berhasil ditambahkan.');
     }
 
-    // public function edit(JurnalMengajar $jurnalMengajar)
-    // {
-    //     $jurnalMengajar->load(['jadwalMengajar.guru', 'jadwalMengajar.kelas', 'jadwalMengajar.mataPelajaran']);
-    //     $jadwalOptions = JadwalMengajar::with(['guru', 'kelas', 'mataPelajaran'])->get();
-    //     $guruOptions = Guru::orderBy('nama_lengkap')->get();
 
-    //     return Inertia::render('admin/JurnalMengajar/Edit', [
-    //         'jurnal' => $jurnalMengajar,
-    //         'jadwalOptions' => $jadwalOptions,
-    //         'guruOptions' => $guruOptions,
-    //     ]);
-    // }
 
     public function update(Request $request, JurnalMengajar $jurnalMengajar)
     {
@@ -186,5 +198,66 @@ class JurnalMengajarController extends Controller
             ->get(['id_guru', 'nip', 'nama_lengkap']);
 
         return response()->json(['guru_tersedia' => $guruTersedia]);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $filters = $request->all(
+            'search',
+            'tanggal_mulai',
+            'tanggal_selesai',
+            'id_guru',
+            'id_kelas'
+        );
+        $fileName = 'jurnal-mengajar-' . Carbon::now()->format('Y-m-d') . '.xlsx';
+
+        return Excel::download(new JurnalMengajarExport($filters), $fileName);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $filters = $request->all(
+            'search',
+            'tanggal_mulai',
+            'tanggal_selesai',
+            'id_guru',
+            'id_kelas'
+        );
+
+        $query = JurnalMengajar::query()
+            ->with([
+                'jadwalMengajar.guru',
+                'jadwalMengajar.kelas',
+                'jadwalMengajar.mataPelajaran',
+                'jadwalMengajar.mapel',
+                'guruPengganti'
+            ])
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->whereHas('jadwalMengajar.guru', fn($q) => $q->where('nama_lengkap', 'like', "%{$search}%"))
+                    ->orWhereHas('jadwalMengajar.kelas', fn($q) => $q->where('tingkat', 'like', "%{$search}%")->orWhere('jurusan', 'like', "%{$search}%"))
+                    ->orWhere('materi_pembahasan', 'like', "%{$search}%");
+            })
+            ->when($filters['tanggal_mulai'] ?? null, fn($query, $date) => $query->whereDate('tanggal', '>=', $date))
+            ->when($filters['tanggal_selesai'] ?? null, fn($query, $date) => $query->whereDate('tanggal', '<=', $date))
+            ->when($filters['id_guru'] ?? null, fn($query, $guruId) => $query->whereHas('jadwalMengajar', fn($q) => $q->where('id_guru', $guruId)))
+            ->when($filters['id_kelas'] ?? null, fn($query, $kelasId) => $query->whereHas('jadwalMengajar', fn($q) => $q->where('id_kelas', $kelasId)))
+            ->latest('tanggal');
+
+        $jurnals = $query->get();
+
+        $data = [
+            'jurnals' => $jurnals,
+            'filters' => $filters,
+            'school' => [
+                'name' => config('app.name', 'SMKS IT AL-HAWARI'),
+                'address' => 'SMKS IT AL-HAWARI terletak di KP. CURUG RT/RW 02/06 DESA CIPAREUAN, Cipareuan, Kec. Cibiuk, Kab. Garut, Jawa Barat.',
+                'phone' => '085871071738',
+            ],
+        ];
+
+        $pdf = Pdf::loadView('pdf.jurnal_mengajar_pdf_v2', $data)
+            ->setPaper('a4', 'landscape');
+
+        return $pdf->download('jurnal-mengajar-' . now()->format('Y-m-d') . '.pdf');
     }
 }

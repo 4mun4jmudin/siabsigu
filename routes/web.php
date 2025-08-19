@@ -93,7 +93,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/export/pdf', [AbsensiSiswaController::class, 'exportPdf'])->name('export.pdf');
         });
 
-        Route::resource('jadwal-mengajar', JadwalMengajarController::class);
+        // Route::resource('jadwal-mengajar', JadwalMengajarController::class);
 
         // =============================================================
         // TAMBAHKAN RUTE BARU DI SINI UNTUK MENANGANI DRAG & DROP
@@ -124,19 +124,25 @@ Route::middleware('auth')->group(function () {
 
         Route::resource('jurnal-mengajar', JurnalMengajarController::class);
 
-        // Export Excel / PDF
-        Route::get('jurnal-mengajar/export/excel', [JurnalMengajarController::class, 'exportExcel'])
-            ->name('jurnal-mengajar.export.excel');
-        Route::get('jurnal-mengajar/export/pdf', [JurnalMengajarController::class, 'exportPdf'])
-            ->name('jurnal-mengajar.export.pdf');
+        Route::get('jurnal-mengajar/export/excel', [JurnalMengajarController::class, 'exportExcel'])->name('jurnal-mengajar.export.excel');
+        Route::get('jurnal-mengajar/export/pdf', [JurnalMengajarController::class, 'exportPdf'])->name('jurnal-mengajar.export.pdf');
 
         // Guru Pengganti
         Route::get('jurnal-mengajar/find-pengganti', [JurnalMengajarController::class, 'findGuruPengganti'])
             ->name('jurnal-mengajar.find-pengganti');
-        // Route::get('jurnal-mengajar/{jurnal}/cari-guru', [JurnalMengajarController::class, 'cariGuruPengganti'])
-        //     ->name('jurnal-mengajar.cari-guru');
-        // Route::post('jurnal-mengajar/{jurnal}/ganti-guru', [JurnalMengajarController::class, 'gantiGuru'])
-        //     ->name('jurnal-mengajar.ganti-guru');
+        Route::get('jurnal-mengajar/{jurnal}/cari-guru', [JurnalMengajarController::class, 'cariGuruPengganti'])
+            ->name('jurnal-mengajar.cari-guru');
+        Route::post('jurnal-mengajar/{jurnal}/ganti-guru', [JurnalMengajarController::class, 'gantiGuru'])
+            ->name('jurnal-mengajar.ganti-guru');
+        Route::controller(JurnalMengajarController::class)->group(function () {
+            Route::get('admin/jurnal-mengajar', 'index')->name('admin.jurnal-mengajar.index');
+            Route::get('admin/jurnal-mengajar/{jurnalMengajar}', 'show')->name('admin.jurnal-mengajar.show'); // --- PERBAIKAN: Tambah rute ini ---
+            Route::post('admin/jurnal-mengajar', 'store')->name('admin.jurnal-mengajar.store');
+            Route::put('admin/jurnal-mengajar/{jurnal}', 'update')->name('admin.jurnal-mengajar.update');
+            Route::delete('admin/jurnal-mengajar/{jurnal}', 'destroy')->name('admin.jurnal-mengajar.destroy');
+            Route::get('admin/jurnal-mengajar/export-excel', 'exportExcel')->name('admin.jurnal-mengajar.export.excel');
+            Route::get('admin/jurnal-mengajar/export-pdf', 'exportPdf')->name('admin.jurnal-mengajar.export.pdf');
+        });
     });
 });
 
