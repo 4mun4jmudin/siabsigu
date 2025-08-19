@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\AbsensiGuruController;
 use App\Http\Controllers\Admin\PengaturanController;
 use App\Http\Controllers\Admin\AbsensiSiswaController;
 use App\Http\Controllers\Admin\JadwalMengajarController;
+use App\Http\Controllers\Admin\JurnalMengajarController;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +51,7 @@ Route::middleware('auth')->group(function () {
     // ->name('admin.') membuat nama rute diawali dengan admin...
     // =========================================================================
     Route::prefix('admin')->name('admin.')->group(function () {
+
 
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
@@ -118,6 +120,23 @@ Route::middleware('auth')->group(function () {
         Route::get('template', [JadwalMengajarController::class, 'downloadTemplate'])->name('template');
         Route::post('import/preview', [JadwalMengajarController::class, 'previewImport'])->name('import.preview');
         Route::post('import/confirm', [JadwalMengajarController::class, 'confirmImport'])->name('import.confirm');
+
+
+        Route::resource('jurnal-mengajar', JurnalMengajarController::class);
+
+        // Export Excel / PDF
+        Route::get('jurnal-mengajar/export/excel', [JurnalMengajarController::class, 'exportExcel'])
+            ->name('jurnal-mengajar.export.excel');
+        Route::get('jurnal-mengajar/export/pdf', [JurnalMengajarController::class, 'exportPdf'])
+            ->name('jurnal-mengajar.export.pdf');
+
+        // Guru Pengganti
+        Route::get('jurnal-mengajar/find-pengganti', [JurnalMengajarController::class, 'findGuruPengganti'])
+            ->name('jurnal-mengajar.find-pengganti');
+        // Route::get('jurnal-mengajar/{jurnal}/cari-guru', [JurnalMengajarController::class, 'cariGuruPengganti'])
+        //     ->name('jurnal-mengajar.cari-guru');
+        // Route::post('jurnal-mengajar/{jurnal}/ganti-guru', [JurnalMengajarController::class, 'gantiGuru'])
+        //     ->name('jurnal-mengajar.ganti-guru');
     });
 });
 

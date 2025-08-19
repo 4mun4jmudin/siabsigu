@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::table('tbl_mata_pelajaran', function (Blueprint $table) {
             $table->enum('status', ['Aktif', 'Tidak Aktif'])
-                  ->default('Aktif')
-                  ->after('kkm');
+                ->default('Aktif')
+                ->after('kkm');
 
             $table->integer('jumlah_jp')
-                  ->nullable()
-                  ->after('status');
+                ->nullable()
+                ->after('status');
         });
     }
 
@@ -32,4 +32,3 @@ return new class extends Migration
         });
     }
 };
-    

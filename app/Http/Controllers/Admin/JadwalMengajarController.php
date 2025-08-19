@@ -416,22 +416,22 @@ class JadwalMengajarController extends Controller
         return response()->json(['message' => 'Semua data berhasil diimpor!']);
     }
 
-    public function downloadTemplate()
-    {
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Template Jadwal');
+    // public function downloadTemplate()
+    // {
+    //     $spreadsheet = new Spreadsheet();
+    //     $sheet = $spreadsheet->getActiveSheet();
+    //     $sheet->setTitle('Template Jadwal');
 
-        $headers = ["Hari", "Jam Mulai", "Jam Selesai", "Kode Kelas", "NIP Guru", "Kode Mapel"];
-        $sheet->fromArray([$headers], null, 'A1');
+    //     $headers = ["Hari", "Jam Mulai", "Jam Selesai", "Kode Kelas", "NIP Guru", "Kode Mapel"];
+    //     $sheet->fromArray([$headers], null, 'A1');
 
-        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
-        $fileName = 'template_jadwal.xlsx';
-        $path = storage_path("app/public/{$fileName}");
-        $writer->save($path);
+    //     $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+    //     $fileName = 'template_jadwal.xlsx';
+    //     $path = storage_path("app/public/{$fileName}");
+    //     $writer->save($path);
 
-        return response()->download($path)->deleteFileAfterSend(true);
-    }
+    //     return response()->download($path)->deleteFileAfterSend(true);
+    // }
 
     // ✅ 2. Upload Excel → parsing → preview
     public function previewImport(Request $request)
@@ -524,5 +524,40 @@ class JadwalMengajarController extends Controller
 
         return redirect()->route('admin.jadwal-mengajar.index')
             ->with('message', "Import selesai: {$success} berhasil, " . count($failed) . " gagal.");
+    }
+
+    public function downloadTemplate()
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Template Jadwal');
+
+        // Header
+        $headers = ["Hari", "Jam Mulai", "Jam Selesai", "id_kelas", "NIP", "id_mapel"];
+        $sheet->fromArray([$headers], null, 'A1');
+
+        // Contoh baris isi
+        $example = ["Senin", "08:00", "09:00", "KLS-001", "1987654321", "MAP-01"];
+        $sheet->fromArray([$example], null, 'A2');
+
+        // Info tambahan (note) di bawahnya
+        $sheet->setCellValue('A4', 'Catatan:');
+        $sheet->setCellValue('A5', '- Hari: Senin, Selasa, Rabu, Kamis, Jumat, Sabtu');
+        $sheet->setCellValue('A6', '- Format jam: HH:mm (contoh: 07:30)');
+        $sheet->setCellValue('A7', '- id_kelas: ambil dari tabel kelas (kolom id_kelas)');
+        $sheet->setCellValue('A8', '- NIP: NIP guru sesuai database');
+        $sheet->setCellValue('A9', '- id_mapel: ambil dari tabel mata pelajaran (kolom id_mapel)');
+
+        // Lebarkan kolom otomatis
+        foreach (range('A', 'F') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $fileName = 'template_jadwal.xlsx';
+        $path = storage_path("app/public/{$fileName}");
+        $writer->save($path);
+
+        return response()->download($path)->deleteFileAfterSend(true);
     }
 }

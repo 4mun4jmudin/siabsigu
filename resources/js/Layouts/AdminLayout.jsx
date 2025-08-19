@@ -28,9 +28,8 @@ function NavLink({ href, active, isCollapsed, children }) {
     return (
         <Link
             href={href}
-            className={`flex items-center w-full p-2 text-base text-white rounded-lg group hover:bg-[#374EC4] transition duration-75 ${
-                active ? "bg-[#374EC4]" : ""
-            } ${isCollapsed ? "justify-center" : ""}`}
+            className={`flex items-center w-full p-2 text-base text-white rounded-lg group hover:bg-[#374EC4] transition duration-75 ${active ? "bg-[#374EC4]" : ""
+                } ${isCollapsed ? "justify-center" : ""}`}
         >
             {children}
         </Link>
@@ -57,9 +56,8 @@ function CollapsibleNavGroup({
         <li>
             <button
                 type="button"
-                className={`flex items-center w-full p-2 text-base text-white rounded-lg group hover:bg-[#374EC4] transition duration-75 ${
-                    active && !isOpen ? "bg-[#374EC4]" : ""
-                }`}
+                className={`flex items-center w-full p-2 text-base text-white rounded-lg group hover:bg-[#374EC4] transition duration-75 ${active && !isOpen ? "bg-[#374EC4]" : ""
+                    }`}
                 onClick={() => setIsOpen(!isOpen)}
             >
                 {icon}
@@ -69,9 +67,8 @@ function CollapsibleNavGroup({
                             {title}
                         </span>
                         <ChevronDownIcon
-                            className={`w-5 h-5 transition-transform duration-200 ${
-                                isOpen ? "rotate-180" : ""
-                            }`}
+                            className={`w-5 h-5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+                                }`}
                         />
                     </>
                 )}
@@ -111,9 +108,8 @@ export default function AdminLayout({ user, header, children }) {
         <div className="flex flex-col h-full">
             {/* Logo */}
             <div
-                className={`p-4 flex items-center ${
-                    !isSidebarOpen && !isMobile ? "justify-center" : ""
-                }`}
+                className={`p-4 flex items-center ${!isSidebarOpen && !isMobile ? "justify-center" : ""
+                    }`}
             >
                 <ClockIcon className="h-8 w-8 mr-2 text-white flex-shrink-0" />
                 {(isSidebarOpen || isMobile) && (
@@ -237,15 +233,21 @@ export default function AdminLayout({ user, header, children }) {
                     <NavLink
                         href={route("admin.jadwal-mengajar.index")}
                         active={route().current("admin.jadwal-mengajar.*")}
-                        isCollapsed={false}
+                        isCollapsed={!isSidebarOpen && !isMobile}
                     >
-                        <AcademicCapIcon className="w-5 h-5 mr-3" />
-                        Jadwal Mengajar
+                        <CalendarDaysIcon className="w-6 h-6" /> {/* Ganti ikon agar lebih sesuai */}
+                        {(isSidebarOpen || isMobile) && (
+                            <span className="ml-3">Jadwal Mengajar</span>
+                        )}
                     </NavLink>
                 </li>
                 <li>
-                    <NavLink href="#" isCollapsed={!isSidebarOpen && !isMobile}>
-                        <DocumentTextIcon className="w-6 h-6" />
+                    <NavLink
+                        href={route("admin.jurnal-mengajar.index")}
+                        active={route().current("admin.jurnal-mengajar.*")}
+                        isCollapsed={!isSidebarOpen && !isMobile}
+                    >
+                        <DocumentTextIcon className="w-6 h-6" /> {/* Ganti ikon agar lebih sesuai */}
                         {(isSidebarOpen || isMobile) && (
                             <span className="ml-3">Jurnal Mengajar</span>
                         )}
@@ -344,18 +346,16 @@ export default function AdminLayout({ user, header, children }) {
 
                 {/* --- Sidebar Desktop --- */}
                 <aside
-                    className={`hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col bg-[#1E3A8A] transition-all duration-300 ${
-                        isSidebarOpen ? "lg:w-64" : "lg:w-20"
-                    }`}
+                    className={`hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col bg-[#1E3A8A] transition-all duration-300 ${isSidebarOpen ? "lg:w-64" : "lg:w-20"
+                        }`}
                 >
                     {sidebarContent(false)}
                 </aside>
 
                 {/* --- Konten Utama --- */}
                 <div
-                    className={`flex flex-col min-h-screen transition-all duration-300 ${
-                        isSidebarOpen ? "lg:pl-64" : "lg:pl-20"
-                    }`}
+                    className={`flex flex-col min-h-screen transition-all duration-300 ${isSidebarOpen ? "lg:pl-64" : "lg:pl-20"
+                        }`}
                 >
                     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm">
                         <button
@@ -462,11 +462,10 @@ export default function AdminLayout({ user, header, children }) {
                                                         href={route(
                                                             "profile.edit"
                                                         )}
-                                                        className={`${
-                                                            active
-                                                                ? "bg-gray-50"
-                                                                : ""
-                                                        } block px-3 py-1 text-sm leading-6 text-gray-900 w-full text-left`}
+                                                        className={`${active
+                                                            ? "bg-gray-50"
+                                                            : ""
+                                                            } block px-3 py-1 text-sm leading-6 text-gray-900 w-full text-left`}
                                                     >
                                                         Profil Anda
                                                     </Link>
@@ -478,11 +477,10 @@ export default function AdminLayout({ user, header, children }) {
                                                         href={route("logout")}
                                                         method="post"
                                                         as="button"
-                                                        className={`${
-                                                            active
-                                                                ? "bg-gray-50"
-                                                                : ""
-                                                        } block px-3 py-1 text-sm leading-6 text-gray-900 w-full text-left`}
+                                                        className={`${active
+                                                            ? "bg-gray-50"
+                                                            : ""
+                                                            } block px-3 py-1 text-sm leading-6 text-gray-900 w-full text-left`}
                                                     >
                                                         Log Out
                                                     </Link>
