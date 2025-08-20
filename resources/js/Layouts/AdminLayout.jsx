@@ -21,6 +21,7 @@ import {
     XMarkIcon,
     BuildingOffice2Icon,
     MagnifyingGlassIcon,
+    ChartPieIcon
 } from "@heroicons/react/24/outline";
 
 // Komponen untuk link navigasi di dalam sidebar
@@ -254,8 +255,11 @@ export default function AdminLayout({ user, header, children }) {
                     </NavLink>
                 </li>
                 <li>
-                    <NavLink href="#" isCollapsed={!isSidebarOpen && !isMobile}>
-                        <ChartBarIcon className="w-6 h-6" />
+                    <NavLink
+                        href={route("admin.laporan.index")}
+                        active={route().current("admin.laporan.*")}
+                    >
+                        <ChartBarIcon className="w-6 h-6" /> {/* Ganti ikon agar lebih sesuai */}
                         {(isSidebarOpen || isMobile) && (
                             <span className="ml-3">Laporan</span>
                         )}

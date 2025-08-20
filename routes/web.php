@@ -15,12 +15,14 @@ use App\Http\Controllers\Admin\PengaturanController;
 use App\Http\Controllers\Admin\AbsensiSiswaController;
 use App\Http\Controllers\Admin\JadwalMengajarController;
 use App\Http\Controllers\Admin\JurnalMengajarController;
+use App\Http\Controllers\Admin\LaporanController;
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
 */
+
 
 // Rute Halaman Utama
 Route::get('/', function () {
@@ -134,6 +136,7 @@ Route::middleware('auth')->group(function () {
             ->name('jurnal-mengajar.cari-guru');
         Route::post('jurnal-mengajar/{jurnal}/ganti-guru', [JurnalMengajarController::class, 'gantiGuru'])
             ->name('jurnal-mengajar.ganti-guru');
+
         Route::controller(JurnalMengajarController::class)->group(function () {
             Route::get('admin/jurnal-mengajar', 'index')->name('admin.jurnal-mengajar.index');
             Route::get('admin/jurnal-mengajar/{jurnalMengajar}', 'show')->name('admin.jurnal-mengajar.show'); // --- PERBAIKAN: Tambah rute ini ---
@@ -143,6 +146,10 @@ Route::middleware('auth')->group(function () {
             Route::get('admin/jurnal-mengajar/export-excel', 'exportExcel')->name('admin.jurnal-mengajar.export.excel');
             Route::get('admin/jurnal-mengajar/export-pdf', 'exportPdf')->name('admin.jurnal-mengajar.export.pdf');
         });
+
+        Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+        Route::get('/laporan/export-pdf', [LaporanController::class, 'exportPdf'])->name('laporan.export.pdf');
+        Route::get('/laporan/export-excel', [LaporanController::class, 'exportExcel'])->name('laporan.export.excel');
     });
 });
 
