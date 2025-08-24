@@ -28,7 +28,7 @@ export default function Create({ auth, siswaOptions }) {
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('orang-tua-wali.store'));
+        post(route('admin.orang-tua-wali.store'));
     };
 
     return (

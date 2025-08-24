@@ -13,7 +13,7 @@ export default function Create({ auth, guruOptions }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('kelas.store'));
+        post(route('admin.kelas.store'));
     };
 
     return (

@@ -96,7 +96,7 @@ export default function Index({ auth, kelasList, stats, filters }) {
     
     const deleteItem = (e) => {
         e.preventDefault();
-        destroy(route('kelas.destroy', itemToDelete.id_kelas), {
+        destroy(route('admin.kelas.destroy', itemToDelete.id_kelas), {
             preserveScroll: true,
             onSuccess: () => closeModal(),
             onError: () => closeModal(),

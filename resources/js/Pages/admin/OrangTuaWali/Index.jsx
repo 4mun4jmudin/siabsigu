@@ -48,7 +48,7 @@ export default function Index({ auth, waliList, stats, filters }) {
     const deleteWali = (e) => {
         e.preventDefault();
         if (waliToDelete) {
-            router.delete(route('orang-tua-wali.destroy', waliToDelete.id_wali), {
+            router.delete(route('admin.orang-tua-wali.destroy', waliToDelete.id_wali), {
                 onSuccess: () => closeDeleteModal(),
                 preserveScroll: true,
             });

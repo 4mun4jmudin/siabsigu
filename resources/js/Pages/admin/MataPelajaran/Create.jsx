@@ -47,7 +47,7 @@ export default function Create({ auth, gurus, kelasList }) {
 
     const submit = (e) => {
         e.preventDefault();
-        post(route("mata-pelajaran.store"));
+        post(route("admin.mata-pelajaran.store"));
     };
 
     return (

@@ -53,7 +53,7 @@ export default function Show({ auth, wali, absensiSiswa }) {
 
     const handleResetPassword = (e) => {
         e.preventDefault();
-        post(route('orang-tua-wali.reset-password', wali.id_wali), {
+        post(route('admin.orang-tua-wali.reset-password', wali.id_wali), {
             onSuccess: () => setShowConfirmReset(false),
         });
     };

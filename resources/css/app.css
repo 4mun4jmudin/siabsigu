@@ -7,3 +7,138 @@
 [x-cloak] {
     display: none !important;
 }
+
+/* ===== Heatmap layout fixes ===== */
+
+/* warna (ubah sesuai branding) */
+:root {
+    --hm-empty: #f3f4f6;
+    --hm-1: #fee2e2;
+    --hm-2: #fde68a;
+    --hm-3: #86efac;
+    --hm-4: #16a34a;
+    --hm-stroke: rgba(0, 0, 0, 0.06);
+}
+
+/* Card wrapper */
+.hm-card {
+    background: #fff;
+    border: 1px solid #e6e6e9;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 8px 20px rgba(2, 6, 23, 0.04);
+}
+
+/* wrapper agar grid bisa scroll horizontal tanpa merusak layout */
+.hm-heatmap-wrap {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    display: flex;
+    gap: 12px;
+}
+
+/* custom left column for weekday labels if needed (we also style inline SVG labels) */
+.hm-weekday-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    /* match gutter */
+    padding-top: 26px;
+    /* align with top of svg grid */
+    margin-right: 6px;
+}
+
+/* style untuk kotak heatmap (override library default sizes) */
+.react-calendar-heatmap .react-calendar-heatmap-value {
+    rx: 4;
+    stroke: var(--hm-stroke);
+    stroke-width: 0.9;
+    transition: transform 120ms ease;
+    transform-origin: center center;
+    width: 12px !important;
+    height: 12px !important;
+}
+
+/* hover */
+.react-calendar-heatmap .react-calendar-heatmap-value:hover {
+    transform: scale(1.08);
+    stroke: rgba(0, 0, 0, 0.14);
+    cursor: pointer;
+}
+
+/* weekday labels inside svg: force text anchor start and shift left so full names visible */
+.react-calendar-heatmap .react-calendar-heatmap-weekday-labels text {
+    font-size: 0.85rem;
+    fill: #6b7280;
+    text-anchor: start;
+    /* ensure left aligned */
+    transform: translateX(-46px);
+    /* shift labels outside the grid */
+}
+
+/* month labels smaller and centered */
+.react-calendar-heatmap .react-calendar-heatmap-month-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    fill: #374151;
+}
+
+/* color classes */
+.color-empty {
+    fill: var(--hm-empty) !important;
+}
+
+.color-scale-1 {
+    fill: var(--hm-1) !important;
+}
+
+/* rendah */
+.color-scale-2 {
+    fill: var(--hm-2) !important;
+}
+
+.color-scale-3 {
+    fill: var(--hm-3) !important;
+}
+
+.color-scale-4 {
+    fill: var(--hm-4) !important;
+}
+
+/* Legend */
+.hm-legend {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
+.hm-legend .hm-square {
+    width: 14px;
+    height: 12px;
+    border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03) inset;
+}
+
+/* responsive tweaks */
+@media (max-width:640px) {
+    .react-calendar-heatmap .react-calendar-heatmap-value {
+        width: 10px !important;
+        height: 10px !important;
+    }
+
+    .react-calendar-heatmap .react-calendar-heatmap-weekday-labels text {
+        transform: translateX(-36px);
+        font-size: 0.72rem;
+    }
+
+    .hm-weekday-column {
+        display: none;
+    }
+
+    /* hide extra label column on very small screens */
+}

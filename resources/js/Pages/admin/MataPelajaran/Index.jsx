@@ -57,7 +57,7 @@ export default function Index({ auth, stats, mataPelajaran, guruPengampuList, fi
     const deleteMapel = (e) => {
         e.preventDefault();
         if (mapelToDelete) {
-            router.delete(route('mata-pelajaran.destroy', mapelToDelete.id_mapel), {
+            router.delete(route('admin.mata-pelajaran.destroy', mapelToDelete.id_mapel), {
                 onSuccess: () => closeDeleteModal(),
                 preserveScroll: true,
             });

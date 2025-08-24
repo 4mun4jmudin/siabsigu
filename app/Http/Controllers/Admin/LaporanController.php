@@ -17,6 +17,8 @@ use App\Exports\LaporanAbsensiExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
 
+
+
 class LaporanController extends Controller
 {
     /**
@@ -44,6 +46,7 @@ class LaporanController extends Controller
             'distribusiStatus' => $this->queryDistribusiStatus($request),
             'laporanPerKelas' => $this->queryLaporanPerKelas($request),
             'laporanGuru' => $this->queryLaporanGuru($request),
+            'heatmapData' => $this->queryHeatmapData($request),
         ];
 
         $data['analitik'] = $this->generateAnalitik($data);
@@ -66,6 +69,46 @@ class LaporanController extends Controller
      * @param string $defaultFormat
      * @return \Carbon\Carbon
      */
+
+    private function queryHeatmapData(Request $request)
+    {
+        // Default ke 'semua' jika tidak ada id_kelas, atau ambil dari filter
+        $id_kelas = $request->input('id_kelas', 'semua');
+        if ($id_kelas === 'semua') {
+            // Jika 'Semua Kelas', ambil kelas pertama sebagai default
+            $kelas = Kelas::orderBy('tingkat')->first();
+            if (!$kelas) return []; // Jika tidak ada kelas sama sekali
+            $id_kelas = $kelas->id_kelas;
+        }
+
+        $bulanInput = $request->input('bulan');
+        $selectedMonth = Carbon::parse($bulanInput ?: now()->format('Y-m'));
+
+        $startOfMonth = $selectedMonth->copy()->startOfMonth();
+        $endOfMonth = $selectedMonth->copy()->endOfMonth();
+
+        // Ambil total siswa aktif di kelas yang dipilih
+        $totalSiswaDiKelas = Siswa::where('id_kelas', $id_kelas)->where('status', 'Aktif')->count();
+        if ($totalSiswaDiKelas === 0) {
+            return []; // Tidak perlu proses jika tidak ada siswa
+        }
+
+        // Ambil rekap kehadiran harian untuk kelas tersebut
+        $rekapHarian = AbsensiSiswa::where('status_kehadiran', 'Hadir')
+            ->whereBetween('tanggal', [$startOfMonth, $endOfMonth])
+            ->whereHas('siswa', fn($q) => $q->where('id_kelas', $id_kelas))
+            ->groupBy('tanggal')
+            ->select('tanggal', DB::raw('COUNT(*) as total_hadir'))
+            ->get();
+
+        // Format data agar sesuai dengan yang dibutuhkan komponen heatmap
+        return $rekapHarian->map(function ($item) use ($totalSiswaDiKelas) {
+            return [
+                'date' => $item->tanggal,
+                'count' => round(($item->total_hadir / $totalSiswaDiKelas) * 100)
+            ];
+        });
+    }
     private function safeParseMonth($value, $defaultFormat = 'Y-m')
     {
         // jika null, empty, atau string 'null' -> kembalikan sekarang (format Y-m)
@@ -261,9 +304,7 @@ class LaporanController extends Controller
                 'alfa'  => round(($alfa / $totalAbsensi) * 100),
             ];
 
-            $status = $persentase['hadir'] >= 95 ? 'Sangat Baik' :
-                      ($persentase['hadir'] >= 90 ? 'Baik' :
-                      ($persentase['hadir'] >= 85 ? 'Cukup' : 'Perlu Perhatian'));
+            $status = $persentase['hadir'] >= 95 ? 'Sangat Baik' : ($persentase['hadir'] >= 90 ? 'Baik' : ($persentase['hadir'] >= 85 ? 'Cukup' : 'Perlu Perhatian'));
 
             return [
                 'namaKelas' => $kelas->nama_lengkap,
@@ -386,7 +427,7 @@ class LaporanController extends Controller
     {
         $bulanInput = $request->input('bulan');
         $selectedMonth = Carbon::parse($bulanInput ?: now()->format('Y-m'));
-        
+
         $startOfMonth = $selectedMonth->copy()->startOfMonth();
         $endOfMonth = $selectedMonth->copy()->endOfMonth();
 
@@ -436,11 +477,48 @@ class LaporanController extends Controller
             $persenGuru = ($hadirGuruMingguan / ($totalGuru * $weekInfo['workdays'])) * 100;
             $guruData[] = round($persenGuru, 1);
         }
-        
+
         return [
             'labels' => $labels,
             'siswaData' => $siswaData,
             'guruData' => $guruData,
         ];
+    }
+
+    public function getDetailHarian(Request $request)
+    {
+        $request->validate([
+            'date' => 'required|date_format:Y-m-d',
+            'id_kelas' => 'required|string',
+        ]);
+
+        $tanggal = $request->date;
+        $id_kelas = $request->id_kelas;
+
+        // Ambil semua siswa di kelas tersebut
+        $querySiswa = Siswa::query()->where('status', 'Aktif');
+        if ($id_kelas !== 'semua') {
+            $querySiswa->where('id_kelas', $id_kelas);
+        }
+        $semuaSiswa = $querySiswa->select('id_siswa', 'nama_lengkap', 'nis')->get()->keyBy('id_siswa');
+        
+        // Ambil data absensi yang sudah ada pada tanggal tersebut
+        $absensiMasuk = AbsensiSiswa::whereDate('tanggal', $tanggal)
+            ->whereIn('id_siswa', $semuaSiswa->keys())
+            ->get()->keyBy('id_siswa');
+            
+        // Gabungkan data untuk mendapatkan daftar lengkap
+        $detailAbsensi = $semuaSiswa->map(function ($siswa) use ($absensiMasuk) {
+            $absen = $absensiMasuk->get($siswa->id_siswa);
+            return [
+                'nama' => $siswa->nama_lengkap,
+                'nis' => $siswa->nis,
+                'status' => $absen ? $absen->status_kehadiran : 'Alfa', // Default Alfa jika tidak ada record
+                'jam_masuk' => $absen ? Carbon::parse($absen->jam_masuk)->format('H:i') : '-',
+                'keterangan' => $absen->keterangan ?? '-',
+            ];
+        })->values(); // Mengubah collection menjadi array
+        
+        return response()->json($detailAbsensi);
     }
 }
