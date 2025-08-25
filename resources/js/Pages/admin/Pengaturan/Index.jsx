@@ -1,74 +1,151 @@
-import React from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import PrimaryButton from '@/Components/PrimaryButton';
-import InputLabel from '@/Components/InputLabel';
-import TextInput from '@/Components/TextInput';
-import InputError from '@/Components/InputError';
-import { Cog6ToothIcon } from '@heroicons/react/24/solid';
+import { Head } from '@inertiajs/react';
+import Tab from '@/Components/Tab';
+import GeneralSettingsForm from './Partials/GeneralSettingsForm';
+import AbsensiSettingsForm from './Partials/AbsensiSettingsForm';
+import UserSettingsForm from './Partials/UserSettingsForm';
+import BackupSettingsForm from './Partials/BackupSettingsForm';
+import SystemSettingsForm from './Partials/SystemSettingsForm';
+import { Home, Clock, Users, Server, Database, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function Index({ auth, pengaturan }) {
-    const { data, setData, put, processing, errors } = useForm({
-        jam_masuk: pengaturan.jam_masuk || '07:30',
-        jam_pulang: pengaturan.jam_pulang || '15:00',
-    });
+export default function Pengaturan({ auth, pengaturan = {}, tahun_ajaran = [], stats = {} }) {
+  const STORAGE_KEY = 'pengaturan.activeTab.v1';
+  const defaultTab = 'umum';
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved || defaultTab;
+    } catch (e) {
+      return defaultTab;
+    }
+  });
 
-    const submit = (e) => {
-        e.preventDefault();
-        put(route('admin.pengaturan.update'));
+  // For responsive: show compact tabs on small screens
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setCompact(window.innerWidth < 640);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, activeTab);
+    } catch (e) {}
+  }, [activeTab]);
+
+  // Keyboard navigation: left / right to switch tabs
+  useEffect(() => {
+    const keys = (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const order = ['umum', 'absensi', 'pengguna', 'sistem', 'backup'];
+        const idx = order.indexOf(activeTab);
+        if (idx === -1) return;
+        const next = e.key === 'ArrowLeft' ? order[(idx - 1 + order.length) % order.length] : order[(idx + 1) % order.length];
+        setActiveTab(next);
+      }
     };
+    window.addEventListener('keydown', keys);
+    return () => window.removeEventListener('keydown', keys);
+  }, [activeTab]);
 
-    return (
-        <AdminLayout user={auth.user} header="Pengaturan Umum">
-            <Head title="Pengaturan Umum" />
+  const tabs = useMemo(() => ([
+    { id: 'umum', label: 'Umum', icon: Home },
+    { id: 'absensi', label: 'Absensi', icon: Clock },
+    { id: 'pengguna', label: 'Pengguna', icon: Users },
+    { id: 'sistem', label: 'Sistem', icon: Server },
+    { id: 'backup', label: 'Backup', icon: Database },
+  ]), []);
 
-            <div className="max-w-2xl mx-auto">
-                <div className="bg-white p-6 rounded-lg shadow-sm">
-                    <div className="flex items-center gap-4 mb-6 pb-4 border-b">
-                        <Cog6ToothIcon className="h-8 w-8 text-gray-500" />
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-800">Pengaturan Jam Kerja</h1>
-                            <p className="text-sm text-gray-500">Atur jam masuk dan pulang standar untuk guru.</p>
-                        </div>
-                    </div>
-                    
-                    <form onSubmit={submit}>
-                        <div className="space-y-6">
-                            <div>
-                                <InputLabel htmlFor="jam_masuk" value="Jam Masuk Sekolah" />
-                                <TextInput
-                                    id="jam_masuk"
-                                    type="time"
-                                    name="jam_masuk"
-                                    value={data.jam_masuk}
-                                    className="mt-1 block w-full"
-                                    onChange={(e) => setData('jam_masuk', e.target.value)}
-                                />
-                                <InputError message={errors.jam_masuk} className="mt-2" />
-                            </div>
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'umum':
+        return <GeneralSettingsForm pengaturan={pengaturan} tahun_ajaran={tahun_ajaran} className="" />;
+      case 'absensi':
+        return <AbsensiSettingsForm pengaturan={pengaturan} className="" />;
+      case 'pengguna':
+        return <UserSettingsForm pengaturan={pengaturan} stats={stats} className="" />;
+      case 'sistem':
+        return <SystemSettingsForm pengaturan={pengaturan} className="" />;
+      case 'backup':
+        return <BackupSettingsForm pengaturan={pengaturan} className="" />;
+      default:
+        return null;
+    }
+  };
 
-                            <div>
-                                <InputLabel htmlFor="jam_pulang" value="Jam Pulang Sekolah" />
-                                <TextInput
-                                    id="jam_pulang"
-                                    type="time"
-                                    name="jam_pulang"
-                                    value={data.jam_pulang}
-                                    className="mt-1 block w-full"
-                                    onChange={(e) => setData('jam_pulang', e.target.value)}
-                                />
-                                <InputError message={errors.jam_pulang} className="mt-2" />
-                            </div>
-                        </div>
+  return (
+    <AdminLayout user={auth.user}>
+      <Head title="Pengaturan Sistem" />
 
-                        <div className="flex items-center justify-end mt-8">
-                            <PrimaryButton disabled={processing}>
-                                {processing ? 'Menyimpan...' : 'Simpan Pengaturan'}
-                            </PrimaryButton>
-                        </div>
-                    </form>
-                </div>
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Pengaturan Sistem</h1>
+            <p className="text-sm text-gray-500 mt-1">Atur konfigurasi aplikasi, keamanan, backup, dan fitur lain.</p>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">Fokus: <span className="font-medium ml-1">{tabs.find(t => t.id === activeTab)?.label}</span></span>
             </div>
-        </AdminLayout>
-    );
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="p-2 rounded-md hover:bg-gray-100"
+                onClick={() => {
+                  const order = tabs.map(t => t.id);
+                  const idx = order.indexOf(activeTab);
+                  setActiveTab(order[(idx - 1 + order.length) % order.length]);
+                }}
+                aria-label="Previous tab"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                className="p-2 rounded-md hover:bg-gray-100"
+                onClick={() => {
+                  const order = tabs.map(t => t.id);
+                  const idx = order.indexOf(activeTab);
+                  setActiveTab(order[(idx + 1) % order.length]);
+                }}
+                aria-label="Next tab"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white shadow rounded-lg p-4">
+          {/* Tabs Navigation */}
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex flex-wrap gap-2 sm:gap-6" aria-label="Tabs">
+              {tabs.map((t) => (
+                <Tab
+                  key={t.id}
+                  name={t.id}
+                  label={t.label}
+                  active={activeTab === t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  icon={t.icon}
+                  compact={compact}
+                />
+              ))}
+            </nav>
+          </div>
+
+          {/* Content */}
+          <div className="mt-6">
+            {renderContent()}
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
+  );
 }

@@ -151,6 +151,36 @@ Route::middleware('auth')->group(function () {
         Route::get('/laporan/export-pdf', [LaporanController::class, 'exportPdf'])->name('laporan.export.pdf');
         Route::get('/laporan/export-excel', [LaporanController::class, 'exportExcel'])->name('laporan.export.excel');
         Route::get('/laporan/detail-harian', [LaporanController::class, 'getDetailHarian'])->name('laporan.detailHarian');
+
+
+        Route::post('/pengaturan/backup-manual', [PengaturanController::class, 'manualBackup'])->name('pengaturan.backup-manual');
+        Route::post('/pengaturan/restore-database', [PengaturanController::class, 'restoreDatabase'])->name('pengaturan.restore-database');
+        Route::post('/pengaturan/umum', [PengaturanController::class, 'updateGeneral'])->name('pengaturan.update-general');
+        Route::put('/pengaturan/absensi', [PengaturanController::class, 'updateAbsensi'])->name('pengaturan.update-absensi');
+        Route::put('/pengaturan/pengguna', [PengaturanController::class, 'updateUsers'])->name('pengaturan.update-users');
+        Route::put('/pengaturan/sistem', [PengaturanController::class, 'updateSystem'])->name('pengaturan.update-system');
+        Route::put('/pengaturan/backup', [PengaturanController::class, 'updateBackup'])->name('pengaturan.update-backup');
+
+        // Route::post('/admin/maintenance/clear-cache', [PengaturanController::class, 'clearCache'])->name('admin.maintenance.clear-cache');
+        // Route::post('/admin/maintenance/optimize-database', [PengaturanController::class, 'optimizeDatabase'])->name('admin.maintenance.optimize-database');
+    });
+
+    Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+        Route::post('maintenance/clear-cache', [PengaturanController::class, 'clearCache'])
+            ->name('maintenance.clear-cache');
+
+        Route::post('maintenance/optimize-database', [PengaturanController::class, 'optimizeDatabase'])
+            ->name('maintenance.optimize-database');
+
+
+        Route::get('maintenance/backups', [PengaturanController::class, 'listBackups'])
+            ->name('maintenance.backups');
+
+        Route::post('maintenance/backup-manual', [PengaturanController::class, 'manualBackup'])
+            ->name('maintenance.backup-manual');
+
+        Route::post('maintenance/restore', [PengaturanController::class, 'restoreDatabase'])
+            ->name('maintenance.restore');
     });
 });
 
