@@ -142,3 +142,75 @@
 
     /* hide extra label column on very small screens */
 }
+
+/* Smooth interactive scrollbar for modern browsers + Firefox */
+.custom-scrollbar {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.85) rgba(0, 0, 0, 0.08);
+}
+
+/* WebKit browsers (Chrome, Edge, Safari) */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    /* default width */
+    height: 10px;
+    transition: width 180ms ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.02));
+    border-radius: 9999px;
+    margin: 8px 2px;
+    /* gives a padded look in the track */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.95), rgba(99, 102, 241, 0.6));
+    border-radius: 9999px;
+    min-height: 28px;
+    border: 2px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    background-size: 100% 200%;
+    background-position: 0 0;
+}
+
+/* Hover makes the thumb wider and a bit brighter (interactive feel) */
+.custom-scrollbar:hover::-webkit-scrollbar {
+    width: 14px;
+}
+
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    transform: translateX(0);
+    background-position: 0 100%;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Active (while dragging) */
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+    transform: scale(1.02);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+/* Optional: smaller, subtle scrollbar when sidebar is collapsed */
+.sidebar-collapsed .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar-collapsed .custom-scrollbar::-webkit-scrollbar-thumb {
+    min-height: 20px;
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: none;
+}
+
+/* taruh di CSS global */
+.sidebar-toggle-img {
+  transition: transform .25s ease, box-shadow .25s ease;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+}
+.sidebar-toggle-img:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}

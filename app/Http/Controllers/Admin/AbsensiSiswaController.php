@@ -53,25 +53,22 @@ class AbsensiSiswaController extends Controller
             ->get()
             ->keyBy('id_siswa');
 
-        // Ambil pengaturan jam masuk sekolah
-        $jamMasukSekolah = Pengaturan::where('key', 'jam_masuk')->value('value') ?? '07:30:00';
+        // Ambil pengaturan jam masuk siswa dari cache
+        $jamMasukSekolah = Cache::remember('jam_masuk_siswa', now()->addHour(), function () {
+            $pengaturan = Pengaturan::first();
+            return $pengaturan->jam_masuk_siswa ?? '07:30:00';
+        });
 
         // Proses data siswa dan absensinya untuk ditampilkan
         $siswaWithAbsensi = $siswaDiKelas->map(function ($siswa) use ($absensiSudahAda, $jamMasukSekolah) {
             $absen = $absensiSudahAda->get($siswa->id_siswa);
-            $siswa->absensi = $absen; // Lampirkan data absensi ke objek siswa
+            $siswa->absensi = $absen;
 
-            // Hitung keterlambatan jika siswa hadir dan jam masuk terisi
             if ($absen && $absen->status_kehadiran === 'Hadir' && $absen->jam_masuk) {
                 try {
                     $jamMasukSiswa = Carbon::parse($absen->jam_masuk);
                     $batasMasuk = Carbon::parse($jamMasukSekolah);
-
-                    // =============================================================
-                    // INI ADALAH PERBAIKAN UTAMA PADA LOGIKA TAMPILAN
-                    // =============================================================
                     $selisihMenit = $batasMasuk->diffInMinutes($jamMasukSiswa, false);
-
                     $absen->menit_keterlambatan = $selisihMenit > 0 ? $selisihMenit : 0;
                 } catch (\Exception $e) {
                     Log::error("Gagal parse waktu untuk siswa {$siswa->id_siswa}: " . $e->getMessage());
@@ -118,17 +115,10 @@ class AbsensiSiswaController extends Controller
         $menitKeterlambatan = null;
 
         if ($validated['status_kehadiran'] === 'Hadir' && !empty($validated['jam_masuk'])) {
-            // =============================================================
-            // PERUBAIKAN UTAMA ADA DI SINI
-            // Menggunakan 'jam_masuk' agar sesuai dengan key di tabel pengaturan Anda.
-            // =============================================================
-            $jamMasukSekolahString = Pengaturan::where('key', 'jam_masuk')->value('value') ?? '07:30:00';
-
+            $jamMasukSekolahString = Pengaturan::first()->jam_masuk_siswa ?? '07:30:00';
             $jamMasukSekolah = Carbon::parse($jamMasukSekolahString);
             $jamAbsenSiswa = Carbon::parse($validated['jam_masuk']);
-
             $selisihMenit = $jamMasukSekolah->diffInMinutes($jamAbsenSiswa, false);
-
             $menitKeterlambatan = $selisihMenit > 0 ? $selisihMenit : 0;
         }
 
@@ -142,7 +132,7 @@ class AbsensiSiswaController extends Controller
                 'status_kehadiran' => $validated['status_kehadiran'],
                 'jam_masuk' => $validated['jam_masuk'],
                 'jam_pulang' => $validated['jam_pulang'],
-                'menit_keterlambatan' => $menitKeterlambatan, // <-- Data ini sekarang akan tersimpan
+                'menit_keterlambatan' => $menitKeterlambatan,
                 'keterangan' => $validated['keterangan'],
                 'metode_absen' => 'Manual',
                 'id_penginput_manual' => Auth::id(),
@@ -166,7 +156,6 @@ class AbsensiSiswaController extends Controller
         $adminId = Auth::id();
 
         foreach ($validated['absensi'] as $data) {
-            // Cari data absensi yang mungkin sudah ada
             $absensi = AbsensiSiswa::where('tanggal', $tanggalAbsen)
                 ->where('id_siswa', $data['id_siswa'])
                 ->first();
@@ -174,23 +163,16 @@ class AbsensiSiswaController extends Controller
             $newStatus = $data['status_kehadiran'];
 
             if ($absensi) {
-                // JIKA DATA SUDAH ADA, UPDATE SECARA HATI-HATI
                 $absensi->status_kehadiran = $newStatus;
-                $absensi->id_penginput_manual = $adminId; // Perbarui siapa yang terakhir mengubah
+                $absensi->id_penginput_manual = $adminId;
 
-                // Jika status diubah menjadi TIDAK HADIR, maka reset data waktu.
-                // Ini logis karena siswa yang sakit/izin/alfa tidak mungkin terlambat.
                 if ($newStatus !== 'Hadir') {
                     $absensi->jam_masuk = null;
                     $absensi->menit_keterlambatan = 0;
                 }
 
-                // Jika statusnya 'Hadir', kita TIDAK mengubah jam_masuk atau menit_keterlambatan.
-                // Ini akan menjaga data waktu yang sudah diinput manual.
-
                 $absensi->save();
             } else {
-                // JIKA DATA BELUM ADA, BUAT BARU
                 AbsensiSiswa::create([
                     'id_absensi' => 'AS-' . Carbon::parse($tanggalAbsen)->format('ymd') . '-' . $data['id_siswa'],
                     'id_siswa' => $data['id_siswa'],
@@ -206,6 +188,7 @@ class AbsensiSiswaController extends Controller
 
         return back()->with('success', 'Absensi massal berhasil diperbarui.');
     }
+
     public function updateIndividual(Request $request)
     {
         $validated = $request->validate([
@@ -247,13 +230,8 @@ class AbsensiSiswaController extends Controller
 
             $absensi->save();
 
-            // Hitung keterlambatan berdasarkan jam masuk dari pengaturan
             if (!empty($absensi->jam_masuk)) {
-                $jamMasukSekolah = Cache::remember('jam_masuk_sekolah', now()->addHour(), function () {
-                    $p = Pengaturan::find('jam_masuk');
-                    return optional($p)->value ?? '07:15';
-                });
-
+                $jamMasukSekolah = Pengaturan::first()->jam_masuk_siswa ?? '07:15';
                 try {
                     $jamMasukAbsensi = Carbon::parse($absensi->jam_masuk);
                     $jamMasukRef = Carbon::parse($jamMasukSekolah);
@@ -318,7 +296,6 @@ class AbsensiSiswaController extends Controller
             'search' => 'nullable|string',
         ]);
 
-        // Logika query sama seperti di export Excel
         $query = Siswa::query()
             ->with(['absensi' => fn($q) => $q->whereDate('tanggal', $filters['tanggal'])])
             ->where('id_kelas', $filters['id_kelas'])
@@ -330,7 +307,6 @@ class AbsensiSiswaController extends Controller
         $tanggal = $filters['tanggal'];
         $fileName = "absensi-siswa-{$kelas->nama_kelas}-" . Carbon::parse($tanggal)->format('d-m-Y') . ".pdf";
 
-        // Buat PDF
         $pdf = Pdf::loadView('pdf.absensi_siswa_pdf', [
             'dataSiswa' => $query,
             'namaKelas' => $kelas->nama_lengkap,

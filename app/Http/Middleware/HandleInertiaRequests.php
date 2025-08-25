@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Models\Pengaturan;
+
 use Tightenco\Ziggy\Ziggy;
 
 
@@ -35,14 +37,12 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
-            // 'ziggy' => fn () => [
-            //     ...(new Ziggy)->toArray(),
-            //     'location' => $request->url(),
-            // ],
             'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
+                'success' => fn() => $request->session()->get('success'),
+                'error' => fn() => $request->session()->get('error'),
             ],
+            // Tambahkan ini untuk membagikan data pengaturan
+            'pengaturan' => Pengaturan::firstOrCreate(['id' => 1]),
         ]);
     }
 }

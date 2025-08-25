@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\File;
 
 class PengaturanController extends Controller
@@ -196,29 +197,30 @@ class PengaturanController extends Controller
     public function listBackups()
     {
         try {
-            // Pastikan folder 'backups' ada di disk lokal (storage/app/backups)
-            $disk = Storage::disk('local');
-            $files = $disk->files('backups');
+            $backupName = config('backup.backup.name');
+            $diskName = config('backup.backup.destination.disks')[0];
 
-            // Ambil detail: nama dan waktu terakhir modifikasi
-            $list = collect($files)
-                ->map(function ($path) use ($disk) {
-                    // lastModified mungkin tidak tersedia untuk semua disk, fallback ke filemtime
-                    $full = storage_path('app/' . $path);
-                    $timestamp = null;
-                    if ($disk->exists($path)) {
-                        try {
-                            $timestamp = $disk->lastModified($path);
-                        } catch (\Throwable $t) {
-                            $timestamp = File::exists($full) ? File::lastModified($full) : null;
-                        }
-                    }
-                    return [
-                        'path' => $path,
-                        'name' => basename($path),
-                        'last_modified' => $timestamp ? date('Y-m-d H:i:s', $timestamp) : null,
-                    ];
-                })
+            $disk = Storage::disk($diskName);
+            $directory = $backupName; // Direktori utama adalah nama aplikasi
+
+            // Periksa apakah direktori backup ada.
+            if (!$disk->exists($directory)) {
+                return response()->json(['success' => true, 'backups' => []]);
+            }
+
+            // Ambil semua file di dalam subdirektori (jika ada)
+            $files = collect($disk->allFiles($directory))
+                ->filter(fn($path) => Str::endsWith($path, '.zip'));
+
+            // Ambil detail setiap file
+            $list = $files->map(function ($path) use ($disk) {
+                $timestamp = $disk->lastModified($path);
+                return [
+                    'path' => $path,
+                    'name' => basename($path),
+                    'last_modified' => date('Y-m-d H:i:s', $timestamp),
+                ];
+            })
                 ->sortByDesc('last_modified')
                 ->values()
                 ->all();
