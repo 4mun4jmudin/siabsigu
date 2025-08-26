@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
         // Manajemen Data Master (CRUD)
         Route::resource('guru', GuruController::class);
         Route::resource('siswa', SiswaController::class);
+        Route::post('siswa/{siswa}/keamanan', [SiswaController::class, 'updateKeamanan'])->name('siswa.update.keamanan');
         Route::resource('kelas', KelasController::class);
         Route::resource('mata-pelajaran', MataPelajaranController::class);
         Route::resource('orang-tua-wali', OrangTuaWaliController::class);
@@ -83,6 +84,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/export-excel', [AbsensiGuruController::class, 'exportExcel'])->name('export-excel');
             Route::get('/export-pdf', [AbsensiGuruController::class, 'exportPdf'])->name('export-pdf');
         });
+
         Route::prefix('absensi-siswa')->name('absensi-siswa.')->group(function () {
             // Rute untuk menampilkan halaman utama
             Route::get('/', [AbsensiSiswaController::class, 'index'])->name('index');

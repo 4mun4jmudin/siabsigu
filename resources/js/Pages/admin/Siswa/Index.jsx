@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
 import ToastNotification from '@/Components/ToastNotification';
@@ -61,17 +61,31 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         }
     }, [flash]);
 
-    // Fungsi untuk debounce pencarian dan filter
+    // SKIP running search on first mount (so pagination clicks don't get overridden)
+    const isFirstRender = useRef(true);
+
+    // debouncedSearch: when filters change, go to page 1
     const debouncedSearch = useCallback(debounce((searchVal, kelasVal) => {
-        router.get(route('admin.siswa.index'), { search: searchVal, kelas: kelasVal }, {
+        router.get(route('admin.siswa.index'), { search: searchVal, kelas: kelasVal, page: 1 }, {
             preserveState: true,
             replace: true,
         });
     }, 300), []);
 
+    // Ensure debounce is cleaned up on unmount
     useEffect(() => {
+        return () => {
+            debouncedSearch.cancel();
+        };
+    }, [debouncedSearch]);
+
+    // Run debounced search only when search/kelas change and NOT on first render
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         debouncedSearch(search, selectedKelas);
-        return () => debouncedSearch.cancel();
     }, [search, selectedKelas, debouncedSearch]);
 
     // Fungsi untuk handle perubahan filter kelas
@@ -93,7 +107,8 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
     
     const deleteItem = (e) => {
         e.preventDefault();
-        destroy(route('siswa.destroy', itemToDelete.id_siswa), {
+        if (!itemToDelete) return closeModal();
+        destroy(route('admin.siswa.destroy', itemToDelete.id_siswa), {
             preserveScroll: true,
             onSuccess: () => closeModal(),
             onError: () => closeModal(),

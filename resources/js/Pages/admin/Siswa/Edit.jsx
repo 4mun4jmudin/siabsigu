@@ -20,6 +20,8 @@ export default function Edit({ auth, siswa, kelasOptions }) {
         agama: siswa.agama || 'Islam',
         alamat_lengkap: siswa.alamat_lengkap || '',
         status: siswa.status || 'Aktif',
+        sidik_jari_template: siswa.sidik_jari_template || null,
+        barcode_id: siswa.barcode_id || '',
     });
 
     const handleSubmit = (e) => {

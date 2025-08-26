@@ -20,6 +20,8 @@ export default function Create({ auth, kelasOptions }) {
         agama: 'Islam',
         alamat_lengkap: '',
         status: 'Aktif',
+        sidik_jari_template: null,
+        barcode_id: '',
     });
 
     const handleSubmit = (e) => {

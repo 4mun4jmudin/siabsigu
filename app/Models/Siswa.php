@@ -37,6 +37,8 @@ class Siswa extends Model
         'agama',
         'alamat_lengkap',
         'status',
+        'sidik_jari_template',
+        'barcode_id',
     ];
 
     /**

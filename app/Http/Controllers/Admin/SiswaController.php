@@ -5,18 +5,17 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Siswa;
 use App\Models\Kelas;
-use App\Models\OrangTuaWali; // <-- Tambahkan model ini
-use App\Models\AbsensiSiswa; // <-- Tambahkan model ini
+use App\Models\OrangTuaWali; 
+use App\Models\AbsensiSiswa; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str; // <-- Import Str
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class SiswaController extends Controller
 {
-    /**
-     * Menampilkan halaman daftar siswa dengan filter dan statistik.
-     */
+    // ... (method index & show tidak berubah) ...
     public function index(Request $request)
     {
         // Ambil semua kelas untuk dropdown filter
@@ -44,18 +43,7 @@ class SiswaController extends Controller
         ]);
     }
 
-    /**
-     * Menampilkan halaman detail seorang siswa.
-     */
-    // public function show(Siswa $siswa)
-    // {
-    //     // Eager load relasi kelas untuk ditampilkan di halaman detail
-    //     $siswa->load('kelas');
-    //     return Inertia::render('admin/Siswa/Show', [
-    //         'siswa' => $siswa,
-    //     ]);
-    // }
-
+ 
     public function show(Siswa $siswa)
     {
         // Eager load relasi utama
@@ -77,9 +65,7 @@ class SiswaController extends Controller
         ]);
     }
 
-    /**
-     * Menampilkan form untuk menambah data siswa baru.
-     */
+
     public function create()
     {
         return Inertia::render('admin/Siswa/Create', [
@@ -87,9 +73,6 @@ class SiswaController extends Controller
         ]);
     }
 
-    /**
-     * Menyimpan data siswa baru ke database.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -108,6 +91,10 @@ class SiswaController extends Controller
             'agama' => 'required|string',
             'alamat_lengkap' => 'required|string',
             'status' => 'required|in:Aktif,Lulus,Pindah,Drop Out',
+            // -- TAMBAHKAN VALIDASI --
+            'sidik_jari_template' => 'nullable|string',
+            'barcode_id' => 'nullable|string|max:100|unique:tbl_siswa,barcode_id',
+            // ------------------------
         ]);
 
         if ($request->hasFile('foto_profil')) {
@@ -119,9 +106,7 @@ class SiswaController extends Controller
         return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil ditambahkan.');
     }
 
-    /**
-     * Menampilkan form untuk mengedit data siswa.
-     */
+    
     public function edit(Siswa $siswa)
     {
         return Inertia::render('admin/Siswa/Edit', [
@@ -130,9 +115,7 @@ class SiswaController extends Controller
         ]);
     }
 
-    /**
-     * Memperbarui data siswa di database.
-     */
+    
     public function update(Request $request, Siswa $siswa)
     {
         $validated = $request->validate([
@@ -150,6 +133,10 @@ class SiswaController extends Controller
             'agama' => 'required|string',
             'alamat_lengkap' => 'required|string',
             'status' => 'required|in:Aktif,Lulus,Pindah,Drop Out',
+             // -- TAMBAHKAN VALIDASI --
+            'sidik_jari_template' => 'nullable|string',
+            'barcode_id' => ['nullable', 'string', 'max:100', Rule::unique('tbl_siswa')->ignore($siswa->id_siswa, 'id_siswa')],
+            // ------------------------
         ]);
 
         if ($request->hasFile('foto_profil')) {
@@ -165,8 +152,30 @@ class SiswaController extends Controller
     }
 
     /**
-     * Menghapus data siswa dari database.
+     * =================================================================
+     * METHOD BARU UNTUK SIDIK JARI & BARCODE
+     * =================================================================
      */
+    public function updateKeamanan(Request $request, Siswa $siswa)
+    {
+        $validated = $request->validate([
+            'sidik_jari_template' => 'nullable|string',
+            'barcode_id' => ['nullable', 'string', 'max:100', Rule::unique('tbl_siswa', 'barcode_id')->ignore($siswa->id_siswa, 'id_siswa')],
+        ]);
+
+        // Generate barcode_id jika kosong tapi diminta generate
+        if ($request->input('generate_barcode') && empty($validated['barcode_id'])) {
+            $validated['barcode_id'] = 'SISWA-' . Str::upper(Str::random(10));
+        }
+
+        $siswa->update($validated);
+        
+        // Redirect kembali ke halaman show dengan pesan sukses
+        return redirect()->route('admin.siswa.show', $siswa->id_siswa)
+                         ->with('message', 'Data keamanan (Sidik Jari & Barcode) berhasil diperbarui.');
+    }
+
+
     public function destroy(Siswa $siswa)
     {
         if ($siswa->foto_profil) {
