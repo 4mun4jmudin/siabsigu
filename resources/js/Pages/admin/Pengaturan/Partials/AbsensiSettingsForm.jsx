@@ -6,6 +6,7 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import Checkbox from '@/Components/Checkbox';
 import { Clock, Users, User, QrCode, Fingerprint, Save, CheckCircle, XCircle } from 'lucide-react';
+import { MapPin, Target } from 'lucide-react';
 
 export default function AbsensiSettingsForm({ className = '', pengaturan = {} }) {
   const { data, setData, put, processing, errors, recentlySuccessful } = useForm({
@@ -18,6 +19,9 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
     login_barcode_enabled: !!pengaturan.login_barcode_enabled,
     login_fingerprint_enabled: !!pengaturan.login_fingerprint_enabled,
     login_manual_enabled: !!pengaturan.login_manual_enabled,
+    lokasi_sekolah_latitude: pengaturan.lokasi_sekolah_latitude || '',
+    lokasi_sekolah_longitude: pengaturan.lokasi_sekolah_longitude || '',
+    radius_absen_meters: pengaturan.radius_absen_meters ?? 200,
   });
 
   const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
@@ -79,7 +83,7 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
             </PrimaryButton>
           </div>
         </header>
-        
+
         {/* Toast Notification */}
         {toast && (
           <div className={`mt-4 mb-4 p-3 rounded-md ${toast.type === 'success' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-red-50 border border-red-100 text-red-700'}`} role="status">
@@ -91,6 +95,61 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
         )}
 
         <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* --- BAGIAN LOKASI & RADIUS (BARU) --- */}
+          <div>
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600"><MapPin className="w-6 h-6" /></div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Lokasi & Radius Absensi</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Atur titik koordinat pusat sekolah dan radius toleransi untuk absensi berbasis lokasi (geolocation).
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <InputLabel htmlFor="lokasi_sekolah_latitude" value="Latitude Sekolah" />
+                <TextInput
+                  id="lokasi_sekolah_latitude"
+                  className="mt-1 block w-full"
+                  value={data.lokasi_sekolah_latitude}
+                  onChange={(e) => setData('lokasi_sekolah_latitude', e.target.value)}
+                  placeholder="Contoh: -6.200000"
+                />
+                <InputError message={errors.lokasi_sekolah_latitude} className="mt-2" />
+              </div>
+              <div>
+                <InputLabel htmlFor="lokasi_sekolah_longitude" value="Longitude Sekolah" />
+                <TextInput
+                  id="lokasi_sekolah_longitude"
+                  className="mt-1 block w-full"
+                  value={data.lokasi_sekolah_longitude}
+                  onChange={(e) => setData('lokasi_sekolah_longitude', e.target.value)}
+                  placeholder="Contoh: 106.816666"
+                />
+                <InputError message={errors.lokasi_sekolah_longitude} className="mt-2" />
+              </div>
+              <div className="md:col-span-2">
+                <InputLabel htmlFor="radius_absen_meters" value="Radius Absensi (dalam meter)" />
+                <div className="relative mt-1">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Target className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <TextInput
+                    id="radius_absen_meters"
+                    type="number"
+                    min="10"
+                    className="block w-full pl-10"
+                    value={data.radius_absen_meters}
+                    onChange={(e) => setData('radius_absen_meters', e.target.value)}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Jarak toleransi dari titik pusat sekolah. Disarankan 50 - 200 meter.</p>
+                <InputError message={errors.radius_absen_meters} className="mt-2" />
+              </div>
+            </div>
+          </div>
           {/* Card: Waktu Siswa */}
           <div className="col-span-1 md:col-span-1 bg-gray-50 p-4 rounded-lg border border-gray-100">
             <div className="flex items-center gap-3">

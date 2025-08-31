@@ -39,6 +39,7 @@ class Siswa extends Model
         'status',
         'sidik_jari_template',
         'barcode_id',
+        'id_pengguna',
     ];
 
     /**
@@ -94,5 +95,10 @@ class Siswa extends Model
     public function absensi()
     {
         return $this->hasMany(AbsensiSiswa::class, 'id_siswa', 'id_siswa');
+    }
+
+    public function pengguna()
+    {
+        return $this->belongsTo(User::class, 'id_pengguna', 'id_pengguna');
     }
 }

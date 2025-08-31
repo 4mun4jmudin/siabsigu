@@ -16,6 +16,16 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        // Daftarkan alias middleware Anda di sini
+        $middleware->alias([
+            'check.level' => \App\Http\Middleware\CheckUserLevel::class,
+        ]);
+
+        // Pastikan middleware Inertia juga terdaftar di sini
+        $middleware->web(append: [
+            \App\Http\Middleware\HandleInertiaRequests::class,
+        ]);
+
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {

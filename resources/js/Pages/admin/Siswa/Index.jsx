@@ -10,11 +10,11 @@ import {
     MagnifyingGlassIcon,
     PlusIcon,
     ArrowUpOnSquareIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
+    UsersIcon
 } from '@heroicons/react/24/outline';
 import debounce from 'lodash.debounce';
 
-// Komponen untuk paginasi
 const Pagination = ({ links }) => (
     <div className="mt-6 flex justify-center">
         {links.map((link, key) => (
@@ -25,7 +25,6 @@ const Pagination = ({ links }) => (
     </div>
 );
 
-// Komponen untuk "Empty State" ketika tidak ada data
 const EmptyState = () => (
     <div className="text-center py-12">
         <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -44,13 +43,10 @@ const EmptyState = () => (
 
 export default function Index({ auth, siswas, kelasOptions, filters }) {
     const { flash } = usePage().props;
-    const { delete: destroy, processing } = useForm();
+    const { delete: destroy, post, processing } = useForm();
     
-    // State untuk filter
     const [search, setSearch] = useState(filters.search || '');
     const [selectedKelas, setSelectedKelas] = useState(filters.kelas || '');
-
-    // State untuk toast & modal
     const [toast, setToast] = useState({ show: false, message: '' });
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -61,10 +57,8 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         }
     }, [flash]);
 
-    // SKIP running search on first mount (so pagination clicks don't get overridden)
     const isFirstRender = useRef(true);
 
-    // debouncedSearch: when filters change, go to page 1
     const debouncedSearch = useCallback(debounce((searchVal, kelasVal) => {
         router.get(route('admin.siswa.index'), { search: searchVal, kelas: kelasVal, page: 1 }, {
             preserveState: true,
@@ -72,14 +66,12 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         });
     }, 300), []);
 
-    // Ensure debounce is cleaned up on unmount
     useEffect(() => {
         return () => {
             debouncedSearch.cancel();
         };
     }, [debouncedSearch]);
 
-    // Run debounced search only when search/kelas change and NOT on first render
     useEffect(() => {
         if (isFirstRender.current) {
             isFirstRender.current = false;
@@ -88,12 +80,10 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         debouncedSearch(search, selectedKelas);
     }, [search, selectedKelas, debouncedSearch]);
 
-    // Fungsi untuk handle perubahan filter kelas
     const handleKelasChange = (e) => {
         setSelectedKelas(e.target.value);
     };
 
-    // Fungsi untuk modal hapus
     const confirmDeletion = (e, item) => {
         e.preventDefault();
         setItemToDelete(item);
@@ -115,6 +105,15 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         });
     };
 
+    const handleGenerateAccounts = (e) => {
+        e.preventDefault();
+        if (confirm('Apakah Anda yakin ingin membuat akun untuk semua siswa aktif yang belum memilikinya? Proses ini mungkin memakan waktu beberapa saat.')) {
+            post(route('admin.siswa.generate-accounts'), {
+                preserveScroll: true,
+            });
+        }
+    };
+
     return (
         <AdminLayout user={auth.user} header="Data Siswa">
             <Head title="Data Siswa" />
@@ -124,11 +123,21 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800">Data Siswa</h2>
-                        <p className="text-sm text-gray-500">Kelola data siswa dan informasi akademik.</p>
+                        <p className="text-sm text-gray-500">Kelola data semua siswa yang terdaftar di sekolah.</p>
                     </div>
-                    <Link href={route('admin.siswa.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-600 transition">
-                        + Tambah Siswa
-                    </Link>
+                    <div className="flex items-center gap-2">
+                         <button 
+                            onClick={handleGenerateAccounts}
+                            disabled={processing}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-500 active:bg-green-700 disabled:opacity-50 transition"
+                        >
+                            <UsersIcon className="h-4 w-4 mr-2" />
+                            Buat Akun Massal
+                        </button>
+                        <Link href={route('admin.siswa.create')} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-600 transition">
+                            + Tambah Siswa
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -173,25 +182,26 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kelas</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">JK</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {siswas.data.map((siswa) => (
-                                                <tr key={siswa.id_siswa} className={!siswa.is_data_lengkap ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-50'}>
+                                                <tr key={siswa.id_siswa} className={'hover:bg-gray-50'}>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{siswa.nis}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                        <div className="flex items-center">
-                                                            {siswa.nama_lengkap}
-                                                            {!siswa.is_data_lengkap && (
-                                                                <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500 ml-2" title="Data belum lengkap" />
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{siswa.kelas.tingkat} {siswa.kelas.jurusan}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{siswa.nama_lengkap}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{siswa.kelas ? `${siswa.kelas.tingkat} ${siswa.kelas.jurusan}` : 'N/A'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{siswa.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${siswa.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{siswa.status}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {siswa.id_pengguna ? (
+                                                            <span className="text-green-600 font-semibold">Ada</span>
+                                                        ) : (
+                                                            <span className="text-red-600 font-semibold">Tidak Ada</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                         <div className="flex items-center gap-x-3">
@@ -221,7 +231,6 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                     <div className="mt-6 flex justify-end">
                         <button onClick={closeModal} type="button" className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">Batal</button>
                         <button onClick={deleteItem} type="button" disabled={processing} className="ml-3 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 disabled:opacity-50">
-                            {processing && <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
                             {processing ? 'Menghapus...' : 'Ya, Hapus'}
                         </button>
                     </div>

@@ -31,10 +31,8 @@ export default function Login({ status, canResetPassword }) {
     };
 
     return (
-        // Wrapper utama untuk background dan layout
         <div
             className="min-h-screen flex items-center justify-center bg-gray-200 p-4"
-            // Ganti 'gedung-sekolah.jpg' dengan nama file gambar lokal Anda
             style={{
                 backgroundImage: `url('https://i.ytimg.com/vi/E-VdemkhzXw/maxresdefault.jpg')`,
                 backgroundSize: 'cover',

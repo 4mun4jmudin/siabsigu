@@ -34,23 +34,31 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // =======================================================
-        // KODE YANG DIPERBAIKI ADA DI SINI
-        // =======================================================
-
         $user = Auth::user();
+        $level = strtolower($user->level); // Ambil level dan ubah ke huruf kecil
 
-        if ($user->level === 'Admin') {
-            // Jika level adalah Admin, arahkan ke route 'admin.dashboard'
-            // Kita menggunakan helper route() untuk keamanan dan fleksibilitas
-            return redirect()->route('admin.dashboard');
+        // Gunakan switch untuk penanganan yang lebih bersih
+        switch ($level) {
+            case 'admin':
+                return redirect()->route('admin.dashboard');
+
+            case 'siswa':
+                return redirect()->route('siswa.dashboard');
+
+            case 'guru':
+                // Nanti akan kita arahkan ke dasbor guru
+                // Untuk sekarang, kita arahkan ke dasbor umum dulu
+                return redirect()->route('dashboard'); // Ubah ke guru.dashboard jika sudah dibuat
+
+            case 'orang tua':
+                // Nanti akan kita arahkan ke dasbor orang tua
+                return redirect()->route('dashboard');
+
+            default:
+                // Fallback untuk level yang tidak dikenali
+                return redirect()->intended('/dashboard');
         }
-
-        // Jika bukan Admin, arahkan langsung ke URL '/dashboard'
-        // Ini adalah pengganti dari RouteServiceProvider::HOME
-        return redirect()->intended('/dashboard');
     }
-
     /**
      * Destroy an authenticated session.
      */

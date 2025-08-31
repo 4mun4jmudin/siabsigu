@@ -104,6 +104,9 @@ class PengaturanController extends Controller
             'login_barcode_enabled' => 'nullable|boolean',
             'login_fingerprint_enabled' => 'nullable|boolean',
             'login_manual_enabled' => 'nullable|boolean',
+            'lokasi_sekolah_latitude' => ['nullable', 'regex:/^[-]?(([0-8]?[0-9])\.(\d+))|(90(\.0+)?)$/'],
+            'lokasi_sekolah_longitude' => ['nullable', 'regex:/^[-]?((((1[0-7][0-9])|([0-9]?[0-9]))\.(\d+))|180(\.0+)?)$/'],
+            'radius_absen_meters' => 'nullable|integer|min:10',
         ]);
 
         DB::beginTransaction();
@@ -133,17 +136,24 @@ class PengaturanController extends Controller
             'auto_create_user' => 'nullable|boolean',
         ]);
 
-        DB::beginTransaction();
-        $pengaturan = Pengaturan::firstOrCreate(['id' => 1]);
-        $pengaturan->update($request->except('_method'));
+        try {
 
-        LogAktivitas::create([
-            'id_pengguna' => Auth::user()->id_pengguna,
-            'aksi' => 'Memperbarui Pengaturan Pengguna',
-            'keterangan' => json_encode($request->except('_method')),
-        ]);
-        DB::commit();
-        return redirect()->back()->with('status', 'Pengaturan Pengguna berhasil diperbarui.');
+            DB::beginTransaction();
+            $pengaturan = Pengaturan::firstOrCreate(['id' => 1]);
+            $pengaturan->update($request->except('_method'));
+
+            LogAktivitas::create([
+                'id_pengguna' => Auth::user()->id_pengguna,
+                'aksi' => 'Memperbarui Pengaturan Pengguna',
+                'keterangan' => json_encode($request->except('_method')),
+            ]);
+            DB::commit();
+            return redirect()->back()->with('status', 'Pengaturan Pengguna berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Gagal memperbarui pengaturan absensi: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal memperbarui pengaturan pengguna. Silakan coba lagi.');
+        }
     }
 
     /**
@@ -201,18 +211,15 @@ class PengaturanController extends Controller
             $diskName = config('backup.backup.destination.disks')[0];
 
             $disk = Storage::disk($diskName);
-            $directory = $backupName; // Direktori utama adalah nama aplikasi
+            $directory = $backupName;
 
-            // Periksa apakah direktori backup ada.
             if (!$disk->exists($directory)) {
                 return response()->json(['success' => true, 'backups' => []]);
             }
 
-            // Ambil semua file di dalam subdirektori (jika ada)
             $files = collect($disk->allFiles($directory))
                 ->filter(fn($path) => Str::endsWith($path, '.zip'));
 
-            // Ambil detail setiap file
             $list = $files->map(function ($path) use ($disk) {
                 $timestamp = $disk->lastModified($path);
                 return [
@@ -240,12 +247,9 @@ class PengaturanController extends Controller
     public function manualBackup()
     {
         try {
-            // Jalankan perintah backup DB. Pastikan paket backup tersedia (contoh: spatie/laravel-backup)
-            // Jika tidak pakai paket, ganti sesuai command backup yang kamu gunakan.
             Artisan::call('backup:run', ['--only-db' => true]);
             $output = Artisan::output();
 
-            // Ambil "last backup" sederhana: pakai now() atau parsing output jika paket mengembalikan nama file
             $lastBackupTime = now()->toDateTimeString();
 
             Log::info('Backup manual berhasil: ' . $output);

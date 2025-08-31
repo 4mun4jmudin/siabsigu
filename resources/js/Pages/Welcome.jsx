@@ -55,7 +55,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
   // fallback logo
   const handleImgError = (e) => {
     e.currentTarget.onerror = null;
-    e.currentTarget.src = '/images/logo-placeholder.png';
+    e.currentTarget.src = '/images/logo-placeholder.jpg';
   };
 
   // ============================
@@ -159,6 +159,9 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
               </Link>
             ) : (
               <>
+                <Link href={route('login.siswa')} className="rounded-md px-3 py-2 text-sky-700 font-semibold hover:bg-sky-50">
+                  Login Siswa
+                </Link>
                 <Link href={route('login')} className="rounded-md px-3 py-2 text-sky-700 hover:text-sky-900">Login</Link>
                 <Link href={route('register')} className="inline-flex items-center gap-2 rounded-md border border-sky-600 px-4 py-2 text-sky-600 hover:bg-sky-50">Register</Link>
               </>
@@ -385,16 +388,16 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
 function FeatureCard({ title, desc, icon = 'star' }) {
   const icons = {
     student: (
-      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 12a5 5 0 100-10 5 5 0 000 10z" fill="currentColor"/><path d="M3 21a9 9 0 0118 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 12a5 5 0 100-10 5 5 0 000 10z" fill="currentColor" /><path d="M3 21a9 9 0 0118 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
     ),
     teacher: (
-      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7h16M10 11h4M6 21h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7h16M10 11h4M6 21h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
     ),
     report: (
-      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 7h8M8 12h8M8 17h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/></svg>
+      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 7h8M8 12h8M8 17h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" /></svg>
     ),
     star: (
-      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor"/></svg>
+      <svg className="h-6 w-6 text-sky-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor" /></svg>
     ),
   };
 

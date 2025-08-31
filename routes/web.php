@@ -16,6 +16,9 @@ use App\Http\Controllers\Admin\AbsensiSiswaController;
 use App\Http\Controllers\Admin\JadwalMengajarController;
 use App\Http\Controllers\Admin\JurnalMengajarController;
 use App\Http\Controllers\Admin\LaporanController;
+use App\Http\Controllers\Siswa\AbsensiController as SiswaAbsensiController;
+use App\Http\Controllers\Auth\SiswaLoginController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -35,12 +38,19 @@ Route::get('/', function () {
 });
 
 // Rute Dasbor Pengguna Biasa
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Route::get('/dashboard', function () {
+//     return Inertia::render('Dashboard');
+// })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
 // Grup untuk semua rute yang memerlukan autentikasi
 Route::middleware('auth')->group(function () {
+
+
+    Route::get('/dashboard/siswa', [SiswaController::class, 'index'])->name('dashboard.siswa');
+
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     // Rute Profil Pengguna
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -54,12 +64,19 @@ Route::middleware('auth')->group(function () {
     // =========================================================================
     Route::prefix('admin')->name('admin.')->group(function () {
 
+        Route::post('siswa/generate-accounts', [SiswaController::class, 'generateMissingAccounts'])->name('siswa.generate-accounts');
+        Route::put('/pengaturan/absensi', [PengaturanController::class, 'updateAbsensi'])->name('pengaturan.update-absensi');
+        // Route::put('/pengaturan/absensi', [PengaturanController::class, 'updateAbsensi'])->name('pengaturan.update-absensi');
+
+
+
 
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
         // Manajemen Data Master (CRUD)
         Route::resource('guru', GuruController::class);
         Route::resource('siswa', SiswaController::class);
+        Route::get('siswa/fix-levels', [SiswaController::class, 'fixStudentLevels'])->name('siswa.fix-levels'); // Rute sementara untuk perbaikan
         Route::post('siswa/{siswa}/keamanan', [SiswaController::class, 'updateKeamanan'])->name('siswa.update.keamanan');
         Route::resource('kelas', KelasController::class);
         Route::resource('mata-pelajaran', MataPelajaranController::class);
@@ -184,6 +201,26 @@ Route::middleware('auth')->group(function () {
         Route::post('maintenance/restore', [PengaturanController::class, 'restoreDatabase'])
             ->name('maintenance.restore');
     });
+
+    // Route::prefix('siswa')->name('siswa.')->group(function () {
+
+    //     // Rute untuk dasbor siswa (halaman absensi)
+    //     Route::get('/dashboard', [SiswaAbsensiController::class, 'index'])->name('dashboard');
+
+    //     // Rute untuk memproses absensi
+    //     Route::post('/absensi', [SiswaAbsensiController::class, 'store'])->name('absensi.store');
+    // });
+
+
+
+    Route::prefix('siswa')->name('siswa.')->middleware(['auth', 'check.level:Siswa'])->group(function () {
+
+        Route::get('/dashboard', [SiswaAbsensiController::class, 'index'])->name('dashboard');
+        Route::post('/absensi', [SiswaAbsensiController::class, 'store'])->name('absensi.store');
+    });
 });
+
+Route::get('login/siswa', [SiswaLoginController::class, 'create'])->name('login.siswa');
+Route::post('login/siswa', [SiswaLoginController::class, 'store'])->name('login.siswa.store');
 
 require __DIR__ . '/auth.php';

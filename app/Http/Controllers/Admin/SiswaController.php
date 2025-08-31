@@ -5,31 +5,32 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Siswa;
 use App\Models\Kelas;
-use App\Models\OrangTuaWali; 
-use App\Models\AbsensiSiswa; 
+use App\Models\OrangTuaWali;
+use App\Models\AbsensiSiswa;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str; // <-- Import Str
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class SiswaController extends Controller
 {
-    // ... (method index & show tidak berubah) ...
+    /**
+     * Menampilkan halaman daftar siswa dengan filter dan paginasi.
+     */
     public function index(Request $request)
     {
-        // Ambil semua kelas untuk dropdown filter
         $kelasOptions = Kelas::orderBy('tingkat')->get();
 
-        // Query utama untuk mengambil data siswa
-        $siswas = Siswa::with('kelas') // Eager load relasi kelas
+        $siswas = Siswa::with('kelas')
             ->when($request->input('search'), function ($query, $search) {
-                // Filter berdasarkan pencarian nama atau NIS
                 $query->where('nama_lengkap', 'like', "%{$search}%")
-                    ->orWhere('nis', 'like', "%{$search}%");
+                      ->orWhere('nis', 'like', "%{$search}%");
             })
             ->when($request->input('kelas'), function ($query, $kelasId) {
-                // Filter berdasarkan kelas yang dipilih
                 $query->where('id_kelas', $kelasId);
             })
             ->latest()
@@ -43,29 +44,9 @@ class SiswaController extends Controller
         ]);
     }
 
- 
-    public function show(Siswa $siswa)
-    {
-        // Eager load relasi utama
-        $siswa->load('kelas.waliKelas');
-
-        // Ambil data untuk tab "Orang Tua/Wali"
-        $orangTuaWali = OrangTuaWali::where('id_siswa', $siswa->id_siswa)->get();
-
-        // Ambil data untuk tab "Riwayat Absensi" (contoh: 30 data terakhir)
-        $riwayatAbsensi = AbsensiSiswa::where('id_siswa', $siswa->id_siswa)
-            ->latest('tanggal')
-            ->take(30)
-            ->get();
-
-        return Inertia::render('admin/Siswa/Show', [
-            'siswa' => $siswa,
-            'orangTuaWali' => $orangTuaWali,
-            'riwayatAbsensi' => $riwayatAbsensi,
-        ]);
-    }
-
-
+    /**
+     * Menampilkan form untuk membuat data siswa baru.
+     */
     public function create()
     {
         return Inertia::render('admin/Siswa/Create', [
@@ -73,11 +54,14 @@ class SiswaController extends Controller
         ]);
     }
 
+    /**
+     * Menyimpan data siswa baru beserta akun pengguna yang terhubung secara otomatis.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'id_siswa' => 'required|string|max:20|unique:tbl_siswa',
-            'nis' => 'required|string|max:30|unique:tbl_siswa',
+            'nis' => 'required|string|max:30|unique:tbl_siswa|unique:tbl_pengguna,username',
             'nisn' => 'required|string|max:20|unique:tbl_siswa',
             'id_kelas' => 'required|exists:tbl_kelas,id_kelas',
             'nama_lengkap' => 'required|string|max:100',
@@ -91,22 +75,57 @@ class SiswaController extends Controller
             'agama' => 'required|string',
             'alamat_lengkap' => 'required|string',
             'status' => 'required|in:Aktif,Lulus,Pindah,Drop Out',
-            // -- TAMBAHKAN VALIDASI --
             'sidik_jari_template' => 'nullable|string',
             'barcode_id' => 'nullable|string|max:100|unique:tbl_siswa,barcode_id',
-            // ------------------------
         ]);
 
-        if ($request->hasFile('foto_profil')) {
-            $path = $request->file('foto_profil')->store('foto_profil_siswa', 'public');
-            $validated['foto_profil'] = $path;
-        }
+        DB::transaction(function () use ($request, $validated) {
+            // 1. Buat akun User baru untuk siswa
+            $user = User::create([
+                'nama_lengkap' => $validated['nama_lengkap'],
+                'username'     => $validated['nis'], // Username WAJIB menggunakan NIS
+                'password'     => Hash::make($validated['nis']), // Password default WAJIB NIS
+                'level'        => 'Siswa',
+            ]);
 
-        Siswa::create($validated);
-        return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil ditambahkan.');
+            // 2. Tambahkan id_pengguna ke data siswa yang akan disimpan
+            $validated['id_pengguna'] = $user->id_pengguna;
+
+            if ($request->hasFile('foto_profil')) {
+                $path = $request->file('foto_profil')->store('foto_profil_siswa', 'public');
+                $validated['foto_profil'] = $path;
+            }
+
+            // 3. Buat data siswa
+            Siswa::create($validated);
+        });
+
+        return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil ditambahkan beserta akun loginnya.');
+        
     }
 
-    
+    /**
+     * Menampilkan halaman detail untuk seorang siswa.
+     */
+    public function show(Siswa $siswa)
+    {
+        $siswa->load('kelas.waliKelas');
+        $orangTuaWali = OrangTuaWali::where('id_siswa', $siswa->id_siswa)->get();
+        $riwayatAbsensi = AbsensiSiswa::where('id_siswa', $siswa->id_siswa)
+            ->latest('tanggal')
+            ->take(30)
+            ->get();
+
+        return Inertia::render('admin/Siswa/Show', [
+            'siswa' => $siswa,
+            'orangTuaWali' => $orangTuaWali,
+            'riwayatAbsensi' => $riwayatAbsensi,
+        ]);
+    }
+
+    /**
+     * Menampilkan form untuk mengedit data siswa.
+     */
     public function edit(Siswa $siswa)
     {
         return Inertia::render('admin/Siswa/Edit', [
@@ -115,7 +134,9 @@ class SiswaController extends Controller
         ]);
     }
 
-    
+    /**
+     * Memperbarui data siswa di database.
+     */
     public function update(Request $request, Siswa $siswa)
     {
         $validated = $request->validate([
@@ -133,28 +154,37 @@ class SiswaController extends Controller
             'agama' => 'required|string',
             'alamat_lengkap' => 'required|string',
             'status' => 'required|in:Aktif,Lulus,Pindah,Drop Out',
-             // -- TAMBAHKAN VALIDASI --
             'sidik_jari_template' => 'nullable|string',
             'barcode_id' => ['nullable', 'string', 'max:100', Rule::unique('tbl_siswa')->ignore($siswa->id_siswa, 'id_siswa')],
-            // ------------------------
         ]);
 
-        if ($request->hasFile('foto_profil')) {
-            if ($siswa->foto_profil) {
-                Storage::disk('public')->delete($siswa->foto_profil);
+        DB::transaction(function () use ($request, $siswa, $validated) {
+            if ($request->hasFile('foto_profil')) {
+                // Hapus foto lama jika ada
+                if ($siswa->foto_profil) {
+                    Storage::disk('public')->delete($siswa->foto_profil);
+                }
+                // Simpan foto baru
+                $path = $request->file('foto_profil')->store('foto_profil_siswa', 'public');
+                $validated['foto_profil'] = $path;
             }
-            $path = $request->file('foto_profil')->store('foto_profil_siswa', 'public');
-            $validated['foto_profil'] = $path;
-        }
 
-        $siswa->update($validated);
+            $siswa->update($validated);
+
+            // Sinkronkan data di tabel User jika ada
+            if ($siswa->pengguna) {
+                $siswa->pengguna->update([
+                    'nama_lengkap' => $validated['nama_lengkap'],
+                    'username' => $validated['nis'], // Jika NIS berubah, username juga berubah
+                ]);
+            }
+        });
+
         return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil diperbarui.');
     }
-
+    
     /**
-     * =================================================================
-     * METHOD BARU UNTUK SIDIK JARI & BARCODE
-     * =================================================================
+     * Memperbarui data keamanan (barcode & sidik jari) untuk siswa.
      */
     public function updateKeamanan(Request $request, Siswa $siswa)
     {
@@ -163,25 +193,80 @@ class SiswaController extends Controller
             'barcode_id' => ['nullable', 'string', 'max:100', Rule::unique('tbl_siswa', 'barcode_id')->ignore($siswa->id_siswa, 'id_siswa')],
         ]);
 
-        // Generate barcode_id jika kosong tapi diminta generate
         if ($request->input('generate_barcode') && empty($validated['barcode_id'])) {
             $validated['barcode_id'] = 'SISWA-' . Str::upper(Str::random(10));
         }
 
         $siswa->update($validated);
         
-        // Redirect kembali ke halaman show dengan pesan sukses
         return redirect()->route('admin.siswa.show', $siswa->id_siswa)
-                         ->with('message', 'Data keamanan (Sidik Jari & Barcode) berhasil diperbarui.');
+                         ->with('message', 'Data keamanan berhasil diperbarui.');
     }
 
+    /**
+     * Membuat akun pengguna secara massal untuk siswa yang belum memilikinya.
+     */
+    public function generateMissingAccounts()
+    {
+        $studentsToProcess = Siswa::where('status', 'Aktif')
+            ->whereNull('id_pengguna')
+            ->get();
 
+        $createdCount = 0;
+        $failedCount = 0;
+
+        foreach ($studentsToProcess as $siswa) {
+            DB::transaction(function () use ($siswa, &$createdCount, &$failedCount) {
+                $userExists = User::where('username', $siswa->nis)->exists();
+
+                if ($userExists) {
+                    $failedCount++;
+                    return; 
+                }
+
+                $user = User::create([
+                    'nama_lengkap' => $siswa->nama_lengkap,
+                    'username'     => $siswa->nis,
+                    'password'     => Hash::make($siswa->nis),
+                    'level'        => 'Siswa',
+                ]);
+
+                $siswa->id_pengguna = $user->id_pengguna;
+                $siswa->save();
+
+                $createdCount++;
+            });
+        }
+
+        if ($createdCount === 0 && $failedCount === 0) {
+             return back()->with('message', 'Semua siswa aktif sudah memiliki akun.');
+        }
+
+        $message = "Proses selesai. Berhasil membuat {$createdCount} akun baru.";
+        if ($failedCount > 0) {
+            $message .= " Gagal membuat {$failedCount} akun karena NIS sudah terdaftar sebagai username.";
+        }
+
+        return back()->with('message', $message);
+    }
+
+    /**
+     * Menghapus data siswa dan akun pengguna yang terhubung.
+     */
     public function destroy(Siswa $siswa)
     {
-        if ($siswa->foto_profil) {
-            Storage::disk('public')->delete($siswa->foto_profil);
-        }
-        $siswa->delete();
-        return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil dihapus.');
+        DB::transaction(function () use ($siswa) {
+            if ($siswa->foto_profil) {
+                Storage::disk('public')->delete($siswa->foto_profil);
+            }
+            
+            if ($siswa->pengguna) {
+                $siswa->pengguna->delete();
+            }
+
+            $siswa->delete();
+        });
+
+        return to_route('admin.siswa.index')->with('message', 'Data Siswa dan akun loginnya berhasil dihapus.');
     }
 }

@@ -68,4 +68,10 @@ class User extends Authenticatable
     {
         return $this->hasOne(Guru::class, 'id_pengguna', 'id_pengguna');
     }
+
+    // Tambahkan di dalam class User
+    public function siswa()
+    {
+        return $this->hasOne(Siswa::class, 'id_pengguna', 'id_pengguna');
+    }
 }

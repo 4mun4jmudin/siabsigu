@@ -25,7 +25,9 @@ class AbsensiSiswa extends Model
         'status_kehadiran',
         'metode_absen',
         'keterangan',
-        'id_penginput_manual'
+        'id_penginput_manual',
+        'latitude',
+        'longitude'
     ];
 
     public function siswa()

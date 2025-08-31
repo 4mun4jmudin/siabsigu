@@ -45,6 +45,9 @@ class Pengaturan extends Model
         'backup_auto_enabled',
         'backup_time',
         'backup_retention_days',
+        'lokasi_sekolah_latitude',
+        'lokasi_sekolah_longitude',
+        'radius_absen_meters',
         
     ];
 
