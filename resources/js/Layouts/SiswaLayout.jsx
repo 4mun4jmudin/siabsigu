@@ -43,7 +43,7 @@ export default function SiswaLayout({ children, header }) {
     const SidebarContent = () => (
         <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-sky-800 px-6 pb-4">
             <div className="flex h-16 shrink-0 items-center gap-x-3">
-                <img className="h-10 w-auto" src="/images/logo-sekolah.png" alt="Logo Sekolah" />
+                <img className="h-10 w-auto" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRl33BhpowHZZHfLJuzZrr3VVSMwe5t4evLmA&s" alt="Logo Sekolah" />
                 <span className="text-white font-bold text-lg">SISWA AREA</span>
             </div>
             <nav className="flex flex-1 flex-col">

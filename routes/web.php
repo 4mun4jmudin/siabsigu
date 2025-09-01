@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\JurnalMengajarController;
 use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Siswa\AbsensiController as SiswaAbsensiController;
 use App\Http\Controllers\Auth\SiswaLoginController;
+use App\Http\Controllers\Guru\DashboardController as GuruDashboardController;
 
 
 /*
@@ -217,6 +218,20 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/dashboard', [SiswaAbsensiController::class, 'index'])->name('dashboard');
         Route::post('/absensi', [SiswaAbsensiController::class, 'store'])->name('absensi.store');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANEL GURU
+    |--------------------------------------------------------------------------
+    | Dilindungi oleh middleware 'auth' dan 'check.level:Guru'.
+    */
+    Route::prefix('guru')->name('guru.')->middleware('check.level:Guru')->group(function () {
+
+        Route::get('/dashboard', [GuruDashboardController::class, 'index'])->name('dashboard');
+
+        // (Kita akan tambahkan rute lain seperti /jurnal dan /absensi-siswa di sini nanti)
+
     });
 });
 

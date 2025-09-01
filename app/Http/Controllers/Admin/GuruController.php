@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str; // <-- 1. Impor Str helper untuk membuat string random
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+
 
 class GuruController extends Controller
 {
@@ -32,7 +35,7 @@ class GuruController extends Controller
         $gurus = Guru::with(['pengguna', 'kelasWali'])
             ->when($request->input('search'), function ($query, $search) {
                 $query->where('nama_lengkap', 'like', "%{$search}%")
-                      ->orWhere('nip', 'like', "%{$search}%");
+                    ->orWhere('nip', 'like', "%{$search}%");
             })
             ->latest()
             ->paginate(10)
@@ -61,10 +64,10 @@ class GuruController extends Controller
             ->latest('tanggal')
             ->take(15)
             ->get();
-            
+
         $jurnalMengajar = JurnalMengajar::whereHas('jadwalMengajar', function ($query) use ($guru) {
-                $query->where('id_guru', $guru->id_guru);
-            })
+            $query->where('id_guru', $guru->id_guru);
+        })
             ->with(['jadwalMengajar.kelas', 'jadwalMengajar.mataPelajaran'])
             ->latest('tanggal')
             ->take(15)
@@ -106,12 +109,35 @@ class GuruController extends Controller
             'sidik_jari_template' => 'nullable|string',
         ]);
 
-        if ($request->hasFile('foto_profil')) {
-            $path = $request->file('foto_profil')->store('foto_profil_guru', 'public');
-            $validated['foto_profil'] = $path;
-        }
+        DB::transaction(function () use ($request, $validated) {
+            // Membuat username dari nama lengkap (lowercase, tanpa spasi)
+            $username = strtolower(str_replace(' ', '', $validated['nama_lengkap']));
+            
 
-        Guru::create($validated);
+            // Cek jika username sudah ada, tambahkan angka random
+            if (User::where('username', $username)->exists()) {
+                $username = $username . Str::lower(Str::random(3));
+            }
+
+            // Buat akun User baru untuk guru
+            $user = User::create([
+                'nama_lengkap' => $validated['nama_lengkap'],
+                'username'     => $username,
+                'password'     => Hash::make('password'), // Password default
+                'level'        => 'Guru',
+            ]);
+
+            // Tambahkan id_pengguna dari user yang baru dibuat ke data guru
+            $validated['id_pengguna'] = $user->id_pengguna;
+
+            if ($request->hasFile('foto_profil')) {
+                $path = $request->file('foto_profil')->store('foto_profil_guru', 'public');
+                $validated['foto_profil'] = $path;
+            }
+
+            // Buat data guru
+            Guru::create($validated);
+        });
         // Menggunakan 'success' agar sesuai dengan ToastNotification di frontend
         return to_route('admin.guru.index')->with('success', 'Data Guru berhasil ditambahkan.');
     }
@@ -124,9 +150,9 @@ class GuruController extends Controller
         $users = User::where('level', 'Guru')
             ->where(function ($query) use ($guru) {
                 $query->whereDoesntHave('guru')
-                      ->orWhere('id_pengguna', $guru->id_pengguna);
+                    ->orWhere('id_pengguna', $guru->id_pengguna);
             })->get();
-            
+
         return Inertia::render('admin/Guru/Edit', [
             'guru' => $guru->load('pengguna'),
             'users' => $users,
@@ -150,7 +176,7 @@ class GuruController extends Controller
 
         if ($request->hasFile('foto_profil')) {
             $request->validate(['foto_profil' => 'nullable|image|max:2048']);
-            
+
             if ($guru->foto_profil) {
                 Storage::disk('public')->delete($guru->foto_profil);
             }
@@ -159,7 +185,7 @@ class GuruController extends Controller
         }
 
         $guru->update($validated);
-        
+
         return to_route('admin.guru.index')->with('success', 'Data Guru berhasil diperbarui.');
     }
 
@@ -171,9 +197,9 @@ class GuruController extends Controller
         if ($guru->foto_profil) {
             Storage::disk('public')->delete($guru->foto_profil);
         }
-        
+
         $guru->delete();
-        
+
         return to_route('admin.guru.index')->with('success', 'Data Guru berhasil dihapus.');
     }
 

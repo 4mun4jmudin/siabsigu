@@ -3,73 +3,80 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\LoginRequest;
-// Hapus 'use App\Providers\RouteServiceProvider;' karena sudah tidak digunakan
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;
 
 class AuthenticatedSessionController extends Controller
 {
     /**
-     * Display the login view.
+     * Menampilkan halaman login utama (untuk Admin & Guru).
      */
-    public function create(): Response
+    public function create(): \Inertia\Response
     {
-        return Inertia::render('Auth/Login', [
-            'canResetPassword' => Route::has('password.request'),
-            'status' => session('status'),
+        return Inertia::render('Auth/Login');
+    }
+
+    /**
+     * Menangani permintaan otentikasi untuk Admin & Guru.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $credentials = $request->only('username', 'password');
+
+        // Coba login sebagai Admin atau Guru
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+
+            $user = Auth::user();
+            $level = strtolower($user->level);
+
+            // Jika yang berhasil login adalah Siswa, tolak dia
+            if ($level === 'siswa') {
+                Auth::guard('web')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                throw ValidationException::withMessages([
+                    'username' => 'Akun siswa hanya dapat login melalui halaman login siswa.',
+                ]);
+            }
+
+            // Jika Admin atau Guru, lanjutkan
+            $request->session()->regenerate();
+
+            if ($level === 'admin') {
+                return redirect()->intended(route('admin.dashboard'));
+            }
+
+            if ($level === 'guru') {
+                return redirect()->intended(route('guru.dashboard'));
+            }
+
+            // Fallback jika ada level lain (misal: Orang Tua)
+            return redirect('/dashboard');
+        }
+
+        // Jika username & password tidak cocok sama sekali
+        throw ValidationException::withMessages([
+            'username' => 'Kredensial yang Anda masukkan tidak cocok dengan data kami.',
         ]);
     }
 
     /**
-     * Handle an incoming authentication request.
-     */
-    public function store(LoginRequest $request): RedirectResponse
-    {
-        $request->authenticate();
-
-        $request->session()->regenerate();
-
-        $user = Auth::user();
-        $level = strtolower($user->level); // Ambil level dan ubah ke huruf kecil
-
-        // Gunakan switch untuk penanganan yang lebih bersih
-        switch ($level) {
-            case 'admin':
-                return redirect()->route('admin.dashboard');
-
-            case 'siswa':
-                return redirect()->route('siswa.dashboard');
-
-            case 'guru':
-                // Nanti akan kita arahkan ke dasbor guru
-                // Untuk sekarang, kita arahkan ke dasbor umum dulu
-                return redirect()->route('dashboard'); // Ubah ke guru.dashboard jika sudah dibuat
-
-            case 'orang tua':
-                // Nanti akan kita arahkan ke dasbor orang tua
-                return redirect()->route('dashboard');
-
-            default:
-                // Fallback untuk level yang tidak dikenali
-                return redirect()->intended('/dashboard');
-        }
-    }
-    /**
-     * Destroy an authenticated session.
+     * Menghancurkan sesi otentikasi (logout).
      */
     public function destroy(Request $request): RedirectResponse
     {
         Auth::guard('web')->logout();
-
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
-
         return redirect('/');
     }
 }
