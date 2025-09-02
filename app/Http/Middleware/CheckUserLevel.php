@@ -9,6 +9,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckUserLevel
 {
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
     public function handle(Request $request, Closure $next, ...$levels): Response
     {
         if (!Auth::check()) {
@@ -16,20 +21,30 @@ class CheckUserLevel
         }
 
         $user = Auth::user();
+        $userLevel = strtolower($user->level);
 
+        // Cek apakah level pengguna ada dalam daftar level yang diizinkan
         foreach ($levels as $level) {
-            if ($user->level == $level) {
-                // Jika level cocok, izinkan akses
-                return $next($request);
+            if ($userLevel == strtolower($level)) {
+                return $next($request); // Izinkan akses
             }
         }
 
-        // Jika tidak cocok, redirect berdasarkan level pengguna saat ini
-        if ($user->level === 'Admin') {
-            return redirect()->route('admin.dashboard')->with('error', 'Anda tidak memiliki hak akses ke halaman siswa.');
-        }
+        // --- INI BAGIAN YANG DIPERBAIKI ---
+        // Jika tidak diizinkan, arahkan kembali ke dasbor masing-masing
+        $message = 'Anda tidak memiliki hak akses ke halaman tersebut.';
 
-        // Default redirect jika ada peran lain
-        return redirect('/dashboard')->with('error', 'Akses ditolak.');
+        switch ($userLevel) {
+            case 'admin':
+                return redirect()->route('admin.dashboard')->with('error', $message);
+            case 'guru':
+                return redirect()->route('guru.dashboard')->with('error', $message);
+            case 'siswa':
+                return redirect()->route('siswa.dashboard')->with('error', $message);
+            default:
+                // Fallback jika ada peran lain, logout untuk keamanan
+                Auth::logout();
+                return redirect('/')->with('error', 'Level pengguna tidak dikenali.');
+        }
     }
 }

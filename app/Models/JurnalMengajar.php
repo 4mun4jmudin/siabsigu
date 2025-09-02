@@ -25,7 +25,10 @@ class JurnalMengajar extends Model
         'status_mengajar',
         'id_guru_pengganti',
         'materi_pembahasan',
+        'alasan_tidak_mengajar',
         'id_penginput_manual',
+        'id_editor',
+        'terakhir_diedit_pada',
     ];
 
     // Relasi ke jadwal mengajar
