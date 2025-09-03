@@ -38,6 +38,7 @@
         "react-dnd-html5-backend": "^16.0.1",
         "react-hot-toast": "^2.5.2",
         "react-tooltip": "^5.29.1",
+        "use-debounce": "^10.0.6",
         "ziggy-js": "github:tightenco/ziggy"
     }
 }

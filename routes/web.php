@@ -19,6 +19,8 @@ use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Siswa\AbsensiController as SiswaAbsensiController;
 use App\Http\Controllers\Auth\SiswaLoginController;
 use App\Http\Controllers\Guru\DashboardController as GuruDashboardController;
+use App\Http\Controllers\Guru\AbsensiSiswaController as GuruAbsensiSiswaController;
+use App\Http\Controllers\Guru\AbsensiSiswaMapelController;
 
 
 /*
@@ -68,10 +70,16 @@ Route::middleware('auth')->group(function () {
     | PANEL GURU (Hanya bisa diakses oleh Guru)
     |--------------------------------------------------------------------------
     */
+
     Route::prefix('guru')->name('guru.')->middleware('check.level:Guru')->group(function () {
         Route::get('/dashboard', [GuruDashboardController::class, 'index'])->name('dashboard');
-        // Tambahkan rute panel guru lainnya di sini nanti
-        // Route::resource('/jurnal', App\Http\Controllers\Guru\JurnalMengajarController::class)->only(['index', 'create', 'store', 'show']);
+
+        // --- RUTE BARU UNTUK ABSENSI MAPEL ---
+        // ------------------------------------
+        Route::get('/absensi-mapel', [AbsensiSiswaMapelController::class, 'index'])->name('absensi-mapel.index'); // Halaman pilih jadwal
+        Route::get('/absensi-mapel/{id_jadwal}', [AbsensiSiswaMapelController::class, 'show'])->name('absensi-mapel.show'); // Halaman absensi
+        Route::post('/absensi-mapel', [AbsensiSiswaMapelController::class, 'store'])->name('absensi-mapel.store'); // Proses simpan
+
         Route::resource('/jurnal', App\Http\Controllers\Guru\JurnalMengajarController::class);
         Route::post('/jurnal/quick-entry', [App\Http\Controllers\Guru\JurnalMengajarController::class, 'storeQuickEntry'])->name('jurnal.quick_entry');
     });
