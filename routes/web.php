@@ -21,6 +21,7 @@ use App\Http\Controllers\Auth\SiswaLoginController;
 use App\Http\Controllers\Guru\DashboardController as GuruDashboardController;
 use App\Http\Controllers\Guru\AbsensiSiswaController as GuruAbsensiSiswaController;
 use App\Http\Controllers\Guru\AbsensiSiswaMapelController;
+use App\Http\Controllers\Guru\AbsensiHarianController;
 
 
 /*
@@ -79,6 +80,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/absensi-mapel', [AbsensiSiswaMapelController::class, 'index'])->name('absensi-mapel.index'); // Halaman pilih jadwal
         Route::get('/absensi-mapel/{id_jadwal}', [AbsensiSiswaMapelController::class, 'show'])->name('absensi-mapel.show'); // Halaman absensi
         Route::post('/absensi-mapel', [AbsensiSiswaMapelController::class, 'store'])->name('absensi-mapel.store'); // Proses simpan
+
+        Route::get('/absensi-harian', [AbsensiHarianController::class, 'index'])->name('absensi-harian.index');
+        Route::post('/absensi-harian', [AbsensiHarianController::class, 'store'])->name('absensi-harian.store');
+
+        Route::post('absensi-harian/izin', [\App\Http\Controllers\Guru\AbsensiHarianController::class, 'submitIzin'])->name('absensi-harian.izin');
 
         Route::resource('/jurnal', App\Http\Controllers\Guru\JurnalMengajarController::class);
         Route::post('/jurnal/quick-entry', [App\Http\Controllers\Guru\JurnalMengajarController::class, 'storeQuickEntry'])->name('jurnal.quick_entry');

@@ -19,6 +19,8 @@ import {
     ChevronRight,
 } from 'lucide-react';
 
+
+
 /**
  * Helper untuk memeriksa apakah sebuah route ada tanpa menyebabkan error.
  * Ini berguna agar aplikasi tidak crash jika link menunjuk ke route yang belum dibuat.
@@ -52,6 +54,7 @@ const navigationItems = [
     { name: 'Dashboard', href: 'guru.dashboard', icon: Home },
     { name: 'Jurnal & Absensi', href: 'guru.jurnal.index', icon: BookOpen },
     { name: 'Absensi Siswa', href: 'guru.absensi-mapel.index', icon: Users },
+    { name: 'Absensi Harian', href: 'guru.absensi-harian.index', icon: ClipboardCheck },
     { name: 'Jadwal Saya', href: '#', icon: CalendarDays },
     { name: 'Daftar Siswa', href: '#', icon: Users },
     { name: 'Laporan', href: '#', icon: FileText },
