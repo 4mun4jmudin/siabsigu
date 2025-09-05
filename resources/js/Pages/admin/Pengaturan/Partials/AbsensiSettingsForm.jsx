@@ -19,6 +19,7 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
     login_barcode_enabled: !!pengaturan.login_barcode_enabled,
     login_fingerprint_enabled: !!pengaturan.login_fingerprint_enabled,
     login_manual_enabled: !!pengaturan.login_manual_enabled,
+    absensi_manual_guru_enabled: pengaturan.absensi_manual_guru_enabled ?? true,
     lokasi_sekolah_latitude: pengaturan.lokasi_sekolah_latitude || '',
     lokasi_sekolah_longitude: pengaturan.lokasi_sekolah_longitude || '',
     radius_absen_meters: pengaturan.radius_absen_meters ?? 200,
@@ -321,6 +322,18 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
 
               <label className="flex items-start gap-3 p-2 rounded-lg border hover:bg-gray-50 cursor-pointer">
                 <Checkbox
+                  name="absensi_manual_guru_enabled"
+                  checked={data.absensi_manual_guru_enabled}
+                  onChange={(e) => setData('absensi_manual_guru_enabled', e.target.checked)}
+                />
+                <div className="text-sm">
+                  <div className="flex items-center gap-2 font-medium text-gray-700"><User className="w-4 h-4" /> Halaman Absensi Guru (Manual)</div>
+                  <div className="text-xs text-gray-500">Jika non-aktif, guru tidak dapat mengakses form absensi manual dari panel.</div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-2 rounded-lg border hover:bg-gray-50 cursor-pointer">
+                <Checkbox
                   name="login_manual_enabled"
                   checked={data.login_manual_enabled}
                   onChange={(e) => setData('login_manual_enabled', e.target.checked)}
@@ -346,6 +359,7 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
               <div className="mt-3 flex gap-2 flex-wrap">
                 <MethodBadge active={data.login_barcode_enabled} Icon={QrCode}>Barcode</MethodBadge>
                 <MethodBadge active={data.login_fingerprint_enabled} Icon={Fingerprint}>Sidik Jari</MethodBadge>
+                <MethodBadge active={data.absensi_manual_guru_enabled} Icon={User}>Absen Harian Guru</MethodBadge>
                 <MethodBadge active={data.login_manual_enabled} Icon={User}>Manual</MethodBadge>
               </div>
             </div>

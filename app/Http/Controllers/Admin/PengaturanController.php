@@ -104,6 +104,7 @@ class PengaturanController extends Controller
             'login_barcode_enabled' => 'nullable|boolean',
             'login_fingerprint_enabled' => 'nullable|boolean',
             'login_manual_enabled' => 'nullable|boolean',
+            'absensi_manual_guru_enabled' => 'required|boolean',
             'lokasi_sekolah_latitude' => ['nullable', 'regex:/^[-]?(([0-8]?[0-9])\.(\d+))|(90(\.0+)?)$/'],
             'lokasi_sekolah_longitude' => ['nullable', 'regex:/^[-]?((((1[0-7][0-9])|([0-9]?[0-9]))\.(\d+))|180(\.0+)?)$/'],
             'radius_absen_meters' => 'nullable|integer|min:10',
