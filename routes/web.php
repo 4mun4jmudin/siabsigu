@@ -22,6 +22,8 @@ use App\Http\Controllers\Guru\DashboardController as GuruDashboardController;
 use App\Http\Controllers\Guru\AbsensiSiswaController as GuruAbsensiSiswaController;
 use App\Http\Controllers\Guru\AbsensiSiswaMapelController;
 use App\Http\Controllers\Guru\AbsensiHarianController;
+use App\Http\Controllers\Guru\JadwalController;
+// use App\Http\Controllers\Guru\SiswaController;
 
 
 /*
@@ -85,6 +87,22 @@ Route::middleware('auth')->group(function () {
         Route::post('/absensi-harian', [AbsensiHarianController::class, 'store'])->name('absensi-harian.store');
 
         Route::post('absensi-harian/izin', [\App\Http\Controllers\Guru\AbsensiHarianController::class, 'submitIzin'])->name('absensi-harian.izin');
+
+        // jadwal panel guru
+        Route::resource('/jadwal', App\Http\Controllers\Guru\JadwalController::class);
+        Route::get('/jadwal', [App\Http\Controllers\Guru\JadwalController::class, 'index'])->name('jadwal.index');
+
+        Route::get('/jadwal/export/ical', [JadwalController::class, 'exportIcal'])->name('jadwal.export.ical');
+
+        Route::get('/siswa', [App\Http\Controllers\Guru\SiswaController::class, 'index'])->name('siswa.index');
+        Route::get('/siswa/{siswa}', [App\Http\Controllers\Guru\SiswaController::class, 'show'])->name('siswa.show');
+
+        Route::get('/laporan', [App\Http\Controllers\Guru\LaporanController::class, 'index'])->name('laporan.index');
+        // Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
+        Route::get('/laporan/export-excel', [App\Http\Controllers\Guru\LaporanController::class, 'exportExcel'])->name('laporan.exportExcel');
+        Route::get('/laporan/preview-pdf', [App\Http\Controllers\Guru\LaporanController::class, 'previewPdf'])->name('laporan.previewPdf');
+
+
 
         Route::resource('/jurnal', App\Http\Controllers\Guru\JurnalMengajarController::class);
         Route::post('/jurnal/quick-entry', [App\Http\Controllers\Guru\JurnalMengajarController::class, 'storeQuickEntry'])->name('jurnal.quick_entry');

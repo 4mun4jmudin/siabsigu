@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Storage;
 
 class Siswa extends Model
 {
@@ -47,7 +48,7 @@ class Siswa extends Model
      *
      * @var array
      */
-    protected $appends = ['is_data_lengkap'];
+    protected $appends = ['is_data_lengkap', 'foto_profil_url'];
 
     /**
      * Accessor untuk memeriksa kelengkapan data siswa.
@@ -80,6 +81,27 @@ class Siswa extends Model
             }
         );
     }
+
+    protected function fotoProfilUrl(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value, $attributes) {
+                // Cek apakah 'foto_profil' ada dan tidak kosong
+                if ($attributes['foto_profil']) {
+                    // Cek apakah 'foto_profil' sudah merupakan URL lengkap
+                    if (filter_var($attributes['foto_profil'], FILTER_VALIDATE_URL)) {
+                        return $attributes['foto_profil'];
+                    }
+                    // Jika belum, buat URL dari storage
+                    return Storage::url($attributes['foto_profil']);
+                }
+
+                // Jika tidak ada foto, kembalikan null atau URL ke gambar default
+                return null;
+            }
+        );
+    }
+
 
     /**
      * Relasi ke model Kelas.

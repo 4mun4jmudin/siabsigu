@@ -19,7 +19,7 @@ class LaporanAbsensiExport implements FromView, ShouldAutoSize
 
     public function view(): View
     {
-        // 👇👇 UBAH BAGIAN INI: Arahkan ke view yang baru untuk Excel 👇👇
+
         return view('exports.laporan_absensi_excel', [
             'data' => $this->data,
             'filters' => $this->filters,

@@ -55,9 +55,9 @@ const navigationItems = [
     { name: 'Jurnal & Absensi', href: 'guru.jurnal.index', icon: BookOpen },
     { name: 'Absensi Siswa', href: 'guru.absensi-mapel.index', icon: Users },
     { name: 'Absensi Harian', href: 'guru.absensi-harian.index', icon: ClipboardCheck },
-    { name: 'Jadwal Saya', href: '#', icon: CalendarDays },
-    { name: 'Daftar Siswa', href: '#', icon: Users },
-    { name: 'Laporan', href: '#', icon: FileText },
+    { name: 'Jadwal Saya', href: 'guru.jadwal.index', icon: CalendarDays },
+    { name: 'Daftar Siswa', href: 'guru.siswa.index', icon: Users },
+    { name: 'Laporan', href: 'guru.laporan.index', icon: FileText },
 ];
 
 function classNames(...classes) {
