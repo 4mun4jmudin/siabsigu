@@ -32,7 +32,7 @@ class CheckUserLevel
 
         // --- INI BAGIAN YANG DIPERBAIKI ---
         // Jika tidak diizinkan, arahkan kembali ke dasbor masing-masing
-        $message = 'Anda tidak memiliki hak akses ke halaman tersebut.';
+        $message = 'X';
 
         switch ($userLevel) {
             case 'admin':

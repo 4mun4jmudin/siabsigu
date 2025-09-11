@@ -54,6 +54,7 @@ const navigationItems = [
     { name: 'Dashboard', href: 'orangtua.dashboard', icon: Home },
     { name: 'Absensi Ananda', href: 'orangtua.absensi.index', icon: CalendarDays },
     { name: 'Jadwal Pelajaran', href: 'orangtua.jadwal.index', icon: BookOpen },
+    { name: 'Pengumuman', href: 'orangtua.pengumuman.index', icon: Users },
     // { name: 'Nilai Ananda', href: 'orangtua.nilai.index', icon: ClipboardCheck },
     // { name: 'Jadwal Pelajaran', href: 'orangtua.jadwal.index', icon: BookOpen },
     // { name: 'Pengumuman', href: 'orangtua.pengumuman.index', icon: Users },

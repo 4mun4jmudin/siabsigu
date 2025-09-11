@@ -82,7 +82,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/profile', [OrangTuaProfileController::class, 'update'])->name('profile.update');
         Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
         Route::get('/jadwal', [App\Http\Controllers\OrangTua\JadwalController::class, 'index'])->name('jadwal.index');
-
+        Route::get('/pengumuman', [App\Http\Controllers\OrangTua\PengumumanController::class, 'index'])->name('pengumuman.index');
+        Route::get('/pengumuman/{pengumuman}', [App\Http\Controllers\OrangTua\PengumumanController::class, 'show'])->name('pengumuman.show');
 
         // Nanti kita bisa tambahkan rute lain di sini
     });
