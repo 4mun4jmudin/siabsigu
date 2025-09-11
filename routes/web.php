@@ -23,6 +23,9 @@ use App\Http\Controllers\Guru\AbsensiSiswaController as GuruAbsensiSiswaControll
 use App\Http\Controllers\Guru\AbsensiSiswaMapelController;
 use App\Http\Controllers\Guru\AbsensiHarianController;
 use App\Http\Controllers\Guru\JadwalController;
+use App\Http\Controllers\OrangTua\DashboardController;
+use App\Http\Controllers\OrangTua\ProfileController as OrangTuaProfileController;
+
 // use App\Http\Controllers\Guru\SiswaController;
 
 
@@ -50,6 +53,8 @@ Route::get('/', function () {
 
 Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
+
+
 // Grup untuk semua rute yang memerlukan autentikasi
 Route::middleware('auth')->group(function () {
 
@@ -66,6 +71,17 @@ Route::middleware('auth')->group(function () {
     Route::prefix('siswa')->name('siswa.')->middleware('check.level:Siswa')->group(function () {
         Route::get('/dashboard', [SiswaAbsensiController::class, 'index'])->name('dashboard');
         Route::post('/absensi', [SiswaAbsensiController::class, 'store'])->name('absensi.store');
+    });
+
+    Route::middleware(['auth', 'check.level:Orang Tua'])->prefix('orangtua')->name('orangtua.')->group(function () {
+        // Route::get('/dashboard', function () {return Inertia::render('OrangTua/Dashboard');
+        // })->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/profile', [OrangTuaProfileController::class, 'show'])->name('profile.show');
+        Route::post('/profile', [OrangTuaProfileController::class, 'update'])->name('profile.update');
+
+
+        // Nanti kita bisa tambahkan rute lain di sini
     });
 
     /*

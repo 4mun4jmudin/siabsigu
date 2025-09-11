@@ -26,7 +26,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
 
-        //
+        // Daftarkan alias middleware Anda di sini
+
+        // $middleware->alias([
+        //     'user.level' => \App\Http\Middleware\CheckUserLevel::class,
+        // ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

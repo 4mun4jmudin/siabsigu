@@ -74,4 +74,10 @@ class User extends Authenticatable
     {
         return $this->hasOne(Siswa::class, 'id_pengguna', 'id_pengguna');
     }
+
+    public function orangTuaWali()
+    {
+        // UBAH DARI hasMany MENJADI hasOne
+        return $this->hasOne(OrangTuaWali::class, 'id_pengguna', 'id_pengguna');
+    }
 }
