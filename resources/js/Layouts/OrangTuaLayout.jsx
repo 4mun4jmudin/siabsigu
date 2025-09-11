@@ -52,6 +52,12 @@ function safeRoute(name, params = {}, fallback = '#') {
 // Daftar item navigasi sidebar untuk panel orang tua wali
 const navigationItems = [
     { name: 'Dashboard', href: 'orangtua.dashboard', icon: Home },
+    { name: 'Absensi Ananda', href: 'orangtua.absensi.index', icon: CalendarDays },
+    { name: 'Jadwal Pelajaran', href: 'orangtua.jadwal.index', icon: BookOpen },
+    // { name: 'Nilai Ananda', href: 'orangtua.nilai.index', icon: ClipboardCheck },
+    // { name: 'Jadwal Pelajaran', href: 'orangtua.jadwal.index', icon: BookOpen },
+    // { name: 'Pengumuman', href: 'orangtua.pengumuman.index', icon: Users },
+    // { name: 'Laporan', href: 'orangtua.laporan.index', icon: FileText },
 
 ];
 

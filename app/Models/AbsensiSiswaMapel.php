@@ -76,4 +76,9 @@ class AbsensiSiswaMapel extends Model
     {
         return $this->jadwalMengajar?->jam_mulai;
     }
+
+    public function jadwal()
+    {
+        return $this->belongsTo(JadwalMengajar::class, 'id_jadwal', 'id_jadwal');
+    }
 }

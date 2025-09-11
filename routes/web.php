@@ -25,6 +25,7 @@ use App\Http\Controllers\Guru\AbsensiHarianController;
 use App\Http\Controllers\Guru\JadwalController;
 use App\Http\Controllers\OrangTua\DashboardController;
 use App\Http\Controllers\OrangTua\ProfileController as OrangTuaProfileController;
+use App\Http\Controllers\OrangTua\AbsensiController;
 
 // use App\Http\Controllers\Guru\SiswaController;
 
@@ -79,6 +80,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/profile', [OrangTuaProfileController::class, 'show'])->name('profile.show');
         Route::post('/profile', [OrangTuaProfileController::class, 'update'])->name('profile.update');
+        Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
+        Route::get('/jadwal', [App\Http\Controllers\OrangTua\JadwalController::class, 'index'])->name('jadwal.index');
 
 
         // Nanti kita bisa tambahkan rute lain di sini
