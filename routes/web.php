@@ -26,6 +26,7 @@ use App\Http\Controllers\Guru\JadwalController;
 use App\Http\Controllers\OrangTua\DashboardController;
 use App\Http\Controllers\OrangTua\ProfileController as OrangTuaProfileController;
 use App\Http\Controllers\OrangTua\AbsensiController;
+use App\Http\Controllers\OrangTua\NotificationController;
 
 // use App\Http\Controllers\Guru\SiswaController;
 
@@ -84,6 +85,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/jadwal', [App\Http\Controllers\OrangTua\JadwalController::class, 'index'])->name('jadwal.index');
         Route::get('/pengumuman', [App\Http\Controllers\OrangTua\PengumumanController::class, 'index'])->name('pengumuman.index');
         Route::get('/pengumuman/{pengumuman}', [App\Http\Controllers\OrangTua\PengumumanController::class, 'show'])->name('pengumuman.show');
+        // Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        // Route::post('/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
+        // Route::post('/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-as-read');
 
         // Nanti kita bisa tambahkan rute lain di sini
     });
