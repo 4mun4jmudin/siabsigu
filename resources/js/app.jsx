@@ -1,3 +1,4 @@
+import 'leaflet/dist/leaflet.css';
 import '../css/app.css';
 import './bootstrap';
 

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\Carbon;
 
 class AbsensiSiswaMapel extends Model
 {
@@ -58,23 +59,70 @@ class AbsensiSiswaMapel extends Model
 
     /**
      * Hitung menit keterlambatan relatif terhadap jam mulai jadwal.
-     * Mengembalikan integer menit (>=0) atau null jika jam_mulai/jadwal tidak tersedia.
+     * Mengembalikan integer menit (>=0) atau null jika tidak tersedia.
      */
     public function getMenitKeterlambatanAttribute()
     {
-        if (!$this->jam_mulai) return null;
+        // jadwal mulai (string 'HH:ii:ss' atau null)
+        $jadwalMulai = $this->jadwalMulai();
+        if (!$jadwalMulai) {
+            return null;
+        }
 
-        $jamMulai = \Carbon\Carbon::createFromFormat('H:i:s', $this->jam_mulai ?? $this->jadwalMulai());
-        $jamMasuk = \Carbon\Carbon::createFromFormat('H:i:s', $this->jam_mulai);
-        return $jamMasuk->greaterThan($jamMulai) ? $jamMasuk->diffInMinutes($jamMulai) : 0;
+        // actual jam masuk (waktu yg dicatat di record absensi)
+        if (!$this->jam_mulai) {
+            return null; // tidak bisa hitung jika tidak ada waktu absen
+        }
+
+        try {
+            $scheduled = Carbon::createFromFormat('H:i:s', $jadwalMulai);
+        } catch (\Throwable $e) {
+            // jika format tidak cocok, coba potong 5 char (HH:ii)
+            try {
+                $scheduled = Carbon::createFromFormat('H:i', substr($jadwalMulai, 0, 5));
+            } catch (\Throwable $e2) {
+                return null;
+            }
+        }
+
+        try {
+            $actual = Carbon::createFromFormat('H:i:s', $this->jam_mulai);
+        } catch (\Throwable $e) {
+            try {
+                $actual = Carbon::createFromFormat('H:i', substr($this->jam_mulai, 0, 5));
+            } catch (\Throwable $e2) {
+                return null;
+            }
+        }
+
+        if ($actual->greaterThan($scheduled)) {
+            return $actual->diffInMinutes($scheduled);
+        }
+
+        return 0;
     }
 
     /**
      * Jika ingin mendapatkan jam mulai default dari jadwal (bila tidak diisi di absensi).
+     * Mengembalikan string 'HH:ii:ss' atau null.
      */
     public function jadwalMulai()
     {
-        return $this->jadwalMengajar?->jam_mulai;
+        // beberapa model jadwal bisa menamai relasi berbeda.
+        if ($this->relationLoaded('jadwalMengajar') && $this->jadwalMengajar) {
+            return $this->jadwalMengajar->jam_mulai;
+        }
+        if ($this->relationLoaded('jadwal') && $this->jadwal) {
+            return $this->jadwal->jam_mulai;
+        }
+        // fallback: coba lazy-load
+        if ($this->jadwalMengajar) {
+            return $this->jadwalMengajar->jam_mulai;
+        }
+        if ($this->jadwal) {
+            return $this->jadwal->jam_mulai;
+        }
+        return null;
     }
 
     public function jadwal()

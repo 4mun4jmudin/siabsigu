@@ -26,7 +26,9 @@ use App\Http\Controllers\Guru\JadwalController;
 use App\Http\Controllers\OrangTua\DashboardController;
 use App\Http\Controllers\OrangTua\ProfileController as OrangTuaProfileController;
 use App\Http\Controllers\OrangTua\AbsensiController;
-use App\Http\Controllers\OrangTua\NotificationController;
+use App\Http\Controllers\OrangTua\NotificationController as OrangTuaNotificationController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Admin\AbsensiSiswaMapelController as AdminAbsensiSiswaMapelController;
 
 // use App\Http\Controllers\Guru\SiswaController;
 
@@ -60,6 +62,9 @@ Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dash
 // Grup untuk semua rute yang memerlukan autentikasi
 Route::middleware('auth')->group(function () {
 
+    Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('notifications/mark-all', [NotificationController::class, 'markAllRead'])->name('notifications.markAll');
+
     // Rute Profil (berlaku untuk semua level)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -85,9 +90,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/jadwal', [App\Http\Controllers\OrangTua\JadwalController::class, 'index'])->name('jadwal.index');
         Route::get('/pengumuman', [App\Http\Controllers\OrangTua\PengumumanController::class, 'index'])->name('pengumuman.index');
         Route::get('/pengumuman/{pengumuman}', [App\Http\Controllers\OrangTua\PengumumanController::class, 'show'])->name('pengumuman.show');
-        // Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-        // Route::post('/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
-        // Route::post('/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-as-read');
+        Route::get('/notifications', [OrangTuaNotificationController::class, 'index'])->name('notifications.index');
+        Route::post('/notifications/mark-as-read', [OrangTuaNotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
+        Route::post('/notifications/mark-all-as-read', [OrangTuaNotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-as-read');
 
         // Nanti kita bisa tambahkan rute lain di sini
     });
@@ -137,6 +142,7 @@ Route::middleware('auth')->group(function () {
     | PANEL ADMIN (Hanya bisa diakses oleh Admin)
     |--------------------------------------------------------------------------
     */
+    // Semua rute di dalam grup ini hanya bisa diakses oleh user dengan level "Admin"
     Route::prefix('admin')->name('admin.')->middleware('check.level:Admin')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
@@ -147,6 +153,8 @@ Route::middleware('auth')->group(function () {
         Route::resource('mata-pelajaran', MataPelajaranController::class);
         Route::resource('orang-tua-wali', OrangTuaWaliController::class);
         Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
+
+        Route::resource('pengumuman', App\Http\Controllers\Admin\PengumumanController::class);
 
         // Fitur Tambahan Master
         Route::post('siswa/{siswa}/keamanan', [SiswaController::class, 'updateKeamanan'])->name('siswa.update.keamanan');
@@ -193,6 +201,31 @@ Route::middleware('auth')->group(function () {
         Route::put('/pengaturan/sistem', [PengaturanController::class, 'updateSystem'])->name('pengaturan.update-system');
         Route::put('/pengaturan/backup', [PengaturanController::class, 'updateBackup'])->name('pengaturan.update-backup');
 
+
+        // Route::get('admin/absensi-siswa-mapel', [AbsensiSiswaMapelController::class, 'index'])->name('admin.absensi-siswa-mapel.index');
+        // Route::post('admin/absensi-siswa-mapel/store', [AbsensiSiswaMapelController::class, 'store'])->name('admin.absensi-siswa-mapel.store');
+        // Route::post('admin/absensi-siswa-mapel/bulk-update', [AbsensiSiswaMapelController::class, 'bulkUpdate'])->name('admin.absensi-siswa-mapel.bulk_update');
+        // Route::post('admin/absensi-siswa-mapel/import', [AbsensiSiswaMapelController::class, 'import'])->name('admin.absensi-siswa-mapel.import');
+        // Route::get('admin/absensi-siswa-mapel/export', [AbsensiSiswaMapelController::class, 'export'])->name('admin.absensi-siswa-mapel.export');
+        // Route::post('admin/absensi-siswa-mapel/lock', [AbsensiSiswaMapelController::class, 'lock'])->name('admin.absensi-siswa-mapel.lock');
+
+        Route::get('admin/absensi-siswa-mapel/export', [\App\Http\Controllers\Admin\AbsensiSiswaMapelController::class, 'export'])
+            ->name('admin.absensi-siswa-mapel.export')
+            ->middleware(['auth']);
+        Route::prefix('absensi-siswa-mapel')->name('absensi-siswa-mapel.')->group(function () {
+            Route::get('/', [AdminAbsensiSiswaMapelController::class, 'index'])->name('index');
+            Route::post('/', [AdminAbsensiSiswaMapelController::class, 'store'])->name('store');
+            Route::get('/manage', [AdminAbsensiSiswaMapelController::class, 'manage'])->name('manage');
+            Route::post('/import', [AdminAbsensiSiswaMapelController::class, 'import'])->name('import');
+            Route::get('/export', [AdminAbsensiSiswaMapelController::class, 'export'])->name('export');
+            Route::post('/bulk-update', [AdminAbsensiSiswaMapelController::class, 'bulkUpdate'])->name('bulk_update');
+            Route::post('/lock', [AdminAbsensiSiswaMapelController::class, 'lock'])->name('lock');
+            Route::post('/unlock', [AdminAbsensiSiswaMapelController::class, 'unlock'])->name('unlock');
+            //pindahkan route export ke dalam grup ini biar rapi
+            Route::get('/export-pdf', [AdminAbsensiSiswaMapelController::class, 'exportPdf'])->name('export.pdf');
+            Route::get('/export-excel', [AdminAbsensiSiswaMapelController::class, 'exportExcel'])->name('export.excel');
+            
+        });
         // Maintenance
         Route::prefix('maintenance')->name('maintenance.')->group(function () {
             Route::post('clear-cache', [PengaturanController::class, 'clearCache'])->name('clear-cache');

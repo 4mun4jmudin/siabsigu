@@ -1,3 +1,4 @@
+// resources/js/Layouts/AdminLayout.jsx
 import React, { useState, Fragment, useEffect } from "react";
 import { Link, Head, usePage } from "@inertiajs/react";
 import { Dialog, Transition, Menu } from "@headlessui/react";
@@ -25,11 +26,7 @@ import {
     ComputerDesktopIcon
 } from "@heroicons/react/24/outline";
 
-// ---------------------------------------------
-// Helper: single Nav item
-// - supports collapsed state (icon-only)
-// - shows a small tooltip when collapsed using CSS (no JS)
-// ---------------------------------------------
+// NavLink, CollapsibleNavGroup unchanged (copy from your original)...
 function NavLink({ href, active, isCollapsed, children, label }) {
     return (
         <Link
@@ -41,7 +38,6 @@ function NavLink({ href, active, isCollapsed, children, label }) {
 
             {!isCollapsed && <span className="truncate">{label}</span>}
 
-            {/* Tooltip for collapsed state */}
             {isCollapsed && (
                 <span
                     className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden whitespace-nowrap rounded-md bg-indigo-900/90 px-3 py-1.5 text-xs font-semibold text-white group-hover:block"
@@ -54,9 +50,6 @@ function NavLink({ href, active, isCollapsed, children, label }) {
     );
 }
 
-// ---------------------------------------------
-// Collapsible group that animates open/close
-// ---------------------------------------------
 function CollapsibleNavGroup({ title, icon, isCollapsed, children, active = false }) {
     const [isOpen, setIsOpen] = useState(active);
 
@@ -84,7 +77,6 @@ function CollapsibleNavGroup({ title, icon, isCollapsed, children, active = fals
                     </>
                 )}
 
-                {/* Tooltip when collapsed */}
                 {isCollapsed && (
                     <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden whitespace-nowrap rounded-md bg-indigo-900/90 px-3 py-1.5 text-xs font-semibold text-white group-hover:block">
                         {title}
@@ -107,21 +99,23 @@ function CollapsibleNavGroup({ title, icon, isCollapsed, children, active = fals
     );
 }
 
-// ---------------------------------------------
-// Main Layout component (default export)
-// ---------------------------------------------
 export default function AdminLayout({ user, header, children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [toggleImageError, setToggleImageError] = useState(false);
-    const { flash, pengaturan } = usePage().props;
+
+    // get page props and flash/pengaturan
+    const pageProps = usePage().props || {};
+    const { flash, pengaturan } = pageProps;
+
+    // fallback: if user prop not passed, try pageProps.auth.user
+    const currentUser = user ?? pageProps.auth?.user ?? null;
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
     }, [flash]);
 
-    // path to the new toggle icon (put file into public/images/...)
     const toggleIconPath = pengaturan?.toggle_icon_url || "/images/sidebar-toggle-blue.png";
 
     const SidebarHeader = ({ isCollapsed }) => (
@@ -131,7 +125,6 @@ export default function AdminLayout({ user, header, children }) {
                 <img src={pengaturan.logo_url} alt="Logo Sekolah" className="h-10 w-10 object-contain rounded-md shadow-sm" />
             ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-yellow-400/10 ring-1 ring-yellow-300/30">
-                    {/* school-tech emblem */}
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 2L4 6v6c0 5.25 3.5 9 8 10 4.5-1 8-4.75 8-10V6l-8-4z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M8 10h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -219,6 +212,11 @@ export default function AdminLayout({ user, header, children }) {
                                 <AcademicCapIcon className="w-5 h-5" />
                             </NavLink>
                         </li>
+                        <li>
+                            <NavLink href={route("admin.absensi-siswa-mapel.index")} active={route().current("admin.absensi-siswa-mapel.*")} isCollapsed={false} label="Absensi Siswa per Mapel">
+                                <BookOpenIcon className="w-5 h-5" />
+                            </NavLink>
+                        </li>
                     </CollapsibleNavGroup>
 
                     <li>
@@ -247,7 +245,6 @@ export default function AdminLayout({ user, header, children }) {
                 </ul>
             </nav>
 
-            {/* Footer */}
             <div className={`p-3 ${!isSidebarOpen && !isMobile ? "flex justify-center" : "text-xs text-indigo-100/70"}`}>
                 {!isSidebarOpen && !isMobile ? (
                     <div className="text-indigo-50/90">v1.0</div>
@@ -273,7 +270,6 @@ export default function AdminLayout({ user, header, children }) {
             <Toaster position="top-right" reverseOrder={false} toastOptions={{ duration: 4500 }} />
 
             <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-                {/* Mobile sidebar (Dialog) */}
                 <Transition.Root show={isMobileSidebarOpen} as={Fragment}>
                     <Dialog as="div" className="relative z-50 lg:hidden" onClose={setIsMobileSidebarOpen}>
                         <Transition.Child as={Fragment} enter="transition-opacity ease-linear duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="transition-opacity ease-linear duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
@@ -309,12 +305,10 @@ export default function AdminLayout({ user, header, children }) {
                     </Dialog>
                 </Transition.Root>
 
-                {/* Desktop sidebar */}
                 <aside className={`hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col bg-gradient-to-b from-indigo-900 to-indigo-800 text-indigo-50 transition-all duration-300 ${isSidebarOpen ? "lg:w-64" : "lg:w-20"}`}>
                     {sidebarContent(false)}
                 </aside>
 
-                {/* Main area */}
                 <div className={`flex min-h-screen flex-col transition-all duration-300 ${isSidebarOpen ? "lg:pl-64" : "lg:pl-20"}`}>
                     <header className="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b border-indigo-100/10 bg-white/60 backdrop-blur-sm px-4 shadow-sm">
                         <button
@@ -360,9 +354,13 @@ export default function AdminLayout({ user, header, children }) {
                                 <Menu as="div" className="relative">
                                     <Menu.Button className="-m-1.5 flex items-center p-1.5">
                                         <span className="sr-only">Open user menu</span>
-                                        <div className="h-8 w-8 rounded-full bg-indigo-700 text-white flex items-center justify-center text-sm font-bold">{user.nama_lengkap?.charAt(0) ?? "U"}</div>
+                                        <div className="h-8 w-8 rounded-full bg-indigo-700 text-white flex items-center justify-center text-sm font-bold">
+                                            {currentUser?.nama_lengkap?.charAt(0) ?? "U"}
+                                        </div>
                                         <div className="hidden lg:flex lg:items-center">
-                                            <span className="ml-3 text-sm font-semibold leading-6 text-gray-900" aria-hidden>{user.nama_lengkap}</span>
+                                            <span className="ml-3 text-sm font-semibold leading-6 text-gray-900" aria-hidden>
+                                                {currentUser?.nama_lengkap ?? "User"}
+                                            </span>
                                             <ChevronDownIcon className="ml-2 h-5 w-5 text-gray-400" aria-hidden />
                                         </div>
                                     </Menu.Button>

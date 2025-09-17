@@ -61,10 +61,10 @@ export default function Index({ auth, jurnals, filters }) {
 
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                    <div>
+                    {/* <div>
                         <h1 className="text-2xl font-bold text-gray-800">Jurnal Mengajar Saya</h1>
                         <p className="text-sm text-gray-500 mt-1">Catatan aktivitas mengajar Anda.</p>
-                    </div>
+                    </div> */}
                     <Link href={route('guru.jurnal.create')}>
                         <PrimaryButton className="flex items-center">
                             <Plus className="h-4 w-4 mr-2" />
