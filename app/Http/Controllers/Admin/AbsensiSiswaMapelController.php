@@ -565,21 +565,21 @@ class AbsensiSiswaMapelController extends Controller
             $r2 = 5; // row header bawah
 
             // Merge NO/NIS/NAMA
-            $sheet->mergeCellsByColumnAndRow($colNo,  $r1, $colNo,  $r2);
-            $sheet->mergeCellsByColumnAndRow($colNis, $r1, $colNis, $r2);
-            $sheet->mergeCellsByColumnAndRow($colNama, $r1, $colNama, $r2);
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($colNo) . $r1 . ':' . Coordinate::stringFromColumnIndex($colNo) . $r2);
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($colNis) . $r1 . ':' . Coordinate::stringFromColumnIndex($colNis) . $r2);
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($colNama) . $r1 . ':' . Coordinate::stringFromColumnIndex($colNama) . $r2);
 
             // Label kolom kiri
-            $sheet->setCellValueByColumnAndRow($colNo,  $r2, 'NO');
-            $sheet->setCellValueByColumnAndRow($colNis, $r2, 'NIS');
-            $sheet->setCellValueByColumnAndRow($colNama, $r2, 'NAMA');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($colNo) . $r2, 'NO');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($colNis) . $r2, 'NIS');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($colNama) . $r2, 'NAMA');
 
             // BULAN : (di atas kolom hari)
-            $sheet->mergeCellsByColumnAndRow($firstDayCol, $r1, $lastDayCol, $r1);
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($firstDayCol) . $r1 . ':' . Coordinate::stringFromColumnIndex($lastDayCol) . $r1);
             $sheet->setCellValueByColumnAndRow($firstDayCol, $r1, 'BULAN :');
 
             // JUMLAH (di atas kolom total)
-            $sheet->mergeCellsByColumnAndRow($colH, $r1, $colDg, $r1);
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($colH) . $r1 . ':' . Coordinate::stringFromColumnIndex($colDg) . $r1);
             $sheet->setCellValueByColumnAndRow($colH, $r1, 'JUMLAH');
 
             // Nomor hari (1..lastDay)
