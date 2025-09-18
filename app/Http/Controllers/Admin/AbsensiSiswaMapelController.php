@@ -16,6 +16,14 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Barryvdh\DomPDF\Facade\Pdf;
+// use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
 class AbsensiSiswaMapelController extends Controller
 {
@@ -186,9 +194,12 @@ class AbsensiSiswaMapelController extends Controller
             'tanggal' => 'required|date',
             'absensi' => 'required|array',
             'absensi.*.id_siswa' => 'required|string|exists:tbl_siswa,id_siswa',
-            'absensi.*.status_kehadiran' => 'required|in:Hadir,Sakit,Izin,Alfa,Tugas,Digantikan',
+            // Izinkan "Belum Absen" agar tidak mental, tapi kita skip saat proses
+            'absensi.*.status_kehadiran' => 'required|in:Hadir,Sakit,Izin,Alfa,Tugas,Digantikan,Belum Absen',
             'absensi.*.keterangan' => 'nullable|string|max:500',
             'absensi.*.id_absensi_mapel' => 'nullable|string',
+            'absensi.*.jam_mulai'   => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'absensi.*.jam_selesai' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
         ]);
 
         $idJadwalFromPayload = $payload['id_jadwal'] ?? null;
@@ -197,6 +208,12 @@ class AbsensiSiswaMapelController extends Controller
         DB::beginTransaction();
         try {
             foreach ($payload['absensi'] as $item) {
+                // Skip yg masih "Belum Absen" (tidak create/update)
+                if (($item['status_kehadiran'] ?? '') === 'Belum Absen') {
+                    continue;
+                }
+
+                // Pastikan ada target jadwal
                 $targetJadwal = $idJadwalFromPayload;
 
                 if (empty($targetJadwal) && !empty($item['id_absensi_mapel'])) {
@@ -210,15 +227,16 @@ class AbsensiSiswaMapelController extends Controller
                     throw new \Exception("Tidak dapat menyimpan absensi untuk siswa {$item['id_siswa']}: pilih Jadwal/Mapel terlebih dahulu.");
                 }
 
-                if (!empty($item['id_absensi_mapel'])) {
-                    $existsKey = ['id_absensi_mapel' => $item['id_absensi_mapel']];
-                } else {
-                    $existsKey = [
-                        'id_jadwal' => $targetJadwal,
-                        'id_siswa' => $item['id_siswa'],
-                        'tanggal' => $tanggal,
-                    ];
-                }
+                // kunci pencari
+                $existsKey = !empty($item['id_absensi_mapel'])
+                    ? ['id_absensi_mapel' => $item['id_absensi_mapel']]
+                    : ['id_jadwal' => $targetJadwal, 'id_siswa' => $item['id_siswa'], 'tanggal' => $tanggal];
+
+                // normalisasi waktu (H:i -> H:i:s) supaya aman ke kolom TIME
+                $jm = $item['jam_mulai'] ?? null;
+                $js = $item['jam_selesai'] ?? null;
+                $jm = $jm ? ($jm . (strlen($jm) === 5 ? ':00' : '')) : null;
+                $js = $js ? ($js . (strlen($js) === 5 ? ':00' : '')) : null;
 
                 AbsensiSiswaMapel::updateOrCreate(
                     $existsKey,
@@ -230,8 +248,8 @@ class AbsensiSiswaMapelController extends Controller
                         'status_kehadiran' => $item['status_kehadiran'],
                         'keterangan' => $item['keterangan'] ?? null,
                         'metode_absen' => $item['metode_absen'] ?? 'Manual',
-                        'jam_mulai' => $item['jam_mulai'] ?? null,
-                        'jam_selesai' => $item['jam_selesai'] ?? null,
+                        'jam_mulai' => $jm,
+                        'jam_selesai' => $js,
                         'id_guru_pengganti' => $item['id_guru_pengganti'] ?? null,
                         'id_penginput_manual' => Auth::user()?->id_pengguna ?? Auth::id(),
                     ]
@@ -252,6 +270,7 @@ class AbsensiSiswaMapelController extends Controller
             return redirect()->back()->with('error', 'Gagal menyimpan absensi: ' . $e->getMessage());
         }
     }
+
 
     public function bulkUpdate(Request $request)
     {
@@ -466,6 +485,243 @@ class AbsensiSiswaMapelController extends Controller
 
         return redirect()->back()->with('error', 'Tipe ekspor tidak dikenali atau parameter kurang.');
     }
+
+  
+    public function exportExcel(Request $request)
+    {
+        $tanggal  = $request->input('tanggal');
+        $idJadwal = $request->input('id_jadwal');
+        $monthly  = filter_var($request->input('monthly', false), FILTER_VALIDATE_BOOLEAN);
+
+        if (empty($tanggal)) {
+            return redirect()->back()->with('error', 'Parameter tanggal diperlukan untuk ekspor Excel.');
+        }
+
+        try {
+            $dt = \Carbon\Carbon::parse($tanggal);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Format tanggal tidak valid.');
+        }
+
+        if ($monthly) {
+            // ===== EXCEL BULANAN (grid 1..31) =====
+            if (empty($idJadwal)) {
+                return redirect()->back()->with('error', 'Untuk ekspor Excel bulanan, parameter id_jadwal diperlukan.');
+            }
+
+            $jad = \App\Models\JadwalMengajar::with(['kelas', 'guru', 'mataPelajaran'])->find($idJadwal);
+            if (!$jad) return redirect()->back()->with('error', 'Jadwal tidak ditemukan.');
+
+            $month   = $dt->month;
+            $year    = $dt->year;
+            $lastDay = \Carbon\Carbon::createFromDate($year, $month, 1)->daysInMonth;
+
+            // ambil absensi bulan tsb
+            $attRows = \App\Models\AbsensiSiswaMapel::where('id_jadwal', $idJadwal)
+                ->whereYear('tanggal', $year)
+                ->whereMonth('tanggal', $month)
+                ->get()
+                ->groupBy('id_siswa');
+
+            // daftar siswa di kelas jadwal
+            $students = $jad->kelas?->siswa()->orderBy('nama_lengkap')->get() ?? collect();
+
+            // ===== Spreadsheet build =====
+            $ss = new Spreadsheet();
+            $sheet = $ss->getActiveSheet();
+
+            // kolom: No (A) | NIS (B) | NAMA (C) | day 1..N | JUMLAH H S I A T D
+            $colNo   = 1; // A
+            $colNis  = 2; // B
+            $colNama = 3; // C
+            $firstDayCol = 4; // D
+            $lastDayCol  = $firstDayCol + $lastDay - 1;
+
+            $colH = $lastDayCol + 1;
+            $colS = $lastDayCol + 2;
+            $colI = $lastDayCol + 3;
+            $colA = $lastDayCol + 4;
+            $colT = $lastDayCol + 5;
+            $colDg = $lastDayCol + 6;
+
+            $endColIdx = $colDg;
+            $endCol = Coordinate::stringFromColumnIndex($endColIdx);
+
+            // ===== Header judul =====
+            $sheet->mergeCells("A1:{$endCol}1");
+            $sheet->setCellValue("A1", "DAFTAR HADIR SISWA");
+            $sheet->getStyle("A1")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("A1")->getFont()->setBold(true)->setSize(14);
+
+            $sheet->mergeCells("A2:{$endCol}2");
+            $info = "MATA PELAJARAN: " . ($jad->mataPelajaran?->nama_mapel ?? '-')
+                . "    KELAS: " . trim(($jad->kelas?->tingkat ?? '') . ' ' . ($jad->kelas?->jurusan ?? ''))
+                . "    BULAN: " . strtoupper($dt->translatedFormat('F Y'));
+            $sheet->setCellValue("A2", $info);
+            $sheet->getStyle("A2")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            // ===== Header tabel (2 baris) =====
+            $r1 = 4; // row header atas
+            $r2 = 5; // row header bawah
+
+            // Merge NO/NIS/NAMA
+            $sheet->mergeCellsByColumnAndRow($colNo,  $r1, $colNo,  $r2);
+            $sheet->mergeCellsByColumnAndRow($colNis, $r1, $colNis, $r2);
+            $sheet->mergeCellsByColumnAndRow($colNama, $r1, $colNama, $r2);
+
+            // Label kolom kiri
+            $sheet->setCellValueByColumnAndRow($colNo,  $r2, 'NO');
+            $sheet->setCellValueByColumnAndRow($colNis, $r2, 'NIS');
+            $sheet->setCellValueByColumnAndRow($colNama, $r2, 'NAMA');
+
+            // BULAN : (di atas kolom hari)
+            $sheet->mergeCellsByColumnAndRow($firstDayCol, $r1, $lastDayCol, $r1);
+            $sheet->setCellValueByColumnAndRow($firstDayCol, $r1, 'BULAN :');
+
+            // JUMLAH (di atas kolom total)
+            $sheet->mergeCellsByColumnAndRow($colH, $r1, $colDg, $r1);
+            $sheet->setCellValueByColumnAndRow($colH, $r1, 'JUMLAH');
+
+            // Nomor hari (1..lastDay)
+            for ($d = 1; $d <= $lastDay; $d++) {
+                $sheet->setCellValueByColumnAndRow($firstDayCol + $d - 1, $r2, $d);
+            }
+
+            // Subheader jumlah
+            $sheet->setCellValueByColumnAndRow($colH, $r2, 'H');
+            $sheet->setCellValueByColumnAndRow($colS, $r2, 'S');
+            $sheet->setCellValueByColumnAndRow($colI, $r2, 'I');
+            $sheet->setCellValueByColumnAndRow($colA, $r2, 'A');
+            $sheet->setCellValueByColumnAndRow($colT, $r2, 'T');
+            $sheet->setCellValueByColumnAndRow($colDg, $r2, 'D');
+
+            // Styling header
+            $sheet->getStyle("A{$r1}:{$endCol}{$r2}")
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle("A{$r1}:{$endCol}{$r2}")
+                ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $sheet->getRowDimension($r1)->setRowHeight(22);
+            $sheet->getRowDimension($r2)->setRowHeight(22);
+            $sheet->getStyle("A{$r1}:{$endCol}{$r2}")->getFont()->setBold(true);
+
+            // Lebar kolom
+            $sheet->getColumnDimension('A')->setWidth(5);   // NO
+            $sheet->getColumnDimension('B')->setWidth(12);  // NIS
+            $sheet->getColumnDimension('C')->setWidth(32);  // NAMA
+            for ($ci = $firstDayCol; $ci <= $lastDayCol; $ci++) {
+                $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($ci))->setWidth(3.2);
+            }
+            foreach ([$colH, $colS, $colI, $colA, $colT, $colDg] as $ci) {
+                $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($ci))->setWidth(4.2);
+            }
+
+            // Freeze pane
+            $sheet->freezePane(Coordinate::stringFromColumnIndex($firstDayCol) . ($r2 + 1));
+
+            // ===== Data rows =====
+            $row = $r2 + 1;
+            $no  = 1;
+
+            foreach ($students as $st) {
+                $sheet->setCellValueByColumnAndRow($colNo,  $row, $no++);
+                $sheet->setCellValueByColumnAndRow($colNis, $row, $st->nis);
+                $sheet->setCellValueByColumnAndRow($colNama, $row, $st->nama_lengkap);
+
+                // inisialisasi map hari & counter
+                $map = array_fill(1, $lastDay, '');
+                $cnt = ['H' => 0, 'S' => 0, 'I' => 0, 'A' => 0, 'T' => 0, 'D' => 0];
+
+                $rows = $attRows->get($st->id_siswa) ?? collect();
+                foreach ($rows as $r) {
+                    $day  = \Carbon\Carbon::parse($r->tanggal)->day;
+                    $code = match ($r->status_kehadiran) {
+                        'Hadir'       => 'H',
+                        'Sakit'       => 'S',
+                        'Izin'        => 'I',
+                        'Alfa'        => 'A',
+                        'Tugas'       => 'T',
+                        'Digantikan'  => 'D',
+                        default       => '',
+                    };
+                    $map[$day] = $code;
+                    if ($code && isset($cnt[$code])) $cnt[$code]++;
+                }
+
+                // tulis kolom hari
+                for ($d = 1; $d <= $lastDay; $d++) {
+                    $sheet->setCellValueByColumnAndRow($firstDayCol + $d - 1, $row, $map[$d]);
+                }
+
+                // tulis jumlah
+                $sheet->setCellValueByColumnAndRow($colH, $row, $cnt['H']);
+                $sheet->setCellValueByColumnAndRow($colS, $row, $cnt['S']);
+                $sheet->setCellValueByColumnAndRow($colI, $row, $cnt['I']);
+                $sheet->setCellValueByColumnAndRow($colA, $row, $cnt['A']);
+                $sheet->setCellValueByColumnAndRow($colT, $row, $cnt['T']);
+                $sheet->setCellValueByColumnAndRow($colDg, $row, $cnt['D']);
+
+                // border + alignment baris data
+                $sheet->getStyle("A{$row}:{$endCol}{$row}")
+                    ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+                $sheet->getStyle(
+                    Coordinate::stringFromColumnIndex($firstDayCol) . $row . ":" .
+                        Coordinate::stringFromColumnIndex($endColIdx) . $row
+                )->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("C{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+                $row++;
+            }
+
+            // ===== Output =====
+            $filename = "absensi_bulanan_{$jad->id_jadwal}_{$year}_{$month}.xlsx";
+            $writer = new Xlsx($ss);
+            ob_start();
+            $writer->save('php://output');
+            $excelOutput = ob_get_clean();
+
+            return response($excelOutput, 200, [
+                'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => "attachment;filename=\"{$filename}\"",
+                'Cache-Control'       => 'max-age=0',
+            ]);
+        }
+
+        // ====== FALLBACK: export harian (kode lamamu disini, tetap dipakai) ======
+        $query = \App\Models\AbsensiSiswaMapel::with('siswa.kelas')->whereDate('tanggal', $dt->format('Y-m-d'));
+        if ($idJadwal) $query->where('id_jadwal', $idJadwal);
+        $rows = $query->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $header = ['NIS', 'Nama', 'Kelas', 'Status', 'Keterangan', 'Jam Masuk', 'Jam Pulang', 'Penginput', 'Terakhir Diubah'];
+        foreach ($header as $col => $h) $sheet->setCellValueByColumnAndRow($col + 1, 1, $h);
+        $i = 2;
+        foreach ($rows as $r) {
+            $sheet->setCellValueByColumnAndRow(1, $i, $r->siswa->nis ?? '');
+            $sheet->setCellValueByColumnAndRow(2, $i, $r->siswa->nama_lengkap ?? '');
+            $sheet->setCellValueByColumnAndRow(3, $i, $r->siswa->kelas?->tingkat . ' ' . ($r->siswa->kelas?->jurusan ?? ''));
+            $sheet->setCellValueByColumnAndRow(4, $i, $r->status_kehadiran);
+            $sheet->setCellValueByColumnAndRow(5, $i, $r->keterangan);
+            $sheet->setCellValueByColumnAndRow(6, $i, $r->jam_mulai);
+            $sheet->setCellValueByColumnAndRow(7, $i, $r->jam_selesai);
+            $sheet->setCellValueByColumnAndRow(8, $i, $r->id_penginput_manual);
+            $sheet->setCellValueByColumnAndRow(9, $i, $r->updated_at);
+            $i++;
+        }
+
+        $filename = "absensi_{$dt->format('Ymd')}" . ($idJadwal ? "_{$idJadwal}" : '') . ".xlsx";
+        $writer = new Xlsx($spreadsheet);
+        ob_start();
+        $writer->save('php://output');
+        $excelOutput = ob_get_clean();
+
+        return response($excelOutput, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment;filename=\"{$filename}\"",
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
+
 
     public function lock(Request $request)
     {

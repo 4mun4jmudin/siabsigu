@@ -224,8 +224,9 @@ Route::middleware('auth')->group(function () {
             //pindahkan route export ke dalam grup ini biar rapi
             Route::get('/export-pdf', [AdminAbsensiSiswaMapelController::class, 'exportPdf'])->name('export.pdf');
             Route::get('/export-excel', [AdminAbsensiSiswaMapelController::class, 'exportExcel'])->name('export.excel');
-            
         });
+        Route::get('/admin/absensi-siswa-mapel/export-excel', [AdminAbsensiSiswaMapelController::class, 'exportExcel'])
+            ->name('admin.absensi-siswa-mapel.export.excel');
         // Maintenance
         Route::prefix('maintenance')->name('maintenance.')->group(function () {
             Route::post('clear-cache', [PengaturanController::class, 'clearCache'])->name('clear-cache');
