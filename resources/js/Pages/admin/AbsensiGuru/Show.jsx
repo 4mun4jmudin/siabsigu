@@ -1,21 +1,21 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
+import {
     ArrowLeftIcon,
     UserCircleIcon,
-    CheckCircleIcon, 
-    XCircleIcon, 
-    ExclamationTriangleIcon, 
+    CheckCircleIcon,
+    XCircleIcon,
+    ExclamationTriangleIcon,
     InformationCircleIcon,
     ClockIcon
 } from '@heroicons/react/24/solid';
 
 // Komponen Kartu Statistik untuk Halaman Detail
 const StatCard = ({ label, value, icon, color }) => (
-    <div className="bg-white p-5 rounded-lg shadow-sm flex items-center border-l-4" style={{borderColor: color}}>
+    <div className="bg-white p-5 rounded-lg shadow-sm flex items-center border-l-4" style={{ borderColor: color }}>
         <div className="flex-shrink-0 mr-4">
-            <div className={`h-12 w-12 rounded-full flex items-center justify-center`} style={{backgroundColor: `${color}1A`}}>
+            <div className={`h-12 w-12 rounded-full flex items-center justify-center`} style={{ backgroundColor: `${color}1A` }}>
                 {React.cloneElement(icon, { className: "h-6 w-6", style: { color } })}
             </div>
         </div>
@@ -53,8 +53,8 @@ export default function Show({ auth, guru, absensiHistory, rekapStatistik, filte
 
     const handleFilterChange = (key, value) => {
         router.get(
-            route('admin.absensi-guru.show', guru.id_guru), 
-            { ...filters, [key]: value }, 
+            route('admin.absensi-guru.show', guru.id_guru),
+            { ...filters, [key]: value },
             { preserveState: true, replace: true }
         );
     };
@@ -105,10 +105,10 @@ export default function Show({ auth, guru, absensiHistory, rekapStatistik, filte
                         <h2 className="text-xl font-bold text-gray-800">Riwayat Absensi Bulanan</h2>
                         <div className="flex items-center gap-4">
                             <select onChange={(e) => handleFilterChange('bulan', e.target.value)} value={filters.bulan} className="border-gray-300 rounded-md shadow-sm">
-                                {Array.from({length: 12}, (_, i) => <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('id-ID', {month: 'long'})}</option>)}
+                                {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{new Date(0, i).toLocaleString('id-ID', { month: 'long' })}</option>)}
                             </select>
                             <select onChange={(e) => handleFilterChange('tahun', e.target.value)} value={filters.tahun} className="border-gray-300 rounded-md shadow-sm">
-                                {Array.from({length: 5}, (_, i) => <option key={i}>{new Date().getFullYear() - i}</option>)}
+                                {Array.from({ length: 5 }, (_, i) => <option key={i}>{new Date().getFullYear() - i}</option>)}
                             </select>
                         </div>
                     </div>
@@ -132,10 +132,16 @@ export default function Show({ auth, guru, absensiHistory, rekapStatistik, filte
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{absen.jam_masuk || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{absen.jam_pulang || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            {absen.menit_keterlambatan > 0 ? (
-                                                <span className="text-red-600 font-semibold">{absen.menit_keterlambatan} menit</span>
+                                            {absen.status_kehadiran === 'Hadir' ? (
+                                                (absen.menit_keterlambatan ?? 0) > 0 ? (
+                                                    <span className="text-red-600 font-semibold">
+                                                        {absen.menit_keterlambatan} menit
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-green-600">Tepat Waktu</span>
+                                                )
                                             ) : (
-                                                <span className="text-green-600">Tepat Waktu</span>
+                                                '-' // <-- bukan 'Hadir'
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">{absen.keterangan || '-'}</td>

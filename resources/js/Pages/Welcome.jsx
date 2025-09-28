@@ -146,9 +146,9 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
         {/* Header */}
         <header className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between" data-reveal>
           <div className="flex items-center gap-3">
-            <img src="https://alhawari.sch.id/wp-content/uploads/2022/09/cropped-93426637_110276057319782_9125875192608849920_n-removebg-preview-e1663001837240.png"
+            <img src="img/alhawari.png"
                  alt="Logo" className="h-11 w-11 rounded-md object-cover shadow-sm border"
-                 onError={handleImgError} />
+                 onError={handleImgError} / >
             <div>
               <div className="text-lg font-bold text-sky-800">SMK IT ALHAWARI</div>
               <div className="text-xs text-slate-500">Sistem Informasi Absensi & Akademik</div>
@@ -164,6 +164,8 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                 <Link href={route('login')} className="px-3 py-2 text-sky-700 hover:underline">Login</Link>
                 <Link href={route('register')} className="px-3 py-2 border border-sky-600 text-sky-600 rounded-md hover:bg-sky-50">Register</Link>
                 <Link href={route('login.orangtua')} className="ml-3 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-emerald-600 text-white shadow-sm hover:bg-emerald-700">Login Orang Tua</Link>
+                <a href={route('login.penilaian')} className="btn">Login Admin Penilaian</a>
+
               </>
             )}
           </nav>

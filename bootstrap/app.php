@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.level' => \App\Http\Middleware\CheckUserLevel::class,
         ]);
 
-    
+
 
         // Pastikan middleware Inertia juga terdaftar di sini
         // $middleware->web(append: [
@@ -32,6 +32,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
+
+        $middleware->alias([
+            'check.level'  => \App\Http\Middleware\CheckUserLevel::class,
+            'absensi.mode' => \App\Http\Middleware\EnsureAbsensiOnly::class, // <-- NEW
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -1,19 +1,21 @@
 import React, { useMemo } from "react";
 import CalendarHeatmap from "react-calendar-heatmap";
 import { Tooltip as ReactTooltip } from "react-tooltip";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import "react-calendar-heatmap/dist/styles.css";
 
 /**
- * AttendanceHeatmap
  * Props:
- *  - data: [{date: 'YYYY-MM-DD', count: Number}, ...]  (count = persen 0..100)
+ *  - data: [{date:'YYYY-MM-DD', count:0..100}] atau {tanggal, hadir, total}
  *  - month: 1..12
- *  - year: full year numeric
- *  - selectedClassName: string
- *  - onDayClick(date) optional
+ *  - year: 4-digit
+ *  - selectedClassName: string (nama kelas)
+ *  - onDayClick(dateString) optional
  *  - showLegend: boolean
+ *  - enableMonthNav: boolean (default: otomatis true jika onChangeMonth ada)
+ *  - onChangeMonth: ({month, year}) => void  // untuk tombol prev/next
+ *  - showDayNumbers: boolean (default: true)  // tampilkan nomor tanggal di sel
  */
-
 export default function AttendanceHeatmap({
   data = [],
   month,
@@ -21,144 +23,288 @@ export default function AttendanceHeatmap({
   selectedClassName = "Semua Kelas",
   onDayClick = null,
   showLegend = true,
+  enableMonthNav,
+  onChangeMonth,
+  showDayNumbers = true,
 }) {
   const now = new Date();
   const y = Number.isInteger(year) ? year : now.getFullYear();
   const m = Number.isInteger(month) ? month : now.getMonth() + 1;
 
-  // first day of month
+  // range bulan aktif
   const firstOfMonth = new Date(y, m - 1, 1);
+  const lastOfMonth = new Date(y, m, 0);
 
-  // start the calendar on Monday for neat columns:
-  // getDay(): 0=Sun,1=Mon,... compute offset to Monday (1)
-  const dayOfWeek = firstOfMonth.getDay(); // 0..6
-  const offsetToMonday = (dayOfWeek + 6) % 7; // 0 if monday, 1 if tuesday, ... 6 if sunday
+  // grid mulai Senin, akhir Minggu
+  const startDow = firstOfMonth.getDay(); // 0=Min..6=Sab
+  const offsetToMonday = (startDow + 6) % 7;
   const calendarStart = new Date(firstOfMonth);
   calendarStart.setDate(firstOfMonth.getDate() - offsetToMonday);
 
-  // end of month
-  const endOfMonth = new Date(y, m, 0);
+  const endDow = lastOfMonth.getDay();
+  const offsetToSunday = (7 - endDow) % 7;
+  const calendarEnd = new Date(lastOfMonth);
+  calendarEnd.setDate(lastOfMonth.getDate() + offsetToSunday);
 
-  // Build full date range from calendarStart to endOfMonth
+  const toYMD = (d) => new Date(d).toISOString().slice(0, 10);
+  const firstStr = toYMD(firstOfMonth);
+  const lastStr = toYMD(lastOfMonth);
+  const todayStr = toYMD(now);
+
   const allDates = useMemo(() => {
     const arr = [];
-    for (let d = new Date(calendarStart); d <= endOfMonth; d.setDate(d.getDate() + 1)) {
-      arr.push(new Date(d).toISOString().slice(0, 10));
+    for (let d = new Date(calendarStart); d <= calendarEnd; d.setDate(d.getDate() + 1)) {
+      arr.push(toYMD(d));
     }
     return arr;
-  }, [calendarStart, endOfMonth]);
+  }, [calendarStart, calendarEnd]);
 
-  // normalize incoming data to map {date: 'YYYY-MM-DD' => count}
+  // normalisasi data => Map(YYYY-MM-DD => 0..100)
   const normalizedMap = useMemo(() => {
     const map = new Map();
     if (!Array.isArray(data)) return map;
+
     data.forEach((it) => {
       if (!it) return;
-      const date = (it.date ?? it.tanggal ?? "").toString().slice(0, 10);
-      if (!date) return;
-      // derive percent: support hadir/total or count
-      const hadir = Number(it.hadir ?? it.hadir_count ?? it.present ?? it.value ?? 0);
-      const total = Number(it.total ?? it.jumlah ?? 0);
-      let count = 0;
-      if (total > 0) count = Math.round((hadir / total) * 100);
-      else if (typeof it.count !== "undefined") count = Math.round(Number(it.count) || 0);
-      else count = Math.round(isNaN(hadir) ? 0 : hadir);
-      count = Math.max(0, Math.min(100, isNaN(count) ? 0 : count));
-      map.set(date, count);
+      const dateKey = String(it.date ?? it.tanggal ?? "").slice(0, 10);
+      if (!dateKey) return;
+
+      const hadir = Number(it.hadir ?? it.hadir_count ?? it.present ?? it.value ?? NaN);
+      const total = Number(it.total ?? it.jumlah ?? NaN);
+      let pct;
+
+      if (!Number.isNaN(hadir) && !Number.isNaN(total) && total > 0) {
+        pct = Math.round((hadir / total) * 100);
+      } else if (typeof it.count !== "undefined") {
+        pct = Math.round(Number(it.count) || 0);
+      } else if (!Number.isNaN(hadir)) {
+        pct = Math.round(Math.max(0, Math.min(100, hadir)));
+      } else {
+        pct = 0;
+      }
+
+      pct = Math.max(0, Math.min(100, pct));
+      map.set(dateKey, pct);
     });
+
     return map;
   }, [data]);
 
-  // build values array for CalendarHeatmap including zeros for missing dates
-  const values = useMemo(() => {
-    return allDates.map((d) => ({ date: d, count: normalizedMap.get(d) ?? 0 }));
-  }, [allDates, normalizedMap]);
+  // values untuk seluruh grid
+  const values = useMemo(
+    () => allDates.map((d) => ({ date: d, count: normalizedMap.get(d) ?? 0 })),
+    [allDates, normalizedMap]
+  );
 
-  // stats
+  // statistik hanya di dalam bulan aktif
+  const monthValues = useMemo(
+    () => values.filter((v) => v.date >= firstStr && v.date <= lastStr),
+    [values, firstStr, lastStr]
+  );
+
   const stats = useMemo(() => {
-    const daysWithData = values.length;
-    const sum = values.reduce((s, v) => s + (v.count || 0), 0);
-    const avg = daysWithData ? +(sum / daysWithData).toFixed(1) : 0;
-    const zeroDays = values.filter(v => v.count === 0).length;
-    return { days: daysWithData, avg, zeroDays };
-  }, [values]);
+    const days = monthValues.length;
+    const sum = monthValues.reduce((s, v) => s + (v.count || 0), 0);
+    const avg = days ? +(sum / days).toFixed(1) : 0;
+    const zeroDays = monthValues.filter((v) => v.count === 0).length;
+    return { days, avg, zeroDays };
+  }, [monthValues]);
 
-  // color mapping
+  // pewarnaan sel
   const classForValue = (value) => {
-    if (!value) return "color-empty";
-    const pct = Number(value.count ?? 0);
-    if (pct >= 95) return "color-scale-4";
-    if (pct >= 80) return "color-scale-3";
-    if (pct >= 50) return "color-scale-2";
-    if (pct > 0) return "color-scale-1";
-    return "color-empty";
+    if (!value?.date) return "hm-cell hm-empty";
+
+    const pct = Number(value.count || 0);
+    let shade = "hm-empty";
+    if (pct >= 95) shade = "hm-s4";
+    else if (pct >= 80) shade = "hm-s3";
+    else if (pct >= 50) shade = "hm-s2";
+    else if (pct > 0) shade = "hm-s1";
+
+    const d = value.date;
+    const isOutside = d < firstStr || d > lastStr;
+
+    const dow = new Date(value.date + "T00:00:00").getDay();
+    const isWeekend = dow === 0 || dow === 6;
+
+    const isToday = value.date === todayStr;
+
+    return [
+      "hm-cell",
+      shade,
+      isWeekend ? "is-weekend" : "",
+      isOutside ? "is-outside" : "",
+      isToday ? "is-today" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
   };
 
+  // tooltip
   const tooltipDataAttrs = (value) => {
-    if (!value || !value.date) return null;
+    if (!value?.date) return null;
     const d = new Date(value.date + "T00:00:00");
-    const label = d.toLocaleDateString("id-ID", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    const label = d.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
     return {
       "data-tooltip-id": "heatmap-tooltip",
       "data-tooltip-content": `${label} — Kehadiran ${value.count}%`,
     };
   };
 
+  // klik hari
   const handleClick = (value) => {
-    if (!value || !value.date) return;
+    if (!value?.date) return;
     if (typeof onDayClick === "function") onDayClick(value.date);
   };
 
-  // weekday full names (we still shift them left in CSS so they fit)
-  const weekdayLabels = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const weekdayLabels = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+  // Nav bulan (tampilkan otomatis jika handler disediakan)
+  const showNav = typeof onChangeMonth === "function" || enableMonthNav === true;
+  const goPrev = () => {
+    if (!onChangeMonth) return;
+    let nm = m - 1, ny = y;
+    if (nm < 1) { nm = 12; ny = y - 1; }
+    onChangeMonth({ month: nm, year: ny });
+  };
+  const goNext = () => {
+    if (!onChangeMonth) return;
+    let nm = m + 1, ny = y;
+    if (nm > 12) { nm = 1; ny = y + 1; }
+    onChangeMonth({ month: nm, year: ny });
+  };
+
+  const isAllZero = monthValues.every((v) => v.count === 0);
 
   return (
     <div className="hm-card" role="region" aria-label={`Heatmap Kehadiran ${selectedClassName}`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800">Heatmap Kehadiran</h3>
-          <div className="text-sm text-gray-500 mt-1">{selectedClassName} — {firstOfMonth.toLocaleString('id-ID', { month: 'long', year: 'numeric' })}</div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-2">
+          {showNav && (
+            <button
+              type="button"
+              onClick={goPrev}
+              className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-50"
+              title="Bulan sebelumnya"
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </button>
+          )}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Heatmap Kehadiran</h3>
+            <div className="text-sm text-gray-500 mt-1">
+              {selectedClassName} —{" "}
+              {firstOfMonth.toLocaleString("id-ID", { month: "long", year: "numeric" })}
+            </div>
+          </div>
+          {showNav && (
+            <button
+              type="button"
+              onClick={goNext}
+              className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-50"
+              title="Bulan berikutnya"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          )}
         </div>
+
         <div className="text-right">
-          <div className="text-xs text-gray-500">Rata-rata</div>
+          <div className="text-xs text-gray-500">Rata-rata bulan ini</div>
           <div className="text-lg font-semibold text-slate-800">{stats.avg}%</div>
-          <div className="text-xs text-gray-400">{stats.days} hari — {stats.zeroDays} hari kosong</div>
+          <div className="text-xs text-gray-400">
+            {stats.days} hari • {stats.zeroDays} kosong
+          </div>
         </div>
       </div>
 
-      <p className="text-sm text-gray-500 mt-3 mb-2">Intensitas warna menunjukkan persentase kehadiran harian. Klik kotak untuk lihat detail.</p>
+      <p className="text-sm text-gray-500 mt-3 mb-2">
+        Warna menunjukkan persentase kehadiran harian. Klik tanggal untuk melihat daftar hadir hari itu.
+      </p>
 
-      <div className="hm-heatmap-wrap" style={{ alignItems: "flex-start" }}>
-        {/* CalendarHeatmap includes weekday labels; our CSS moves labels outward.
-            We keep weekdayLabels to ensure the library still draws rows.
-        */}
-        <CalendarHeatmap
-          startDate={calendarStart}
-          endDate={endOfMonth}
-          values={values}
-          showWeekdayLabels={true}
-          weekdayLabels={weekdayLabels}
-          classForValue={classForValue}
-          tooltipDataAttrs={tooltipDataAttrs}
-          onClick={handleClick}
-          rectSize={12}
-          gutterSize={6}
-        />
+      <div className="hm-heatmap-wrap">
+        {isAllZero ? (
+          <div className="w-full py-10 text-center text-sm text-gray-500">
+            Tidak ada data kehadiran untuk bulan ini.
+          </div>
+        ) : (
+          <CalendarHeatmap
+            startDate={calendarStart}
+            endDate={calendarEnd}
+            values={values}
+            showWeekdayLabels={true}
+            weekdayLabels={weekdayLabels}
+            classForValue={classForValue}
+            tooltipDataAttrs={tooltipDataAttrs}
+            rectSize={12}
+            gutterSize={6}
+            /* Tambah nomor tanggal di dalam sel */
+            transformDayElement={(el, value) => {
+              const date = value?.date;
+              if (!date) return el;
+
+              // koordinat rect
+              const { x, y, width, height } = el.props ?? {};
+              const dayNum = parseInt(date.slice(8, 10), 10);
+              const isOutside = date < firstStr || date > lastStr;
+              const pct = normalizedMap.get(date) ?? 0;
+              const lightText = pct >= 80; // kontras di sel yang gelap
+
+              const tooltipAttrs = tooltipDataAttrs(value) || {};
+
+              return (
+                <g {...tooltipAttrs} onClick={() => handleClick(value)}>
+                  {el}
+                  {showDayNumbers && !isOutside && Number.isFinite(dayNum) && (
+                    <text
+                      x={x + width / 2}
+                      y={y + height / 2 + 3}
+                      textAnchor="middle"
+                      className={`hm-daynum ${lightText ? "hm-daynum--light" : "hm-daynum--dark"}`}
+                    >
+                      {dayNum}
+                    </text>
+                  )}
+                </g>
+              );
+            }}
+          />
+        )}
       </div>
 
       {showLegend && (
         <div className="hm-legend" aria-hidden>
           <span className="text-xs text-gray-500">Rendah</span>
           <div className="flex items-center gap-2">
-            <div className="hm-square" style={{ background: "var(--hm-1)" }} />
-            <div className="hm-square" style={{ background: "var(--hm-2)" }} />
-            <div className="hm-square" style={{ background: "var(--hm-3)" }} />
-            <div className="hm-square" style={{ background: "var(--hm-4)" }} />
+            <span className="hm-square hm-s1" />
+            <span className="hm-square hm-s2" />
+            <span className="hm-square hm-s3" />
+            <span className="hm-square hm-s4" />
           </div>
           <span className="text-xs text-gray-500">Tinggi</span>
           <div className="ml-auto text-xs text-gray-400">Skala: % Kehadiran</div>
         </div>
       )}
+
+      <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+        <div className="flex items-center gap-1">
+          <span className="hm-mini hm-outline-today" />
+          <span>Hari ini</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="hm-mini hm-weekend" />
+          <span>Akhir pekan</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="hm-mini hm-outside" />
+          <span>Di luar bulan</span>
+        </div>
+      </div>
 
       <ReactTooltip id="heatmap-tooltip" place="top" delayShow={60} />
     </div>

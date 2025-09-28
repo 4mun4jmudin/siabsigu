@@ -12,15 +12,21 @@ const FilterLaporan = forwardRef(function FilterLaporan({ initialFilters, kelasO
 
     const submit = (e) => {
         e.preventDefault();
-        get(route("admin.laporan.index"), {
+        const payload = {
+            ...data,
+            id_kelas: data.id_kelas === 'semua' ? '' : data.id_kelas,
+        };
+        get(route('admin.laporan.index'), {
             preserveState: true,
-            replace: true,
+            preserveScroll: true,
+            data: payload,
+            onStart: () => {/* optional: set loading */ },
         });
     };
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-             <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter Laporan</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter Laporan</h3>
             {/* Teruskan ref ke elemen form */}
             <form ref={ref} onSubmit={submit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
@@ -29,7 +35,7 @@ const FilterLaporan = forwardRef(function FilterLaporan({ initialFilters, kelasO
                         <option value="bulanan">Bulanan</option>
                     </select>
                 </div>
-                 <div>
+                <div>
                     <label htmlFor="bulan" className="block text-sm font-medium text-gray-700">Bulan</label>
                     <input type="month" id="bulan" name="bulan" value={data.bulan} onChange={(e) => setData("bulan", e.target.value)} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
                 </div>
@@ -38,7 +44,7 @@ const FilterLaporan = forwardRef(function FilterLaporan({ initialFilters, kelasO
                     <select id="id_kelas" name="id_kelas" value={data.id_kelas} onChange={(e) => setData("id_kelas", e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                         <option value="semua">Semua Kelas</option>
                         {kelasOptions.map((kelas) => (
-                             <option key={kelas.id_kelas} value={kelas.id_kelas}>{kelas.nama_lengkap}</option>
+                            <option key={kelas.id_kelas} value={kelas.id_kelas}>{kelas.nama_lengkap}</option>
                         ))}
                     </select>
                 </div>

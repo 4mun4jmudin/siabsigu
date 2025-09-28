@@ -1,5 +1,5 @@
 // resources/js/Pages/Auth/Login.jsx
-// Login Admin & Guru – modern, responsif, pakai logo & background yang diminta
+// Login Admin & Guru – modern + pilihan Mode Admin (Absensi / Full)
 
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -15,6 +15,8 @@ export default function Login({ status, canResetPassword }) {
     username: '',
     password: '',
     remember: false,
+    // NEW: pilihan mode admin — default "absensi" biar fokus demo
+    mode: 'absensi',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -144,6 +146,25 @@ export default function Login({ status, canResetPassword }) {
                 </div>
               )}
               <InputError message={errors.password} className="mt-2" />
+            </div>
+
+            {/* NEW: Mode Admin (Absensi / Full) */}
+            <div>
+              <InputLabel htmlFor="mode" value="Mode Admin" className="text-slate-700" />
+              <select
+                id="mode"
+                name="mode"
+                value={data.mode}
+                onChange={(e) => setData('mode', e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-slate-300 py-2.5 px-3 focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+              >
+                <option value="absensi">Absensi Only</option>
+                <option value="full">Full Fitur</option>
+              </select>
+              <div className="mt-1 text-[12px] text-slate-500">
+                Pilih <b>Absensi Only</b> untuk menyembunyikan fitur non-absensi. Cocok untuk ujian/demo fokus absensi.
+              </div>
+              <InputError message={errors.mode} className="mt-2" />
             </div>
 
             {/* Remember + Forgot */}

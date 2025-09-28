@@ -23,10 +23,10 @@ import {
     MagnifyingGlassIcon,
     ChartPieIcon,
     SparklesIcon,
-    ComputerDesktopIcon
+    ComputerDesktopIcon,
 } from "@heroicons/react/24/outline";
 
-// NavLink, CollapsibleNavGroup unchanged (copy from your original)...
+/* ---------- Small Nav Components ---------- */
 function NavLink({ href, active, isCollapsed, children, label }) {
     return (
         <Link
@@ -71,7 +71,8 @@ function CollapsibleNavGroup({ title, icon, isCollapsed, children, active = fals
                     <>
                         <span className="flex-1 text-left">{title}</span>
                         <ChevronDownIcon
-                            className={`w-4 h-4 ml-2 transform transition-transform duration-200 ${isOpen ? "rotate-180" : "rotate-0"}`}
+                            className={`w-4 h-4 ml-2 transform transition-transform duration-200 ${isOpen ? "rotate-180" : "rotate-0"
+                                }`}
                             aria-hidden
                         />
                     </>
@@ -99,17 +100,19 @@ function CollapsibleNavGroup({ title, icon, isCollapsed, children, active = fals
     );
 }
 
+/* ---------- Main Layout ---------- */
 export default function AdminLayout({ user, header, children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [toggleImageError, setToggleImageError] = useState(false);
 
-    // get page props and flash/pengaturan
+    // Inertia shared props
     const pageProps = usePage().props || {};
-    const { flash, pengaturan } = pageProps;
-
-    // fallback: if user prop not passed, try pageProps.auth.user
+    const { flash, pengaturan, adminMode } = pageProps;
     const currentUser = user ?? pageProps.auth?.user ?? null;
+
+    // Flag mode absensi (untuk sembunyikan menu lain saat mode ringkas absensi)
+    const isAbsensiMode = adminMode === "absensi";
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
@@ -121,12 +124,21 @@ export default function AdminLayout({ user, header, children }) {
     const SidebarHeader = ({ isCollapsed }) => (
         <div className={`flex items-center gap-3 p-4 ${isCollapsed ? "justify-center" : ""}`}>
             {pengaturan?.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={pengaturan.logo_url} alt="Logo Sekolah" className="h-10 w-10 object-contain rounded-md shadow-sm" />
+                <img
+                    src={pengaturan.logo_url}
+                    alt="Logo Sekolah"
+                    className="h-10 w-10 object-contain rounded-md shadow-sm"
+                />
             ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-yellow-400/10 ring-1 ring-yellow-300/30">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L4 6v6c0 5.25 3.5 9 8 10 4.5-1 8-4.75 8-10V6l-8-4z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                        <path
+                            d="M12 2L4 6v6c0 5.25 3.5 9 8 10 4.5-1 8-4.75 8-10V6l-8-4z"
+                            stroke="currentColor"
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
                         <path d="M8 10h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 </div>
@@ -141,127 +153,264 @@ export default function AdminLayout({ user, header, children }) {
         </div>
     );
 
-    const sidebarContent = (isMobile = false) => (
-        <div className="flex flex-col h-full">
-            <SidebarHeader isCollapsed={!isSidebarOpen && !isMobile} />
+    const sidebarContent = (isMobile = false) => {
+        // grup Absensi dianggap aktif jika berada di salah satu route berikut
+        const absensiActive =
+            route().current("admin.absensi-guru.*") ||
+            route().current("admin.absensi-siswa.*") ||
+            route().current("admin.absensi-siswa-mapel.*") ||
+            route().current("admin.absensi-siswa.bulanan.*") ||
+            route().current("admin.surat-izin.*"); // <— tambahkan surat izin
 
-            <nav className="px-3 py-2 flex-1 overflow-y-auto custom-scrollbar">
-                <ul className="space-y-1">
-                    <li>
-                        <NavLink
-                            href={route("admin.dashboard")}
-                            active={route().current("admin.dashboard")}
+        return (
+            <div className="flex flex-col h-full">
+                <SidebarHeader isCollapsed={!isSidebarOpen && !isMobile} />
+
+                <nav className="px-3 py-2 flex-1 overflow-y-auto custom-scrollbar">
+                    <ul className="space-y-1">
+                        <li>
+                            <NavLink
+                                href={route("admin.dashboard")}
+                                active={route().current("admin.dashboard")}
+                                isCollapsed={!isSidebarOpen && !isMobile}
+                                label="Dashboard"
+                            >
+                                <HomeIcon className="w-6 h-6" />
+                            </NavLink>
+                        </li>
+
+                        {/* Master Data — disembunyikan saat mode Absensi */}
+                        {!isAbsensiMode && (
+                            <CollapsibleNavGroup
+                                title="Master Data"
+                                icon={<RectangleStackIcon className="w-6 h-6" />}
+                                isCollapsed={!isSidebarOpen && !isMobile}
+                                active={
+                                    route().current("admin.guru.*") ||
+                                    route().current("admin.siswa.*") ||
+                                    route().current("admin.kelas.*") ||
+                                    route().current("admin.mata-pelajaran.*") ||
+                                    route().current("admin.orang-tua-wali.*")
+                                }
+                            >
+                                <li>
+                                    <NavLink
+                                        href={route("admin.guru.index")}
+                                        active={route().current("admin.guru.*")}
+                                        isCollapsed={false}
+                                        label="Data Guru"
+                                    >
+                                        <UsersIcon className="w-5 h-5" />
+                                    </NavLink>
+                                </li>
+                                <li>
+                                    <NavLink
+                                        href={route("admin.siswa.index")}
+                                        active={route().current("admin.siswa.*")}
+                                        isCollapsed={false}
+                                        label="Data Siswa"
+                                    >
+                                        <AcademicCapIcon className="w-5 h-5" />
+                                    </NavLink>
+                                </li>
+                                <li>
+                                    <NavLink
+                                        href={route("admin.kelas.index")}
+                                        active={route().current("admin.kelas.*")}
+                                        isCollapsed={false}
+                                        label="Data Kelas"
+                                    >
+                                        <BuildingOffice2Icon className="w-5 h-5" />
+                                    </NavLink>
+                                </li>
+                                <li>
+                                    <NavLink
+                                        href={route("admin.mata-pelajaran.index")}
+                                        active={route().current("admin.mata-pelajaran.*")}
+                                        isCollapsed={false}
+                                        label="Mata Pelajaran"
+                                    >
+                                        <BookOpenIcon className="w-5 h-5" />
+                                    </NavLink>
+                                </li>
+                                <li>
+                                    <NavLink
+                                        href={route("admin.orang-tua-wali.index")}
+                                        active={route().current("admin.orang-tua-wali.*")}
+                                        isCollapsed={false}
+                                        label="Orang Tua/Wali"
+                                    >
+                                        <UserGroupIcon className="w-5 h-5" />
+                                    </NavLink>
+                                </li>
+                            </CollapsibleNavGroup>
+                        )}
+
+                        {/* Absensi — selalu tampil */}
+                        <CollapsibleNavGroup
+                            title="Absensi"
+                            icon={<ClipboardDocumentListIcon className="w-6 h-6" />}
                             isCollapsed={!isSidebarOpen && !isMobile}
-                            label="Dashboard"
+                            active={absensiActive}
                         >
-                            <HomeIcon className="w-6 h-6" />
-                        </NavLink>
-                    </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.absensi-guru.index")}
+                                    active={route().current("admin.absensi-guru.*")}
+                                    isCollapsed={false}
+                                    label="Absensi Guru"
+                                >
+                                    <UsersIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.absensi-siswa.index")}
+                                    active={route().current("admin.absensi-siswa.*")}
+                                    isCollapsed={false}
+                                    label="Absensi Siswa"
+                                >
+                                    <AcademicCapIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.absensi-siswa.bulanan.index")}
+                                    active={route().current("admin.absensi-siswa.bulanan.*")}
+                                    isCollapsed={false}
+                                    label="Rekap Bulanan Siswa"
+                                >
+                                    <UsersIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.absensi-siswa-mapel.index")}
+                                    active={route().current("admin.absensi-siswa-mapel.*")}
+                                    isCollapsed={false}
+                                    label="Absensi Siswa per Mapel"
+                                >
+                                    <BookOpenIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
 
-                    <CollapsibleNavGroup
-                        title="Master Data"
-                        icon={<RectangleStackIcon className="w-6 h-6" />}
-                        isCollapsed={!isSidebarOpen && !isMobile}
-                        active={
-                            route().current("admin.guru.*") ||
-                            route().current("admin.siswa.*") ||
-                            route().current("admin.kelas.*") ||
-                            route().current("admin.mata-pelajaran.*")
-                        }
-                    >
-                        <li>
-                            <NavLink href={route("admin.guru.index")} active={route().current("admin.guru.*")} isCollapsed={false} label="Data Guru">
-                                <UsersIcon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                        <li>
-                            <NavLink href={route("admin.siswa.index")} active={route().current("admin.siswa.*")} isCollapsed={false} label="Data Siswa">
-                                <AcademicCapIcon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                        <li>
-                            <NavLink href={route("admin.kelas.index")} active={route().current("admin.kelas.*")} isCollapsed={false} label="Data Kelas">
-                                <BuildingOffice2Icon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                        <li>
-                            <NavLink href={route("admin.mata-pelajaran.index")} active={route().current("admin.mata-pelajaran.*")} isCollapsed={false} label="Mata Pelajaran">
-                                <BookOpenIcon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                        <li>
-                            <NavLink href={route("admin.orang-tua-wali.index")} active={route().current("admin.orang-tua-wali.*")} isCollapsed={false} label="Orang Tua/Wali">
-                                <UserGroupIcon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                    </CollapsibleNavGroup>
+                            {/* === Surat Izin (bagian dari Absensi) === */}
+                            <li>
+                                <NavLink
+                                    href={route("admin.surat-izin.index")}
+                                    active={route().current("admin.surat-izin.index")}
+                                    isCollapsed={false}
+                                    label="Surat Izin (Verifikasi)"
+                                >
+                                    <DocumentTextIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.surat-izin.create")}
+                                    active={route().current("admin.surat-izin.create")}
+                                    isCollapsed={false}
+                                    label="Buat Surat Izin"
+                                >
+                                    <SparklesIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                        </CollapsibleNavGroup>
 
-                    <CollapsibleNavGroup
-                        title="Absensi"
-                        icon={<ClipboardDocumentListIcon className="w-6 h-6" />}
-                        isCollapsed={!isSidebarOpen && !isMobile}
-                        active={route().current("admin.absensi-guru.*")}
-                    >
-                        <li>
-                            <NavLink href={route("admin.absensi-guru.index")} active={route().current("admin.absensi-guru.*")} isCollapsed={false} label="Absensi Guru">
-                                <UsersIcon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                        <li>
-                            <NavLink href={route("admin.absensi-siswa.index")} active={route().current("admin.absensi-siswa.*")} isCollapsed={false} label="Absensi Siswa">
-                                <AcademicCapIcon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                        <li>
-                            <NavLink href={route("admin.absensi-siswa-mapel.index")} active={route().current("admin.absensi-siswa-mapel.*")} isCollapsed={false} label="Absensi Siswa per Mapel">
-                                <BookOpenIcon className="w-5 h-5" />
-                            </NavLink>
-                        </li>
-                    </CollapsibleNavGroup>
+                        {/* Jadwal, Jurnal, Laporan, Pengaturan — disembunyikan saat mode Absensi */}
+                        {!isAbsensiMode && (
+                            <li>
+                                <NavLink
+                                    href={route("admin.jadwal-mengajar.index")}
+                                    active={route().current("admin.jadwal-mengajar.*")}
+                                    isCollapsed={!isSidebarOpen && !isMobile}
+                                    label="Jadwal Mengajar"
+                                >
+                                    <CalendarDaysIcon className="w-6 h-6" />
+                                </NavLink>
+                            </li>
+                        )}
 
-                    <li>
-                        <NavLink href={route("admin.jadwal-mengajar.index")} active={route().current("admin.jadwal-mengajar.*")} isCollapsed={!isSidebarOpen && !isMobile} label="Jadwal Mengajar">
-                            <CalendarDaysIcon className="w-6 h-6" />
-                        </NavLink>
-                    </li>
+                        {!isAbsensiMode && (
+                            <li>
+                                <NavLink
+                                    href={route("admin.jurnal-mengajar.index")}
+                                    active={route().current("admin.jurnal-mengajar.*")}
+                                    isCollapsed={!isSidebarOpen && !isMobile}
+                                    label="Jurnal Mengajar"
+                                >
+                                    <DocumentTextIcon className="w-6 h-6" />
+                                </NavLink>
+                            </li>
+                        )}
 
-                    <li>
-                        <NavLink href={route("admin.jurnal-mengajar.index")} active={route().current("admin.jurnal-mengajar.*")} isCollapsed={!isSidebarOpen && !isMobile} label="Jurnal Mengajar">
-                            <DocumentTextIcon className="w-6 h-6" />
-                        </NavLink>
-                    </li>
+                        {/* tampilkan laporan saat mode absensi karena terkait dengan kehadiran */}
+                        {isAbsensiMode && (
+                            <li>
+                                <NavLink
+                                    href={route("admin.laporan.index")}
+                                    active={route().current("admin.laporan.*")}
+                                    isCollapsed={!isSidebarOpen && !isMobile}
+                                    label="Laporan"
+                                >
+                                    <ChartBarIcon className="w-6 h-6" />
+                                </NavLink>
+                            </li>
+                        )}
+                        {/* dan tampilkan laporan saat mode non-absensi jadi laporan bisa muncul di kedua mode */}
 
-                    <li>
-                        <NavLink href={route("admin.laporan.index")} active={route().current("admin.laporan.*")} isCollapsed={!isSidebarOpen && !isMobile} label="Laporan">
-                            <ChartBarIcon className="w-6 h-6" />
-                        </NavLink>
-                    </li>
+                       
+                        {!isAbsensiMode && (
+                            <li>
+                                <NavLink
+                                    href={route("admin.laporan.index")}
+                                    active={route().current("admin.laporan.*")}
+                                    isCollapsed={!isSidebarOpen && !isMobile}
+                                    label="Laporan"
+                                >
+                                    <ChartBarIcon className="w-6 h-6" />
+                                </NavLink>
+                            </li>
+                        )}
 
-                    <li>
-                        <NavLink href={route("admin.pengaturan.index")} active={route().current("admin.pengaturan.index")} isCollapsed={!isSidebarOpen && !isMobile} label="Pengaturan">
-                            <Cog6ToothIcon className="w-6 h-6" />
-                        </NavLink>
-                    </li>
-                </ul>
-            </nav>
+                        {!isAbsensiMode && (
+                            <li>
+                                <NavLink
+                                    href={route("admin.pengaturan.index")}
+                                    active={route().current("admin.pengaturan.*")}
+                                    isCollapsed={!isSidebarOpen && !isMobile}
+                                    label="Pengaturan"
+                                >
+                                    <Cog6ToothIcon className="w-6 h-6" />
+                                </NavLink>
+                            </li>
+                        )}
+                    </ul>
+                </nav>
 
-            <div className={`p-3 ${!isSidebarOpen && !isMobile ? "flex justify-center" : "text-xs text-indigo-100/70"}`}>
-                {!isSidebarOpen && !isMobile ? (
-                    <div className="text-indigo-50/90">v1.0</div>
-                ) : (
-                    <div className="w-full flex items-center justify-between">
-                        <div>
-                            <div className="text-xs">© {new Date().getFullYear()} AbsensiApp</div>
-                            <div className="text-[11px] text-indigo-100/60">Sekolah Digital • Teknologi Canggih</div>
+                <div
+                    className={`p-3 ${!isSidebarOpen && !isMobile ? "flex justify-center" : "text-xs text-indigo-100/70"
+                        }`}
+                >
+                    {!isSidebarOpen && !isMobile ? (
+                        <div className="text-indigo-50/90">v1.0</div>
+                    ) : (
+                        <div className="w-full flex items-center justify-between">
+                            <div>
+                                <div className="text-xs">© {new Date().getFullYear()} AbsensiApp</div>
+                                <div className="text-[11px] text-indigo-100/60">Sekolah Digital • Teknologi Canggih</div>
+                            </div>
+                            <div>
+                                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-800/30 px-2 py-1 text-[11px] font-medium">
+                                    Beta
+                                </span>
+                            </div>
                         </div>
-                        <div>
-                            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-800/30 px-2 py-1 text-[11px] font-medium">Beta</span>
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <>
@@ -270,17 +419,39 @@ export default function AdminLayout({ user, header, children }) {
             <Toaster position="top-right" reverseOrder={false} toastOptions={{ duration: 4500 }} />
 
             <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+                {/* Mobile sidebar */}
                 <Transition.Root show={isMobileSidebarOpen} as={Fragment}>
                     <Dialog as="div" className="relative z-50 lg:hidden" onClose={setIsMobileSidebarOpen}>
-                        <Transition.Child as={Fragment} enter="transition-opacity ease-linear duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="transition-opacity ease-linear duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+                        <Transition.Child
+                            as={Fragment}
+                            enter="transition-opacity ease-linear duration-200"
+                            enterFrom="opacity-0"
+                            enterTo="opacity-100"
+                            leave="transition-opacity ease-linear duration-200"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                        >
                             <div className="fixed inset-0 bg-black/40" />
                         </Transition.Child>
 
                         <div className="fixed inset-0 flex">
-                            <Transition.Child as={Fragment} enter="transition ease-in-out duration-300 transform" enterFrom="-translate-x-full" enterTo="translate-x-0" leave="transition ease-in-out duration-300 transform" leaveFrom="translate-x-0" leaveTo="-translate-x-full">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="transition ease-in-out duration-300 transform"
+                                enterFrom="-translate-x-full"
+                                enterTo="translate-x-0"
+                                leave="transition ease-in-out duration-300 transform"
+                                leaveFrom="translate-x-0"
+                                leaveTo="-translate-x-full"
+                            >
                                 <Dialog.Panel className="relative flex w-full max-w-xs flex-1">
                                     <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
-                                        <button type="button" className="-m-2.5 p-2.5" onClick={() => setIsMobileSidebarOpen(false)} aria-label="Tutup menu">
+                                        <button
+                                            type="button"
+                                            className="-m-2.5 p-2.5"
+                                            onClick={() => setIsMobileSidebarOpen(false)}
+                                            aria-label="Tutup menu"
+                                        >
                                             {!toggleImageError ? (
                                                 <img
                                                     src={toggleIconPath}
@@ -305,11 +476,19 @@ export default function AdminLayout({ user, header, children }) {
                     </Dialog>
                 </Transition.Root>
 
-                <aside className={`hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col bg-gradient-to-b from-indigo-900 to-indigo-800 text-indigo-50 transition-all duration-300 ${isSidebarOpen ? "lg:w-64" : "lg:w-20"}`}>
+                {/* Desktop sidebar */}
+                <aside
+                    className={`hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col bg-gradient-to-b from-indigo-900 to-indigo-800 text-indigo-50 transition-all duration-300 ${isSidebarOpen ? "lg:w-64" : "lg:w-20"
+                        }`}
+                >
                     {sidebarContent(false)}
                 </aside>
 
-                <div className={`flex min-h-screen flex-col transition-all duration-300 ${isSidebarOpen ? "lg:pl-64" : "lg:pl-20"}`}>
+                {/* Main content */}
+                <div
+                    className={`flex min-h-screen flex-col transition-all duration-300 ${isSidebarOpen ? "lg:pl-64" : "lg:pl-20"
+                        }`}
+                >
                     <header className="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b border-indigo-100/10 bg-white/60 backdrop-blur-sm px-4 shadow-sm">
                         <button
                             type="button"
@@ -328,7 +507,8 @@ export default function AdminLayout({ user, header, children }) {
                                     src={toggleIconPath}
                                     alt={isSidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
                                     onError={() => setToggleImageError(true)}
-                                    className={`h-8 w-8 object-contain transition-transform duration-300 ease-out ${isSidebarOpen ? "rotate-180 scale-95" : "rotate-0 scale-100"} hover:scale-105`}
+                                    className={`h-8 w-8 object-contain transition-transform duration-300 ease-out ${isSidebarOpen ? "rotate-180 scale-95" : "rotate-0 scale-100"
+                                        } hover:scale-105`}
                                 />
                             ) : (
                                 <Bars3Icon className="h-6 w-6" />
@@ -339,16 +519,47 @@ export default function AdminLayout({ user, header, children }) {
 
                         <div className="flex flex-1 gap-x-4 justify-between items-center">
                             <form className="relative flex flex-1" action="#" method="GET">
-                                <label htmlFor="search-field" className="sr-only">Search</label>
-                                <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-gray-400" aria-hidden="true" />
-                                <input id="search-field" className="block h-10 w-full border-0 bg-white/60 py-0 pl-8 pr-3 text-gray-900 placeholder:text-gray-400 rounded-md focus:ring-2 focus:ring-indigo-300 sm:text-sm" placeholder="Cari..." type="search" name="search" />
+                                <label htmlFor="search-field" className="sr-only">
+                                    Search
+                                </label>
+                                <MagnifyingGlassIcon
+                                    className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-gray-400"
+                                    aria-hidden="true"
+                                />
+                                <input
+                                    id="search-field"
+                                    className="block h-10 w-full border-0 bg-white/60 py-0 pl-8 pr-3 text-gray-900 placeholder:text-gray-400 rounded-md focus:ring-2 focus:ring-indigo-300 sm:text-sm"
+                                    placeholder="Cari..."
+                                    type="search"
+                                    name="search"
+                                />
                             </form>
 
+                            {/* Mode badge */}
+                            {isAbsensiMode ? (
+                                <div className="hidden sm:flex items-center">
+                                    <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-medium">
+                                        Mode: Absensi
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="hidden sm:flex items-center">
+                                    <span className="ml-2 inline-flex items-center rounded-full bg-indigo-100 text-indigo-700 px-2.5 py-1 text-xs font-medium">
+                                        Mode: Full
+                                    </span>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-x-4 lg:gap-x-6">
-                                <button type="button" className="-m-2.5 p-2.5 text-indigo-600 hover:text-indigo-800 relative">
+                                <button
+                                    type="button"
+                                    className="-m-2.5 p-2.5 text-indigo-600 hover:text-indigo-800 relative"
+                                >
                                     <span className="sr-only">View notifications</span>
                                     <BellIcon className="h-6 w-6" aria-hidden="true" />
-                                    <span className="absolute top-0 right-0 -mt-1 -mr-1 h-4 w-4 rounded-full bg-red-500 text-white text-[11px] flex items-center justify-center">3</span>
+                                    <span className="absolute top-0 right-0 -mt-1 -mr-1 h-4 w-4 rounded-full bg-red-500 text-white text-[11px] flex items-center justify-center">
+                                        3
+                                    </span>
                                 </button>
 
                                 <Menu as="div" className="relative">
@@ -358,17 +569,50 @@ export default function AdminLayout({ user, header, children }) {
                                             {currentUser?.nama_lengkap?.charAt(0) ?? "U"}
                                         </div>
                                         <div className="hidden lg:flex lg:items-center">
-                                            <span className="ml-3 text-sm font-semibold leading-6 text-gray-900" aria-hidden>
+                                            <span
+                                                className="ml-3 text-sm font-semibold leading-6 text-gray-900"
+                                                aria-hidden
+                                            >
                                                 {currentUser?.nama_lengkap ?? "User"}
                                             </span>
                                             <ChevronDownIcon className="ml-2 h-5 w-5 text-gray-400" aria-hidden />
                                         </div>
                                     </Menu.Button>
 
-                                    <Transition as={Fragment} enter="transition ease-out duration-100" enterFrom="transform opacity-0 scale-95" enterTo="transform opacity-100 scale-100" leave="transition ease-in duration-75" leaveFrom="transform opacity-100 scale-100" leaveTo="transform opacity-0 scale-95">
+                                    <Transition
+                                        as={Fragment}
+                                        enter="transition ease-out duration-100"
+                                        enterFrom="transform opacity-0 scale-95"
+                                        enterTo="transform opacity-100 scale-100"
+                                        leave="transition ease-in duration-75"
+                                        leaveFrom="transform opacity-100 scale-100"
+                                        leaveTo="transform opacity-0 scale-95"
+                                    >
                                         <Menu.Items className="absolute right-0 z-10 mt-2.5 w-48 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
-                                            <Menu.Item>{({ active }) => (<Link href={route("profile.edit")} className={`${active ? "bg-gray-50" : ""} block px-3 py-1 text-sm leading-6 text-gray-900`}>Profil Anda</Link>)}</Menu.Item>
-                                            <Menu.Item>{({ active }) => (<Link href={route("logout")} method="post" as="button" className={`${active ? "bg-gray-50" : ""} block px-3 py-1 text-sm leading-6 text-gray-900`}>Log Out</Link>)}</Menu.Item>
+                                            <Menu.Item>
+                                                {({ active }) => (
+                                                    <Link
+                                                        href={route("profile.edit")}
+                                                        className={`${active ? "bg-gray-50" : ""
+                                                            } block px-3 py-1 text-sm leading-6 text-gray-900`}
+                                                    >
+                                                        Profil Anda
+                                                    </Link>
+                                                )}
+                                            </Menu.Item>
+                                            <Menu.Item>
+                                                {({ active }) => (
+                                                    <Link
+                                                        href={route("logout")}
+                                                        method="post"
+                                                        as="button"
+                                                        className={`${active ? "bg-gray-50" : ""
+                                                            } block px-3 py-1 text-sm leading-6 text-gray-900`}
+                                                    >
+                                                        Log Out
+                                                    </Link>
+                                                )}
+                                            </Menu.Item>
                                         </Menu.Items>
                                     </Transition>
                                 </Menu>

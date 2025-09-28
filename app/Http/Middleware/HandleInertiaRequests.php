@@ -43,6 +43,10 @@ class HandleInertiaRequests extends Middleware
             ],
             // Tambahkan ini untuk membagikan data pengaturan
             'pengaturan' => Pengaturan::firstOrCreate(['id' => 1]),
+            
+            'adminMode' => fn() => ($request->user() && strtoupper($request->user()->level) === 'ADMIN')
+                ? ($request->session()->get('admin_mode', 'absensi'))
+                : null,
         ]);
     }
 }

@@ -1,216 +1,165 @@
 /* resources/css/app.css */
 
+/* Tailwind base */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-[x-cloak] {
-    display: none !important;
-}
+/* Alpine/HTMX helpers */
+[x-cloak] { display: none !important; }
 
-/* ===== Heatmap layout fixes ===== */
-
-/* warna (ubah sesuai branding) */
+/* =========================
+   Heatmap (Calendar) Theme
+   ========================= */
 :root {
-    --hm-empty: #f3f4f6;
-    --hm-1: #fee2e2;
-    --hm-2: #fde68a;
-    --hm-3: #86efac;
-    --hm-4: #16a34a;
-    --hm-stroke: rgba(0, 0, 0, 0.06);
+  /* Base palette (brandable) */
+  --hm-empty: #f1f5f9; /* slate-100 */
+  --hm-1:     #bbf7d0; /* green-200 */
+  --hm-2:     #86efac; /* green-300 */
+  --hm-3:     #34d399; /* green-400 */
+  --hm-4:     #059669; /* green-600 */
+  --hm-stroke: rgba(2, 6, 23, .08); /* slate-950 @8% */
 }
 
 /* Card wrapper */
-.hm-card {
-    background: #fff;
-    border: 1px solid #e6e6e9;
-    border-radius: 12px;
-    padding: 1rem;
-    box-shadow: 0 8px 20px rgba(2, 6, 23, 0.04);
+.hm-card { @apply bg-white p-4 md:p-6 rounded-lg shadow-sm border border-slate-100; }
+.hm-heatmap-wrap { @apply mt-2 overflow-x-auto; }
+
+/* ========== Cells (SVG <rect>) ========== */
+/* We style rects that receive class from classForValue: "hm-cell hm-sX is-..." */
+.react-calendar-heatmap rect.hm-cell {
+  rx: 3; ry: 3;
+  stroke: var(--hm-stroke);
+  stroke-width: .8;
+  transition: transform 120ms ease, stroke 120ms ease, opacity 120ms ease;
+}
+.react-calendar-heatmap rect.hm-cell:hover {
+  stroke: #0ea5e9; /* sky-500 */
+  stroke-width: 1.5;
+  transform: translateY(-1px);
 }
 
-/* wrapper agar grid bisa scroll horizontal tanpa merusak layout */
-.hm-heatmap-wrap {
-    overflow-x: auto;
-    padding-bottom: 0.5rem;
-    display: flex;
-    gap: 12px;
-}
+/* Palette */
+.react-calendar-heatmap .hm-empty { fill: var(--hm-empty); }
+.react-calendar-heatmap .hm-s1    { fill: var(--hm-1); }
+.react-calendar-heatmap .hm-s2    { fill: var(--hm-2); }
+.react-calendar-heatmap .hm-s3    { fill: var(--hm-3); }
+.react-calendar-heatmap .hm-s4    { fill: var(--hm-4); }
 
-/* custom left column for weekday labels if needed (we also style inline SVG labels) */
-.hm-weekday-column {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 6px;
-    /* match gutter */
-    padding-top: 26px;
-    /* align with top of svg grid */
-    margin-right: 6px;
-}
+/* States */
+.react-calendar-heatmap .is-weekend { opacity: .92; }
+.react-calendar-heatmap .is-outside { opacity: .38;  }
+.react-calendar-heatmap .is-today   { stroke: #0ea5e9; stroke-width: 2; }
 
-/* style untuk kotak heatmap (override library default sizes) */
-.react-calendar-heatmap .react-calendar-heatmap-value {
-    rx: 4;
-    stroke: var(--hm-stroke);
-    stroke-width: 0.9;
-    transition: transform 120ms ease;
-    transform-origin: center center;
-    width: 12px !important;
-    height: 12px !important;
-}
+/* Weekday labels */
+.react-calendar-heatmap .react-calendar-heatmap-weekday-labels { @apply text-[11px] text-slate-400; }
 
-/* hover */
-.react-calendar-heatmap .react-calendar-heatmap-value:hover {
-    transform: scale(1.08);
-    stroke: rgba(0, 0, 0, 0.14);
-    cursor: pointer;
-}
-
-/* weekday labels inside svg: force text anchor start and shift left so full names visible */
-.react-calendar-heatmap .react-calendar-heatmap-weekday-labels text {
-    font-size: 0.85rem;
-    fill: #6b7280;
-    text-anchor: start;
-    /* ensure left aligned */
-    transform: translateX(-46px);
-    /* shift labels outside the grid */
-}
-
-/* month labels smaller and centered */
+/* Optional: if the lib renders month labels */
 .react-calendar-heatmap .react-calendar-heatmap-month-label {
-    font-size: 0.95rem;
-    font-weight: 600;
-    fill: #374151;
+  font-size: .9rem; font-weight: 600; fill: #334155; /* slate-700 */
 }
 
-/* color classes */
-.color-empty {
-    fill: var(--hm-empty) !important;
+/* Day numbers inside each cell (from transformDayElement) */
+.hm-daynum {
+  font-size: 8px;
+  font-weight: 700;
+  dominant-baseline: middle;
+  pointer-events: none; /* keep click on rect */
 }
-
-.color-scale-1 {
-    fill: var(--hm-1) !important;
-}
-
-/* rendah */
-.color-scale-2 {
-    fill: var(--hm-2) !important;
-}
-
-.color-scale-3 {
-    fill: var(--hm-3) !important;
-}
-
-.color-scale-4 {
-    fill: var(--hm-4) !important;
-}
+.hm-daynum--dark  { fill: #334155; } /* slate-700 for light cells */
+.hm-daynum--light { fill: #ffffff; } /* white for dark cells */
 
 /* Legend */
-.hm-legend {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-top: 0.5rem;
-    color: #6b7280;
-    font-size: 0.85rem;
+.hm-legend { @apply mt-3 flex items-center gap-3 flex-wrap; }
+.hm-square {
+  width: 14px; height: 14px; border-radius: 3px;
+  display: inline-block; border: 1px solid rgba(2,6,23,.1);
+}
+.hm-square.hm-s1 { background: var(--hm-1); }
+.hm-square.hm-s2 { background: var(--hm-2); }
+.hm-square.hm-s3 { background: var(--hm-3); }
+.hm-square.hm-s4 { background: var(--hm-4); }
+
+/* Mini badges in legend footer */
+.hm-mini {
+  width: 12px; height: 12px; border-radius: 3px;
+  display: inline-block; border: 1px solid rgba(2,6,23,.1);
+}
+.hm-outline-today { background: #fff; border-color: #0ea5e9; }
+.hm-weekend       { background: #94a3b8; opacity: .35; } /* slate-400 */
+.hm-outside       { background: #cbd5e1; opacity: .35; } /* slate-300 */
+
+/* Backward-compat color classes (if older components still use these) */
+.color-empty   { fill: var(--hm-empty) !important; }
+.color-scale-1 { fill: var(--hm-1) !important; }
+.color-scale-2 { fill: var(--hm-2) !important; }
+.color-scale-3 { fill: var(--hm-3) !important; }
+.color-scale-4 { fill: var(--hm-4) !important; }
+
+/* Also style the library's default rect class to be safe */
+.react-calendar-heatmap .react-calendar-heatmap-value {
+  rx: 3; ry: 3;
+  stroke: var(--hm-stroke);
+  stroke-width: .8;
+  transition: transform 120ms ease, stroke 120ms ease, opacity 120ms ease;
+}
+.react-calendar-heatmap .react-calendar-heatmap-value:hover {
+  transform: translateY(-1px);
+  stroke: rgba(2,6,23,.18);
 }
 
-.hm-legend .hm-square {
-    width: 14px;
-    height: 12px;
-    border-radius: 3px;
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03) inset;
+/* Responsive tweaks */
+@media (max-width: 640px) {
+  .react-calendar-heatmap .react-calendar-heatmap-weekday-labels { @apply text-[10px]; }
 }
 
-/* responsive tweaks */
-@media (max-width:640px) {
-    .react-calendar-heatmap .react-calendar-heatmap-value {
-        width: 10px !important;
-        height: 10px !important;
-    }
-
-    .react-calendar-heatmap .react-calendar-heatmap-weekday-labels text {
-        transform: translateX(-36px);
-        font-size: 0.72rem;
-    }
-
-    .hm-weekday-column {
-        display: none;
-    }
-
-    /* hide extra label column on very small screens */
+/* =========================
+   Scrollbar (nice & subtle)
+   ========================= */
+.custom-scrollbar{
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99,102,241,.85) rgba(0,0,0,.08);
 }
-
-/* Smooth interactive scrollbar for modern browsers + Firefox */
-.custom-scrollbar {
-    /* Firefox */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(99, 102, 241, 0.85) rgba(0, 0, 0, 0.08);
-}
-
-/* WebKit browsers (Chrome, Edge, Safari) */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 10px;
-    /* default width */
-    height: 10px;
-    transition: width 180ms ease;
-}
-
+/* WebKit */
+.custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; transition: width 180ms ease; }
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.02));
-    border-radius: 9999px;
-    margin: 8px 2px;
-    /* gives a padded look in the track */
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.02));
+  border-radius: 9999px; margin: 8px 2px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(99, 102, 241, 0.95), rgba(99, 102, 241, 0.6));
-    border-radius: 9999px;
-    min-height: 28px;
-    border: 2px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
-    background-size: 100% 200%;
-    background-position: 0 0;
+  background: linear-gradient(180deg, rgba(99,102,241,.95), rgba(99,102,241,.6));
+  border-radius: 9999px; min-height: 28px;
+  border: 2px solid rgba(255,255,255,.06);
+  box-shadow: 0 6px 14px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.06);
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  background-size: 100% 200%; background-position: 0 0;
 }
-
-/* Hover makes the thumb wider and a bit brighter (interactive feel) */
-.custom-scrollbar:hover::-webkit-scrollbar {
-    width: 14px;
+.custom-scrollbar:hover::-webkit-scrollbar { width: 14px; }
+.custom-scrollbar:hover::-webkit-scrollbar-thumb{
+  transform: translateX(0);
+  background-position: 0 100%;
+  box-shadow: 0 10px 24px rgba(15,23,42,.22), inset 0 1px 0 rgba(255,255,255,.08);
 }
-
-.custom-scrollbar:hover::-webkit-scrollbar-thumb {
-    transform: translateX(0);
-    background-position: 0 100%;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+.custom-scrollbar::-webkit-scrollbar-thumb:active{
+  transform: scale(1.02);
+  box-shadow: 0 12px 28px rgba(15,23,42,.26), inset 0 1px 0 rgba(255,255,255,.09);
 }
-
-/* Active (while dragging) */
-.custom-scrollbar::-webkit-scrollbar-thumb:active {
-    transform: scale(1.02);
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.09);
-}
-
-/* Optional: smaller, subtle scrollbar when sidebar is collapsed */
-.sidebar-collapsed .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-}
-
+/* Collapsed sidebar variant */
+.sidebar-collapsed .custom-scrollbar::-webkit-scrollbar { width: 8px; }
 .sidebar-collapsed .custom-scrollbar::-webkit-scrollbar-thumb {
-    min-height: 20px;
-    background: rgba(255, 255, 255, 0.18);
-    box-shadow: none;
+  min-height: 20px; background: rgba(255,255,255,.18); box-shadow: none;
 }
 
-/* taruh di CSS global */
-.sidebar-toggle-img {
+/* =========================
+   Sidebar toggle image fx
+   ========================= */
+.sidebar-toggle-img{
   transition: transform .25s ease, box-shadow .25s ease;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 12px rgba(15,23,42,.08);
   border-radius: 8px;
 }
-.sidebar-toggle-img:hover {
+.sidebar-toggle-img:hover{
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 10px 30px rgba(15,23,42,.18);
 }

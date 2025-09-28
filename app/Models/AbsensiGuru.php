@@ -24,7 +24,17 @@ class AbsensiGuru extends Model
         'status_kehadiran',
         'metode_absen',
         'keterangan',
-        'id_penginput_manual'
+        'id_penginput_manual',
+        'menit_keterlambatan',
+
+    ];
+
+    protected $casts = [
+        'tanggal'           => 'date',
+        'jam_masuk'        => 'string', // 'H:i' format
+        'jam_pulang'       => 'string', // 'H:i' format
+        'menit_keterlambatan' => 'integer',
+       
     ];
 
     public function guru()

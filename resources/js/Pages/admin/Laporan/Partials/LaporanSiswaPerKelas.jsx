@@ -1,14 +1,17 @@
-const ProgressBar = ({ data }) => {
-    const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+function ProgressBar({ data }) {
+    const total =
+        (data.hadir ?? 0) + (data.sakit ?? 0) + (data.izin ?? 0) + (data.alfa ?? 0);
+    const denom = total || 1;
+
     return (
-        <div className="w-full bg-gray-200 rounded-full h-4 flex overflow-hidden">
-            <div className="h-4 bg-indigo-600" style={{ width: `${(data.hadir / total) * 100}%` }} title={`Hadir: ${data.hadir}%`}></div>
-            <div className="h-4 bg-yellow-500" style={{ width: `${(data.sakit / total) * 100}%` }} title={`Sakit: ${data.sakit}%`}></div>
-            <div className="h-4 bg-green-600" style={{ width: `${(data.izin / total) * 100}%` }} title={`Izin: ${data.izin}%`}></div>
-            <div className="h-4 bg-red-600" style={{ width: `${(data.alfa / total) * 100}%` }} title={`Alfa: ${data.alfa}%`}></div>
+        <div className="w-full h-3 rounded bg-gray-100 overflow-hidden flex">
+            <div className="h-full bg-green-500" style={{ width: `${(data.hadir ?? 0) / denom * 100}%` }} />
+            <div className="h-full bg-yellow-500" style={{ width: `${(data.sakit ?? 0) / denom * 100}%` }} />
+            <div className="h-full bg-blue-500" style={{ width: `${(data.izin ?? 0) / denom * 100}%` }} />
+            <div className="h-full bg-red-500" style={{ width: `${(data.alfa ?? 0) / denom * 100}%` }} />
         </div>
     );
-};
+}
 
 export default function LaporanSiswaPerKelas({ data }) {
     const getStatusClass = (status) => {

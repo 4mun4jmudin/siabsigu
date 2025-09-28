@@ -51,11 +51,18 @@ class AuthenticatedSessionController extends Controller
             // Jika Admin atau Guru, lanjutkan
             $request->session()->regenerate();
 
+            $mode = $request->input('mode', 'absensi'); // 'absensi' | 'full'
+            $mode = in_array($mode, ['absensi', 'full'], true) ? $mode : 'absensi';
+
             if ($level === 'admin') {
+                // simpan pilihan mode di session
+                $request->session()->put('admin_mode', $mode);
                 return redirect()->intended(route('admin.dashboard'));
             }
 
             if ($level === 'guru') {
+                // guru tidak pakai admin_mode
+                $request->session()->forget('admin_mode');
                 return redirect()->intended(route('guru.dashboard'));
             }
 
