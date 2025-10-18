@@ -31,10 +31,16 @@ class JurnalMengajar extends Model
         'terakhir_diedit_pada',
     ];
 
+    // perbaiki Call to undefined method App\Models\JurnalMengajar::jadwal()
+    public function jadwal()
+    {
+        return $this->belongsTo(JadwalMengajar::class, 'id_jadwal', 'id_jadwal');
+    }
+
     // Relasi ke jadwal mengajar
     public function jadwalMengajar()
     {
-        return $this->belongsTo(JadwalMengajar::class, 'id_jadwal', 'id_jadwal');
+        return $this->belongsTo(JadwalMengajar::class, 'id_jadwal', 'id_jadwal')->withDefault();
     }
 
     // Relasi ke guru pengganti (jika ada)

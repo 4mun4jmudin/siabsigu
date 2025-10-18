@@ -22,13 +22,26 @@
 }
 
 /* Card wrapper */
-.hm-card { @apply bg-white p-4 md:p-6 rounded-lg shadow-sm border border-slate-100; }
-.hm-heatmap-wrap { @apply mt-2 overflow-x-auto; }
+.hm-card {
+  background-color: #fff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(15,23,42,0.05);
+  border: 1px solid #f1f5f9;
+}
+@media (min-width: 768px) {
+  .hm-card {
+    padding: 1.5rem;
+  }
+}
+.hm-heatmap-wrap {
+  margin-top: 0.5rem; /* mt-2 */
+  overflow-x: auto;
+}
 
 /* ========== Cells (SVG <rect>) ========== */
 /* We style rects that receive class from classForValue: "hm-cell hm-sX is-..." */
 .react-calendar-heatmap rect.hm-cell {
-  rx: 3; ry: 3;
   stroke: var(--hm-stroke);
   stroke-width: .8;
   transition: transform 120ms ease, stroke 120ms ease, opacity 120ms ease;
@@ -52,7 +65,10 @@
 .react-calendar-heatmap .is-today   { stroke: #0ea5e9; stroke-width: 2; }
 
 /* Weekday labels */
-.react-calendar-heatmap .react-calendar-heatmap-weekday-labels { @apply text-[11px] text-slate-400; }
+.react-calendar-heatmap .react-calendar-heatmap-weekday-labels {
+  font-size: 11px;
+  color: #94a3b8; /* slate-400 */
+}
 
 /* Optional: if the lib renders month labels */
 .react-calendar-heatmap .react-calendar-heatmap-month-label {
@@ -70,7 +86,13 @@
 .hm-daynum--light { fill: #ffffff; } /* white for dark cells */
 
 /* Legend */
-.hm-legend { @apply mt-3 flex items-center gap-3 flex-wrap; }
+.hm-legend {
+  margin-top: 0.75rem; /* mt-3 */
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* gap-3 */
+  flex-wrap: wrap;
+}
 .hm-square {
   width: 14px; height: 14px; border-radius: 3px;
   display: inline-block; border: 1px solid rgba(2,6,23,.1);
@@ -98,19 +120,18 @@
 
 /* Also style the library's default rect class to be safe */
 .react-calendar-heatmap .react-calendar-heatmap-value {
-  rx: 3; ry: 3;
+.react-calendar-heatmap .react-calendar-heatmap-value {
   stroke: var(--hm-stroke);
   stroke-width: .8;
   transition: transform 120ms ease, stroke 120ms ease, opacity 120ms ease;
 }
-.react-calendar-heatmap .react-calendar-heatmap-value:hover {
   transform: translateY(-1px);
   stroke: rgba(2,6,23,.18);
 }
 
 /* Responsive tweaks */
 @media (max-width: 640px) {
-  .react-calendar-heatmap .react-calendar-heatmap-weekday-labels { @apply text-[10px]; }
+  .react-calendar-heatmap .react-calendar-heatmap-weekday-labels { font-size: 10px; }
 }
 
 /* =========================
@@ -120,6 +141,40 @@
   /* Firefox */
   scrollbar-width: thin;
   scrollbar-color: rgba(99,102,241,.85) rgba(0,0,0,.08);
+}
+
+/* WebKit browsers (Chrome, Safari, Edge, Opera) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  transition: width 180ms ease;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.02));
+  border-radius: 9999px;
+  margin: 8px 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(99,102,241,.95), rgba(99,102,241,.6));
+  border-radius: 9999px;
+  min-height: 28px;
+  border: 2px solid rgba(255,255,255,.06);
+  box-shadow: 0 6px 14px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.06);
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  background-size: 100% 200%;
+  background-position: 0 0;
+}
+.custom-scrollbar:hover::-webkit-scrollbar {
+  width: 14px;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  transform: translateX(0);
+  background-position: 0 100%;
+  box-shadow: 0 10px 24px rgba(15,23,42,.22), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  transform: scale(1.02);
+  box-shadow: 0 12px 28px rgba(15,23,42,.26), inset 0 1px 0 rgba(255,255,255,.09);
 }
 /* WebKit */
 .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; transition: width 180ms ease; }

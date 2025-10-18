@@ -38,8 +38,8 @@ class AbsensiHarianController extends Controller
             abort(403, 'Akses ditolak.');
         }
 
-        // Ambil filter dari query
-        $filter = $request->query('filter', 'day'); // day|week|month
+        // Default filter: WEEK (7 hari)
+        $filter  = $request->query('filter', 'week'); // day|week|month
         $dateStr = $request->query('date', Carbon::today()->toDateString());
 
         try {
@@ -49,7 +49,7 @@ class AbsensiHarianController extends Controller
         }
 
         $today = Carbon::today();
-        $now = Carbon::now();
+        $now   = Carbon::now();
 
         $pengaturan = Pengaturan::first();
 
@@ -60,20 +60,17 @@ class AbsensiHarianController extends Controller
             ->orderBy('jam_mulai', 'asc')
             ->get();
 
-        // Tentukan jadwal yang "dipakai" (sedang berlangsung) atau jadwal terakhir
+        // Tentukan jadwal yang dipakai (sedang berlangsung) atau jadwal terakhir
         $jadwalDipakai = null;
         if ($jadwalsHariIni->isNotEmpty()) {
             foreach ($jadwalsHariIni as $j) {
-                // Carbon::parse dapat membaca 'HH:mm' atau 'HH:mm:ss'
                 try {
-                    $jamMulai = Carbon::parse($j->jam_mulai)->setDate($today->year, $today->month, $today->day);
+                    $jamMulai   = Carbon::parse($j->jam_mulai)->setDate($today->year, $today->month, $today->day);
                     $jamSelesai = Carbon::parse($j->jam_selesai)->setDate($today->year, $today->month, $today->day);
                 } catch (Throwable $e) {
-                    // skip jadwal bila format waktu tidak valid
                     continue;
                 }
 
-                // kalau sekarang antara jamMulai..jamSelesai => pakai jadwal ini
                 if ($now->between($jamMulai, $jamSelesai)) {
                     $jadwalDipakai = $j;
                     break;
@@ -81,10 +78,9 @@ class AbsensiHarianController extends Controller
             }
 
             if (!$jadwalDipakai) {
-                // pakai jadwal yang paling akhir (jam_selesai terbesar)
-                $jadwalDipakai = $jadwalsHariIni->sortByDesc(function ($x) {
-                    return Carbon::parse($x->jam_selesai)->format('H:i:s');
-                })->first();
+                $jadwalDipakai = $jadwalsHariIni
+                    ->sortByDesc(fn ($x) => Carbon::parse($x->jam_selesai)->format('H:i:s'))
+                    ->first();
             }
         }
 
@@ -93,7 +89,7 @@ class AbsensiHarianController extends Controller
             ->whereDate('tanggal', $today->toDateString())
             ->first();
 
-        // apakah boleh absen pulang (sudah lewat jam pulang jadwal dipakai dan jam_pulang belum tercatat)
+        // Apakah boleh absen pulang
         $canPulang = false;
         if ($absensiHariIni && is_null($absensiHariIni->jam_pulang) && $jadwalDipakai) {
             try {
@@ -104,16 +100,24 @@ class AbsensiHarianController extends Controller
             }
         }
 
+        // Alert: kemarin belum absen pulang
+        $yesterday = $today->copy()->subDay();
+        $kemarinBelumPulang = AbsensiGuru::where('id_guru', $guru->id_guru)
+            ->whereDate('tanggal', $yesterday->toDateString())
+            ->whereNotNull('jam_masuk')
+            ->whereNull('jam_pulang')
+            ->exists();
+
         // Range untuk riwayat berdasarkan filter
         if ($filter === 'week') {
             $start = (clone $baseDate)->startOfWeek(Carbon::MONDAY);
-            $end = (clone $baseDate)->endOfWeek(Carbon::SUNDAY);
+            $end   = (clone $baseDate)->endOfWeek(Carbon::SUNDAY);
         } elseif ($filter === 'month') {
             $start = (clone $baseDate)->startOfMonth();
-            $end = (clone $baseDate)->endOfMonth();
+            $end   = (clone $baseDate)->endOfMonth();
         } else {
             $start = (clone $baseDate)->startOfDay();
-            $end = (clone $baseDate)->endOfDay();
+            $end   = (clone $baseDate)->endOfDay();
         }
 
         // Safety: batasi range maksimal 366 hari
@@ -121,7 +125,7 @@ class AbsensiHarianController extends Controller
             $end = (clone $start)->addDays(366);
         }
 
-        // Build history: iterasi setiap hari dan ambil data absensi / apakah ada jadwal
+        // Build history
         $history = [];
         $cursor = $start->copy();
         while ($cursor->lte($end)) {
@@ -137,9 +141,9 @@ class AbsensiHarianController extends Controller
                 ->first();
 
             if ($abs) {
-                $status = $abs->status_kehadiran;
-                $metode = $abs->metode_absen;
-                $jamMasuk = $abs->jam_masuk ? substr($abs->jam_masuk, 0, 5) : null;
+                $status  = $abs->status_kehadiran;
+                $metode  = $abs->metode_absen;
+                $jamMasuk  = $abs->jam_masuk ? substr($abs->jam_masuk, 0, 5) : null;
                 $jamPulang = $abs->jam_pulang ? substr($abs->jam_pulang, 0, 5) : null;
                 $menitTerlambat = $abs->menit_keterlambatan;
                 $keterangan = $abs->keterangan;
@@ -147,13 +151,9 @@ class AbsensiHarianController extends Controller
                 if (!$hasSchedule) {
                     $status = 'Tidak Ada Jadwal';
                 } else {
-                    if ($d->lt($today)) {
-                        $status = 'Alfa';
-                    } elseif ($d->isSameDay($today)) {
-                        $status = 'Belum Absen';
-                    } else {
-                        $status = 'Belum Absen';
-                    }
+                    if ($d->lt($today))       $status = 'Alfa';
+                    elseif ($d->isSameDay($today)) $status = 'Belum Absen';
+                    else                        $status = 'Belum Absen';
                 }
                 $metode = null;
                 $jamMasuk = null;
@@ -180,25 +180,24 @@ class AbsensiHarianController extends Controller
         // Render Inertia
         return Inertia::render('Guru/AbsensiHarian/Index', [
             'absensiHariIni' => $absensiHariIni,
-            'jadwalHariIni' => $jadwalDipakai,
-            'canPulang' => $canPulang,
-            'history' => $history,
+            'jadwalHariIni'  => $jadwalDipakai,
+            'canPulang'      => $canPulang,
+            'history'        => $history,
             'login_manual_enabled' => $pengaturan ? (bool) $pengaturan->login_manual_enabled : true,
-            'filter' => $filter,
-            'filter_date' => $baseDate->toDateString(),
-            // share minimal data pengaturan agar frontend bisa menon-aktifkan elemen
-            'pengaturan' => $pengaturan ? [
+            'filter'       => $filter,
+            'filter_date'  => $baseDate->toDateString(),
+            'pengaturan'   => $pengaturan ? [
                 'absensi_manual_guru_enabled' => (bool) $pengaturan->absensi_manual_guru_enabled,
             ] : ['absensi_manual_guru_enabled' => true],
+            'yesterday_unfinished' => $kemarinBelumPulang,
         ]);
     }
 
     /**
-     * Ajukan sakit / izin (dari guru).
+     * Ajukan sakit / izin / dinas luar (dari guru).
      */
     public function submitIzin(Request $request)
     {
-        // check feature enabled
         $check = $this->checkAbsensiManualEnabled();
         if ($check instanceof RedirectResponse || $check instanceof JsonResponse) {
             return $check;
@@ -211,18 +210,23 @@ class AbsensiHarianController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:Sakit,Izin',
+            'status'     => 'required|in:Sakit,Izin,Dinas Luar',
             'keterangan' => 'required|string|max:1000',
-            'tanggal' => 'nullable|date',
+            'tanggal'    => 'nullable|date',
         ]);
 
         $tanggal = $validated['tanggal'] ?? Carbon::today()->toDateString();
-        $status = $validated['status'];
+
+        // Cutoff: hanya boleh input/ubah di hari yang sama (sampai 23:59)
+        if (!$this->withinSameDayCutoff($tanggal)) {
+            return redirect()->back()->with('error', 'Batas waktu pengajuan/ubah absensi untuk tanggal tersebut sudah lewat (hanya sampai 23:59 di hari yang sama).');
+        }
+
+        $status     = $validated['status'];
         $keterangan = $validated['keterangan'];
 
         DB::beginTransaction();
         try {
-            // Lock row (jika ada) untuk hindari race condition
             $absensi = AbsensiGuru::where('id_guru', $guru->id_guru)
                 ->whereDate('tanggal', $tanggal)
                 ->lockForUpdate()
@@ -230,44 +234,49 @@ class AbsensiHarianController extends Controller
 
             if ($absensi) {
                 $absensi->update([
-                    'status_kehadiran' => $status,
-                    'keterangan' => $keterangan,
-                    'metode_absen' => 'Manual',
+                    'status_kehadiran'    => $status,
+                    'keterangan'          => $keterangan,
+                    'metode_absen'        => 'Manual',
                     'id_penginput_manual' => $user->id_pengguna,
-                    'updated_at' => now(),
+                    'updated_at'          => now(),
+                    // netralisasi waktu ketika izin/sakit/DL
+                    'jam_masuk'           => null,
+                    'jam_pulang'          => null,
+                    'menit_keterlambatan' => 0,
                 ]);
             } else {
                 AbsensiGuru::create([
-                    'id_absensi' => 'AG-' . now()->format('ymdHis') . '-' . $guru->id_guru,
-                    'id_guru' => $guru->id_guru,
-                    'tanggal' => $tanggal,
-                    'jam_masuk' => null,
-                    'jam_pulang' => null,
-                    'status_kehadiran' => $status,
-                    'metode_absen' => 'Manual',
-                    'keterangan' => $keterangan,
+                    'id_absensi'          => 'AG-' . now()->format('ymdHis') . '-' . $guru->id_guru,
+                    'id_guru'             => $guru->id_guru,
+                    'tanggal'             => $tanggal,
+                    'jam_masuk'           => null,
+                    'jam_pulang'          => null,
+                    'status_kehadiran'    => $status,
+                    'metode_absen'        => 'Manual',
+                    'keterangan'          => $keterangan,
                     'id_penginput_manual' => $user->id_pengguna,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'menit_keterlambatan' => 0,
+                    'created_at'          => now(),
+                    'updated_at'          => now(),
                 ]);
             }
 
-            // Notify all admins
+            // Notifikasi ke admin (best-effort)
             try {
                 $admins = User::where('level', 'Admin')->get();
                 if ($admins->isNotEmpty()) {
                     Notification::send($admins, new SakitIzinSubmittedNotification($guru->nama_lengkap, $status, $tanggal, $keterangan));
                 }
             } catch (Throwable $notifEx) {
-                Log::warning('Gagal mengirim notifikasi Sakit/Izin: ' . $notifEx->getMessage());
+                Log::warning('Gagal kirim notif Sakit/Izin/DL: ' . $notifEx->getMessage());
             }
 
             // Log aktivitas
             DB::table('tbl_log_aktivitas')->insert([
                 'id_pengguna' => $user->id_pengguna,
-                'aksi' => "Pengajuan {$status} (Manual)",
-                'keterangan' => "Guru {$guru->nama_lengkap} mengajukan {$status} untuk {$tanggal}: {$keterangan}",
-                'waktu' => now(),
+                'aksi'        => "Pengajuan {$status} (Manual)",
+                'keterangan'  => "Guru {$guru->nama_lengkap} mengajukan {$status} untuk {$tanggal}: {$keterangan}",
+                'waktu'       => now(),
             ]);
 
             DB::commit();
@@ -284,7 +293,6 @@ class AbsensiHarianController extends Controller
      */
     public function store(Request $request)
     {
-        // check feature enabled
         $check = $this->checkAbsensiManualEnabled();
         if ($check instanceof RedirectResponse || $check instanceof JsonResponse) {
             return $check;
@@ -297,25 +305,30 @@ class AbsensiHarianController extends Controller
         }
 
         $today = Carbon::today();
-        $now = Carbon::now();
+        $now   = Carbon::now();
 
-        // ambil absensi hari ini bila ada
+        // Cutoff hari yang sama saja
+        if (!$this->withinSameDayCutoff($today->toDateString())) {
+            return redirect()->back()->with('error', 'Batas waktu absensi hari ini sudah lewat (sampai 23:59).');
+        }
+
         $absensi = AbsensiGuru::where('id_guru', $guru->id_guru)
             ->whereDate('tanggal', $today->toDateString())
             ->first();
 
         $pengaturan = Pengaturan::first();
-        // jam masuk default jika tidak ada pengaturan
+
+        // jam masuk sekolah (untuk hitung terlambat)
         $jamMasukSekolah = null;
         if ($pengaturan && $pengaturan->jam_masuk_guru) {
             try {
-                $jamMasukSekolah = Carbon::parse($pengaturan->jam_masuk_guru);
+                $jamMasukSekolah = Carbon::parse($pengaturan->jam_masuk_guru)->setDate($today->year, $today->month, $today->day);
             } catch (Throwable $e) {
                 $jamMasukSekolah = null;
             }
         }
 
-        // cari jadwal terakhir hari ini (untuk cek waktu pulang)
+        // cari jadwal terakhir hari ini (cek waktu pulang)
         $hariNama = $this->hariIndonesia((int) $today->dayOfWeek);
         $jadwalTerakhir = JadwalMengajar::where('id_guru', $guru->id_guru)
             ->where('hari', $hariNama)
@@ -327,7 +340,6 @@ class AbsensiHarianController extends Controller
             if ($absensi) {
                 // Aksi: absen pulang
                 if (is_null($absensi->jam_pulang)) {
-                    // cek waktu pulang minimal jika ada jadwalTerakhir
                     if ($jadwalTerakhir) {
                         try {
                             $jamPulangHarusnya = Carbon::parse($jadwalTerakhir->jam_selesai)->setDate($today->year, $today->month, $today->day);
@@ -336,7 +348,7 @@ class AbsensiHarianController extends Controller
                                 return redirect()->back()->with('error', 'Belum waktunya absen pulang.');
                             }
                         } catch (Throwable $e) {
-                            // jika parse gagal, biarkan proceed
+                            // lanjut
                         }
                     }
 
@@ -345,7 +357,6 @@ class AbsensiHarianController extends Controller
                         'updated_at' => now(),
                     ]);
 
-                    // log aktivitas
                     DB::table('tbl_log_aktivitas')->insert([
                         'id_pengguna' => $user->id_pengguna,
                         'aksi' => "Absen Pulang",
@@ -357,34 +368,29 @@ class AbsensiHarianController extends Controller
                     return redirect()->back()->with('success', 'Anda berhasil absen pulang.');
                 }
 
-                // sudah punya jam pulang
                 DB::rollBack();
                 return redirect()->back()->with('info', 'Anda sudah menyelesaikan absensi hari ini.');
             } else {
                 // Aksi: absen masuk
                 $menitKeterlambatan = 0;
-                if ($jamMasukSekolah) {
-                    $jamMasukSekolah = $jamMasukSekolah->setDate($today->year, $today->month, $today->day);
-                    if ($now->greaterThan($jamMasukSekolah)) {
-                        $menitKeterlambatan = $now->diffInMinutes($jamMasukSekolah);
-                    }
+                if ($jamMasukSekolah && $now->greaterThan($jamMasukSekolah)) {
+                    $menitKeterlambatan = $now->diffInMinutes($jamMasukSekolah);
                 }
 
                 AbsensiGuru::create([
-                    'id_absensi' => 'AG-' . $now->format('ymdHis') . '-' . $guru->id_guru,
-                    'id_guru' => $guru->id_guru,
-                    'tanggal' => $today->toDateString(),
-                    'jam_masuk' => $now->toTimeString(),
-                    'jam_pulang' => null,
-                    'status_kehadiran' => 'Hadir',
-                    'metode_absen' => 'Manual',
+                    'id_absensi'          => 'AG-' . $now->format('ymdHis') . '-' . $guru->id_guru,
+                    'id_guru'             => $guru->id_guru,
+                    'tanggal'             => $today->toDateString(),
+                    'jam_masuk'           => $now->toTimeString(),
+                    'jam_pulang'          => null,
+                    'status_kehadiran'    => 'Hadir',
+                    'metode_absen'        => 'Manual',
                     'id_penginput_manual' => $user->id_pengguna,
                     'menit_keterlambatan' => $menitKeterlambatan,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'created_at'          => now(),
+                    'updated_at'          => now(),
                 ]);
 
-                // log aktivitas
                 DB::table('tbl_log_aktivitas')->insert([
                     'id_pengguna' => $user->id_pengguna,
                     'aksi' => "Absen Masuk",
@@ -403,8 +409,21 @@ class AbsensiHarianController extends Controller
     }
 
     /**
+     * Hanya boleh update di hari yang sama (sampai 23:59:59).
+     */
+    private function withinSameDayCutoff(string $tanggal): bool
+    {
+        try {
+            $d = Carbon::parse($tanggal);
+        } catch (Throwable $e) {
+            return false;
+        }
+
+        return now()->isSameDay($d) && now()->lte($d->copy()->endOfDay());
+    }
+
+    /**
      * Middleware-style check apakah fitur absensi manual aktif.
-     * Jika tidak aktif, kembalikan RedirectResponse atau JsonResponse sesuai jenis request.
      */
     private function checkAbsensiManualEnabled()
     {
@@ -413,7 +432,6 @@ class AbsensiHarianController extends Controller
             if (request()->wantsJson()) {
                 return response()->json(['message' => 'Halaman absensi dinonaktifkan oleh administrator.'], 403);
             }
-            // Redirect ke dashboard guru dengan pesan error
             return redirect()->route('guru.dashboard')->with('error', 'Halaman absensi dinonaktifkan oleh administrator.');
         }
         return null;
