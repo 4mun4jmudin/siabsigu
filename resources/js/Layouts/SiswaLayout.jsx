@@ -1,9 +1,6 @@
 import React, { useState, Fragment } from "react";
 import { Link, Head, usePage } from "@inertiajs/react";
 import { Toaster } from "react-hot-toast";
-// =================================================================
-// PERBAIKAN DI SINI: Tambahkan 'Dialog', 'Transition', dan 'Menu'
-// =================================================================
 import { Dialog, Transition, Menu } from "@headlessui/react";
 import {
     HomeIcon,
@@ -14,20 +11,20 @@ import {
     ChevronDownIcon
 } from "@heroicons/react/24/outline";
 
-// Navigasi khusus untuk siswa
 const navigation = [
     { name: 'Absensi', href: route('siswa.dashboard'), icon: HomeIcon },
-    // { name: 'Jadwal Saya', href: '#', icon: CalendarDaysIcon },
-    // { name: 'Riwayat Absensi', href: '#', icon: ClipboardDocumentListIcon },
+    { name: 'Logout', href: route('logout'), icon: XMarkIcon, method: 'post', as: 'button' },
 ];
 
-function NavLink({ href, active, children, label }) {
+function NavLink({ href, active, children, label, method, as }) {
+    const isButton = as === 'button';
     return (
         <Link
             href={href}
-            className={`group flex items-center w-full p-2 rounded-lg transition-colors duration-150 text-sm font-medium ${
-                active ? "bg-sky-700 text-white" : "text-sky-100 hover:bg-sky-600"
-            }`}
+            method={method}
+            as={as}
+            type={isButton ? "button" : undefined}
+            className={`group flex items-center w-full p-2 rounded-lg transition-colors duration-150 text-sm font-medium ${active ? "bg-sky-700 text-white" : "text-sky-100 hover:bg-sky-600"}`}
         >
             {children}
             <span className="ml-3">{label}</span>
@@ -50,17 +47,26 @@ export default function SiswaLayout({ children, header }) {
                 <ul role="list" className="flex flex-1 flex-col gap-y-7">
                     <li>
                         <ul role="list" className="-mx-2 space-y-1">
-                            {navigation.map((item) => (
-                                <li key={item.name}>
-                                    <NavLink
-                                        href={item.href}
-                                        active={route().current(item.href.split('?')[0])} // Handle query strings
-                                        label={item.name}
-                                    >
-                                        <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
-                                    </NavLink>
-                                </li>
-                            ))}
+                            {navigation.map((item) => {
+                                // jangan hitung active untuk link yang memakai POST (logout)
+                                const isActive = item.method === 'post'
+                                    ? false
+                                    : route().current(typeof item.href === 'string' ? item.href.split('?')[0] : item.href);
+
+                                return (
+                                    <li key={item.name}>
+                                        <NavLink
+                                            href={item.href}
+                                            method={item.method}
+                                            as={item.as}
+                                            active={isActive}
+                                            label={item.name}
+                                        >
+                                            <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+                                        </NavLink>
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </li>
                 </ul>
@@ -72,7 +78,6 @@ export default function SiswaLayout({ children, header }) {
         <div className="min-h-screen bg-gray-100">
             <Toaster position="top-right" />
 
-            {/* Mobile sidebar */}
             <Transition.Root show={sidebarOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
                     <Transition.Child as={Fragment} enter="transition-opacity ease-linear duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="transition-opacity ease-linear duration-300" leaveFrom="opacity-100" leaveTo="opacity-0">
@@ -95,13 +100,11 @@ export default function SiswaLayout({ children, header }) {
                 </Dialog>
             </Transition.Root>
 
-            {/* Static sidebar for desktop */}
             <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
                 <SidebarContent />
             </div>
 
             <div className="lg:pl-72">
-                {/* Top bar */}
                 <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
                     <button type="button" className="-m-2.5 p-2.5 text-gray-700 lg:hidden" onClick={() => setSidebarOpen(true)}>
                         <Bars3Icon className="h-6 w-6" />

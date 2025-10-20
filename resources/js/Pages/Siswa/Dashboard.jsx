@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import SiswaLayout from '@/Layouts/SiswaLayout';
+import { Link, router } from '@inertiajs/react';
+import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 import {
   ClockIcon,
   CheckCircleIcon,
@@ -122,7 +124,7 @@ function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
   return {
     promise,
     stop: () => {
-      try { if (watchId !== null) navigator.geolocation.clearWatch(watchId); } catch {}
+      try { if (watchId !== null) navigator.geolocation.clearWatch(watchId); } catch { }
       if (!resolved && rejectFn) rejectFn(new Error('Dibatalkan'));
       if (timer) clearTimeout(timer);
     },
@@ -130,8 +132,22 @@ function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
 }
 
 // MapEmbed (dinamis) — centering 'school' atau 'student', dengan lingkaran akurasi
-function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = true, centerMode = 'school' }) {
+function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = true, centerMode = 'school', invalidateKey }) {
+
   const [components, setComponents] = useState(null);
+
+  const mapRef = useRef(null);
+
+  // re-invalidate saat modal dibuka / center berubah
+  useEffect(() => {
+    if (mapRef.current) {
+      // jeda kecil biar DOM settle dulu
+      setTimeout(() => {
+        try { mapRef.current.invalidateSize(); } catch { }
+      }, 150);
+    }
+  }, [invalidateKey]); // <<— kunci penting
+
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !document.getElementById('leaflet-css')) {
@@ -155,7 +171,7 @@ function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = t
             iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
             shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
           });
-        } catch {}
+        } catch { }
         if (!mounted) return;
         setComponents({
           MapContainer: mod.MapContainer,
@@ -178,9 +194,29 @@ function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = t
 
   if (components && center) {
     const { MapContainer, TileLayer, Marker, Popup, Circle } = components;
+    const schoolCenter = (schoolLat && schoolLng) ? [parseFloat(schoolLat), parseFloat(schoolLng)] : null;
+    const studentCenter = (studentCoords && typeof studentCoords.latitude === 'number') ? [studentCoords.latitude, studentCoords.longitude] : null;
+    const center = centerMode === 'student' && studentCenter ? studentCenter : (schoolCenter || studentCenter);
+
+    // key untuk memaksa refresh map ketika center / modal berubah
+    const mapKey = `${center?.[0] ?? 'x'}-${center?.[1] ?? 'x'}-${small ? 's' : 'l'}-${centerMode}-${invalidateKey ?? ''}`;
+
     return (
       <div className={`${small ? 'h-40' : 'h-96'} rounded-lg overflow-hidden border`}>
-        <MapContainer center={center} zoom={16} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+        <MapContainer
+          key={mapKey}
+          center={center}
+          zoom={16}
+          style={{ height: '100%', width: '100%' }}
+          scrollWheelZoom
+          whenCreated={(m) => {
+            mapRef.current = m;
+            // invalidate awal saat map siap
+            setTimeout(() => {
+              try { m.invalidateSize(); } catch { }
+            }, 50);
+          }}
+        >
           <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
           {schoolCenter && (
@@ -544,12 +580,11 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
                       <div className="text-sm font-medium text-gray-800">{new Date(item.tanggal).toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' })}</div>
                       <div className="text-xs text-gray-500">{formatTime(item.jam_masuk)}</div>
                     </div>
-                    <div className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      item.status_kehadiran === 'Hadir' ? 'bg-emerald-100 text-emerald-700'
+                    <div className={`text-xs font-semibold px-2 py-1 rounded-full ${item.status_kehadiran === 'Hadir' ? 'bg-emerald-100 text-emerald-700'
                       : item.status_kehadiran === 'Sakit' ? 'bg-yellow-100 text-yellow-700'
-                      : item.status_kehadiran === 'Izin' ? 'bg-sky-100 text-sky-700'
-                      : 'bg-rose-100 text-rose-700'
-                    }`}>
+                        : item.status_kehadiran === 'Izin' ? 'bg-sky-100 text-sky-700'
+                          : 'bg-rose-100 text-rose-700'
+                      }`}>
                       {item.status_kehadiran}
                     </div>
                   </li>
@@ -577,9 +612,8 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
             onClick={handleAbsen}
             disabled={submitting || !!absensiHariIni || isTimeUp || locating}
             aria-label="Absen cepat"
-            className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none ${
-              submitting || locating ? 'opacity-60 cursor-wait' : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.02] transition-transform'
-            }`}
+            className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none ${submitting || locating ? 'opacity-60 cursor-wait' : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.02] transition-transform'
+              }`}
           >
             <ClockIcon className="w-5 h-5" />
             <span className="text-sm">{submitting || locating ? 'Memproses...' : (absensiHariIni ? 'Sudah Absen' : 'Absen Sekarang')}</span>

@@ -218,3 +218,18 @@
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 10px 30px rgba(15,23,42,.18);
 }
+
+
+/* ==== Fix Leaflet vs UI overlays ==== */
+/* Turunkan seluruh layer Leaflet supaya header/drawer/modals selalu di atas */
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0 !important;
+}
+
+/* Kelas util untuk UI yang harus di atas map */
+.z-ui { z-index: 60 !important; }        /* header sticky, navbar */
+.z-overlay { z-index: 70 !important; }   /* overlay drawer */
+.z-modal { z-index: 80 !important; }     /* modal (termasuk modal peta) */
