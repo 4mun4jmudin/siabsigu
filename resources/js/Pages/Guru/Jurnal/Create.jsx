@@ -161,7 +161,7 @@ export default function Create({ auth, jadwalOptions, absensiHariIni }) {
                         <Link href={route('guru.jurnal.index')}><SecondaryButton>Batal</SecondaryButton></Link>
                         <PrimaryButton disabled={processing || isFormDisabled}>
                             {processing ? 'Menyimpan...' : 'Simpan Jurnal'}
-                        </PrimaryButton>
+                        </PrimaryButton> 
                     </div>
                 </form>
             </div>

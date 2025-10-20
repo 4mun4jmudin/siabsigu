@@ -142,6 +142,10 @@ class AbsensiController extends Controller
         if ($jamAbsen->greaterThan($jamMasukSekolah)) {
             $menitKeterlambatan = $jamAbsen->diffInMinutes($jamMasukSekolah);
         }
+        $metode = 'Manual';
+        if ($request->filled('latitude') && $request->filled('longitude')) {
+            $metode = 'GPS'; // <— standar satu kata, bukan "Geo"
+        }
 
         // Simpan record absensi
         AbsensiSiswa::create([
@@ -151,7 +155,7 @@ class AbsensiController extends Controller
             'jam_masuk' => $jamAbsen->format('H:i:s'),
             'status_kehadiran' => 'Hadir',
             'menit_keterlambatan' => $menitKeterlambatan,
-            'metode_absen' => 'Geo',
+            'metode_absen' => $metode,
             'latitude' => (string) $userLat,
             'longitude' => (string) $userLng,
         ]);

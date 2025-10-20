@@ -1,24 +1,21 @@
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, usePage, router } from '@inertiajs/react';
 import SiswaLayout from '@/Layouts/SiswaLayout';
 import {
   ClockIcon,
   CheckCircleIcon,
   InformationCircleIcon,
   NoSymbolIcon,
-  ChevronDownIcon,
   MapPinIcon,
   XMarkIcon,
 } from '@heroicons/react/24/solid';
 
 /**
- * Siswa Dashboard — Mobile-first with improved geolocation precision
- * Patch includes:
- * - getPrecisePosition() that uses watchPosition and chooses the best reading by accuracy
- * - Cancelable locate operation (user can cancel while waiting for a better fix)
- * - Displays accuracy & timestamp in UI
- * - Draws an accuracy circle on the Leaflet map (if available)
- * - Sends accuracy & timestamp to backend when posting absensi
+ * Perbaikan utama:
+ * - GANTI useForm().post({ data }) -> router.post(payloadLangsung)
+ * - Tambah state `submitting` (mengganti `processing`)
+ * - Ambil lokasi TEPAT sebelum submit (getPrecisePosition dengan watchPosition)
+ * - Validasi akurasi & geofence dengan pesan error spesifik
  */
 
 // helpers
@@ -87,16 +84,13 @@ function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
     resolveFn = resolve;
     rejectFn = reject;
 
-    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+    if (!navigator.geolocation) return reject(new Error('Geolocation tidak didukung'));
 
     const options = { enableHighAccuracy: true, maximumAge: 0 };
 
     watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        // choose the reading with smallest accuracy
         if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
-
-        // if reading is good enough, resolve
         if (pos.coords.accuracy <= desiredAccuracy) {
           if (watchId !== null) navigator.geolocation.clearWatch(watchId);
           if (timer) clearTimeout(timer);
@@ -113,7 +107,6 @@ function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
       options
     );
 
-    // timeout fallback
     timer = setTimeout(() => {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       if (best) {
@@ -121,7 +114,7 @@ function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
         resolve(best);
       } else {
         resolved = true;
-        reject(new Error('Timeout getting location'));
+        reject(new Error('Timeout mendapatkan lokasi'));
       }
     }, timeout);
   });
@@ -129,19 +122,16 @@ function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
   return {
     promise,
     stop: () => {
-      try {
-        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      } catch (e) {}
-      if (!resolved && rejectFn) rejectFn(new Error('Cancelled by user'));
+      try { if (watchId !== null) navigator.geolocation.clearWatch(watchId); } catch {}
+      if (!resolved && rejectFn) rejectFn(new Error('Dibatalkan'));
       if (timer) clearTimeout(timer);
     },
   };
 }
 
-// MapEmbed component — supports centering on 'school' or 'student', draws accuracy circle
+// MapEmbed (dinamis) — centering 'school' atau 'student', dengan lingkaran akurasi
 function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = true, centerMode = 'school' }) {
   const [components, setComponents] = useState(null);
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !document.getElementById('leaflet-css')) {
@@ -165,13 +155,17 @@ function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = t
             iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
             shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
           });
-        } catch (e) {}
+        } catch {}
         if (!mounted) return;
-        setComponents({ MapContainer: mod.MapContainer, TileLayer: mod.TileLayer, Marker: mod.Marker, Popup: mod.Popup, Circle: mod.Circle, useMap: mod.useMap });
-        setLeafletLoaded(true);
-      } catch (err) {
-        console.warn('react-leaflet not available, will use iframe fallback', err);
-        setLeafletLoaded(false);
+        setComponents({
+          MapContainer: mod.MapContainer,
+          TileLayer: mod.TileLayer,
+          Marker: mod.Marker,
+          Popup: mod.Popup,
+          Circle: mod.Circle,
+        });
+      } catch {
+        setComponents(null);
       }
     })();
     return () => { mounted = false; };
@@ -179,8 +173,6 @@ function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = t
 
   const schoolCenter = (schoolLat && schoolLng) ? [parseFloat(schoolLat), parseFloat(schoolLng)] : null;
   const studentCenter = (studentCoords && typeof studentCoords.latitude === 'number') ? [studentCoords.latitude, studentCoords.longitude] : null;
-
-  // decide center according to centerMode preference
   const center = centerMode === 'student' && studentCenter ? studentCenter : (schoolCenter || studentCenter);
   const iframeSrc = center ? `https://www.google.com/maps?q=${center[0]},${center[1]}&z=16&output=embed` : null;
 
@@ -188,15 +180,14 @@ function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = t
     const { MapContainer, TileLayer, Marker, Popup, Circle } = components;
     return (
       <div className={`${small ? 'h-40' : 'h-96'} rounded-lg overflow-hidden border`}>
-        <MapContainer center={center} zoom={16} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
-          <TileLayer attribution='&copy; OpenStreetMap contributors' url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+        <MapContainer center={center} zoom={16} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+          <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
           {schoolCenter && (
-            <Marker position={schoolCenter}>
-              <Popup>
-                Titik Sekolah<br />{schoolCenter[0]}, {schoolCenter[1]}
-              </Popup>
-            </Marker>
+            <>
+              <Marker position={schoolCenter}><Popup>Titik Sekolah<br />{schoolCenter[0]}, {schoolCenter[1]}</Popup></Marker>
+              <Circle center={schoolCenter} radius={parseInt(radius || 200, 10)} pathOptions={{ color: '#7c3aed', fillOpacity: 0.08 }} />
+            </>
           )}
 
           {studentCenter && (
@@ -208,25 +199,20 @@ function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = t
                   {studentCoords?.timestamp ? new Date(studentCoords.timestamp).toLocaleTimeString() : ''}
                 </Popup>
               </Marker>
-
-              {/* visualisasi lingkaran akurasi */}
               {typeof studentCoords?.accuracy !== 'undefined' && (
                 <Circle center={studentCenter} radius={Math.max(10, studentCoords.accuracy)} pathOptions={{ color: '#0ea5a4', fillOpacity: 0.08 }} />
               )}
             </>
           )}
-
-          {schoolCenter && <Circle center={schoolCenter} radius={parseInt(radius || 200, 10)} pathOptions={{ color: '#7c3aed', fillOpacity: 0.08 }} />}
         </MapContainer>
       </div>
     );
   }
 
-  // fallback iframe
   if (iframeSrc) {
     return (
       <div className={`${small ? 'h-40' : 'h-64'} rounded-lg overflow-hidden border`}>
-        <iframe title="Peta" src={iframeSrc} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
+        <iframe title="Peta" src={iframeSrc} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" />
       </div>
     );
   }
@@ -235,7 +221,6 @@ function MapEmbed({ schoolLat, schoolLng, studentCoords, radius = 200, small = t
 }
 
 export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwayatAbsensi = [], batasWaktuAbsen = null, pengaturan = null }) {
-  const { post, processing } = useForm();
   const { flash } = usePage().props;
 
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -244,10 +229,9 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
   const [distanceToSchool, setDistanceToSchool] = useState(null);
   const [isTimeUp, setIsTimeUp] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
-  const [mapCenterMode, setMapCenterMode] = useState('school'); // 'school' | 'student'
-
-  // locating flow state
+  const [mapCenterMode, setMapCenterMode] = useState('school');
   const [locating, setLocating] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // pengganti processing
   const locateRequestRef = useRef(null);
 
   useEffect(() => {
@@ -287,17 +271,16 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
   const tanggalHariIni = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const handleGeolocationError = (err) => {
-    console.error('Geolocation error', err);
-    if (err.code === 1) setLocationError('Izin lokasi ditolak. Aktifkan izin lokasi di browser.');
-    else if (err.code === 2) setLocationError('Posisi tidak dapat ditemukan. Periksa GPS/Internet.');
-    else if (err.code === 3) setLocationError('Timeout mendapatkan lokasi. Coba lagi.');
+    if (err?.code === 1) setLocationError('Izin lokasi ditolak. Aktifkan izin lokasi di browser.');
+    else if (err?.code === 2) setLocationError('Posisi tidak dapat ditemukan. Periksa GPS/Internet.');
+    else if (err?.code === 3) setLocationError('Timeout mendapatkan lokasi. Coba lagi.');
     else setLocationError('Gagal mendapatkan lokasi. Pastikan GPS/Internet aktif.');
     setToast({ show: true, message: locationError || 'Gagal mendapatkan lokasi', type: 'error' });
   };
 
-  // ---------------------- improved handleAbsen using getPrecisePosition (cancelable) ----------------------
+  // ---------------------- submit absen ----------------------
   const handleAbsen = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     setLocationError('');
     setToast({ show: false, message: '', type: 'success' });
 
@@ -308,14 +291,13 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
     }
 
     setLocating(true);
-    setToast({ show: true, message: 'Mencari lokasi (mencapai akurasi tinggi)...', type: 'success' });
+    setToast({ show: true, message: 'Mencari lokasi (akurasi tinggi)...', type: 'success' });
 
-    // create request and keep ref so user can cancel
     const req = getPrecisePosition({ desiredAccuracy: 30, timeout: 30000 });
     locateRequestRef.current = req;
 
     try {
-      const position = await req.promise; // will resolve with Position
+      const position = await req.promise;
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       const accuracy = Math.round(position.coords.accuracy || 0);
@@ -324,7 +306,8 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
       setCoords({ latitude: lat, longitude: lng, accuracy, timestamp: ts });
       setMapCenterMode('student');
 
-      if (pengaturan && pengaturan.lokasi_sekolah_latitude && pengaturan.lokasi_sekolah_longitude) {
+      // validasi geofence (jika titik sekolah ada)
+      if (pengaturan?.lokasi_sekolah_latitude && pengaturan?.lokasi_sekolah_longitude) {
         const schoolLat = parseFloat(pengaturan.lokasi_sekolah_latitude);
         const schoolLng = parseFloat(pengaturan.lokasi_sekolah_longitude);
         const dist = Math.round(getDistanceMeters(schoolLat, schoolLng, lat, lng));
@@ -332,30 +315,40 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
 
         const allowed = parseInt(pengaturan.radius_absen_meters || 200, 10);
         if (dist > allowed) {
-          setToast({ show: true, message: `Anda berada ${dist} m dari titik sekolah (batas ${allowed} m). Absen ditolak.`, type: 'error' });
-          setLocating(false);
+          setToast({ show: true, message: `Anda ${dist} m dari titik sekolah (batas ${allowed} m). Absen ditolak.`, type: 'error' });
           return;
         }
       }
 
-      // send payload (include accuracy & timestamp)
-      const payload = { latitude: String(lat), longitude: String(lng), accuracy: String(accuracy), timestamp: new Date(ts).toISOString() };
+      // (opsional) tolak akurasi buruk
+      if (accuracy > 100) {
+        setToast({ show: true, message: `Akurasi lokasi terlalu rendah (${accuracy} m). Gunakan HP/GPS.`, type: 'error' });
+        return;
+      }
 
-      post(route('siswa.absensi.store'), {
-        data: payload,
+      // kirim payload DENGAN BENAR (router.post, payload langsung)
+      const payload = {
+        latitude: String(lat),
+        longitude: String(lng),
+        accuracy: String(accuracy),
+        timestamp: new Date(ts).toISOString(),
+      };
+
+      setSubmitting(true);
+      router.post(route('siswa.absensi.store'), payload, {
         preserveScroll: true,
         onStart: () => setToast({ show: true, message: 'Mengirim lokasi & menyimpan absensi...', type: 'success' }),
         onSuccess: () => setToast({ show: true, message: 'Absensi berhasil terekam ✔', type: 'success' }),
         onError: (errors) => {
-          console.error('SERVER ERR', errors);
-          const msg = errors.latitude || errors.longitude || (errors.message ? errors.message : 'Gagal absen, periksa konsol.');
+          const msg = errors?.latitude || errors?.longitude || errors?.message || 'Gagal absen, periksa konsol.';
           setToast({ show: true, message: msg, type: 'error' });
         },
+        onFinish: () => setSubmitting(false),
       });
 
     } catch (err) {
       console.error('Geolocation failed:', err);
-      const errMsg = err && err.message ? err.message : 'Gagal mendapatkan lokasi. Coba lagi atau periksa pengaturan lokasi Anda.';
+      const errMsg = err?.message || 'Gagal mendapatkan lokasi. Coba lagi atau periksa pengaturan lokasi.';
       setLocationError(errMsg);
       setToast({ show: true, message: errMsg, type: 'error' });
     } finally {
@@ -365,7 +358,7 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
   };
 
   const cancelLocating = () => {
-    if (locateRequestRef.current && typeof locateRequestRef.current.stop === 'function') {
+    if (locateRequestRef.current?.stop) {
       locateRequestRef.current.stop();
       locateRequestRef.current = null;
       setLocating(false);
@@ -412,28 +405,16 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
 
             <div className="p-3 bg-gradient-to-r from-sky-50 to-indigo-50 border-t">
               <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{summary.hadir}</div>
-                  <div className="text-gray-400">Hadir</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{summary.sakit}</div>
-                  <div className="text-gray-400">Sakit</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{summary.izin}</div>
-                  <div className="text-gray-400">Izin</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{summary.alfa}</div>
-                  <div className="text-gray-400">Alfa</div>
-                </div>
+                <div><div className="text-sm font-bold text-gray-900">{summary.hadir}</div><div className="text-gray-400">Hadir</div></div>
+                <div><div className="text-sm font-bold text-gray-900">{summary.sakit}</div><div className="text-gray-400">Sakit</div></div>
+                <div><div className="text-sm font-bold text-gray-900">{summary.izin}</div><div className="text-gray-400">Izin</div></div>
+                <div><div className="text-sm font-bold text-gray-900">{summary.alfa}</div><div className="text-gray-400">Alfa</div></div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Absensi + small map preview */}
+        {/* Absensi + map preview */}
         <section className="mt-5">
           <div className="bg-white rounded-2xl shadow-lg p-4">
             <div className="flex items-center justify-between">
@@ -444,12 +425,10 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
               <div className="text-xs text-gray-400">Status</div>
             </div>
 
-            <div className="mt-4">
-              <DigitalClock />
-            </div>
+            <div className="mt-4"><DigitalClock /></div>
 
             <div className="mt-4 grid grid-cols-1 gap-3">
-              { (pengaturan?.lokasi_sekolah_latitude && pengaturan?.lokasi_sekolah_longitude) || coords ? (
+              {(pengaturan?.lokasi_sekolah_latitude && pengaturan?.lokasi_sekolah_longitude) || coords ? (
                 <div>
                   <label className="text-xs font-medium text-gray-600">Preview Peta (Preferensi: {mapCenterMode})</label>
                   <div className="mt-2">
@@ -459,13 +438,13 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
                         schoolLng={pengaturan?.lokasi_sekolah_longitude}
                         studentCoords={coords}
                         radius={parseInt(pengaturan?.radius_absen_meters || 200, 10)}
-                        small={true}
+                        small
                         centerMode={mapCenterMode}
                       />
                     </Suspense>
                   </div>
                 </div>
-              ) : null }
+              ) : null}
 
               <div>
                 {absensiHariIni ? (
@@ -473,7 +452,10 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
                     <CheckCircleIcon className="w-6 h-6 text-emerald-600" />
                     <div>
                       <div className="font-semibold text-emerald-800">Anda Sudah Absen</div>
-                      <div className="text-xs text-emerald-700 mt-1">Jam masuk: <strong>{formatTime(absensiHariIni.jam_masuk)}</strong>{absensiHariIni.jam_pulang && <span> • Jam pulang: <strong>{formatTime(absensiHariIni.jam_pulang)}</strong></span>}</div>
+                      <div className="text-xs text-emerald-700 mt-1">
+                        Jam masuk: <strong>{formatTime(absensiHariIni.jam_masuk)}</strong>
+                        {absensiHariIni.jam_pulang && <span> • Jam pulang: <strong>{formatTime(absensiHariIni.jam_pulang)}</strong></span>}
+                      </div>
                     </div>
                   </div>
                 ) : isTimeUp ? (
@@ -488,17 +470,16 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
                       <div className="flex gap-2">
                         <button
                           type="submit"
-                          disabled={processing || locating}
+                          disabled={submitting || locating}
                           aria-label="Absen Masuk Sekarang"
-                          className={`flex-1 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none focus:ring-4 focus:ring-sky-200 transform transition ${processing || locating ? 'opacity-60 cursor-wait' : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.01]'}`}
+                          className={`flex-1 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none focus:ring-4 focus:ring-sky-200 transform transition ${submitting || locating ? 'opacity-60 cursor-wait' : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.01]'}`}
                         >
                           <div className="flex items-center justify-center gap-3">
                             <ClockIcon className="w-5 h-5" />
-                            <span>{processing || locating ? 'Memproses...' : 'Absen Masuk Sekarang'}</span>
+                            <span>{submitting || locating ? 'Memproses...' : 'Absen Masuk Sekarang'}</span>
                           </div>
                         </button>
 
-                        {/* cancel locating button */}
                         {locating && (
                           <button type="button" onClick={cancelLocating} className="px-3 py-3 rounded-xl bg-white border text-sm shadow-sm">
                             Batal
@@ -515,13 +496,10 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
                             <XMarkIcon className="w-4 h-4 text-gray-600" />
                           </button>
                         </div>
-
                         <div className="mt-1 text-xs text-gray-500">Akurasi: <strong>{coords.accuracy ? `${coords.accuracy} m` : '-'}</strong> • Waktu: {coords.timestamp ? new Date(coords.timestamp).toLocaleTimeString() : '-'}</div>
-
                         {distanceToSchool !== null && (
                           <div className="mt-3 text-xs text-gray-500">Jarak ke sekolah: <strong>{distanceToSchool} m</strong></div>
                         )}
-
                         <div className="mt-2">
                           <button onClick={() => { setMapCenterMode('student'); setMapOpen(true); }} className="text-xs px-3 py-2 rounded-md bg-white border border-gray-100 shadow-sm">Tampilkan Lokasi Saya</button>
                         </div>
@@ -537,9 +515,7 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
             <div className="mt-4">
               <div className="bg-blue-50 border border-blue-100 text-blue-800 px-3 py-2 rounded-lg flex items-start gap-3 text-xs">
                 <InformationCircleIcon className="w-5 h-5" />
-                <div>
-                  Pastikan lokasi & koneksi Anda aktif. Jika perangkat meminta izin lokasi, pilih <strong>Izinkan</strong>.
-                </div>
+                <div>Pastikan lokasi & koneksi Anda aktif. Jika perangkat meminta izin lokasi, pilih <strong>Izinkan</strong>.</div>
               </div>
             </div>
           </div>
@@ -554,22 +530,10 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-sky-50 text-center">
-                <div className="text-lg font-bold">{summary.hadir}</div>
-                <div className="text-xs text-gray-500">Hadir</div>
-              </div>
-              <div className="p-3 rounded-lg bg-yellow-50 text-center">
-                <div className="text-lg font-bold">{summary.sakit}</div>
-                <div className="text-xs text-gray-500">Sakit</div>
-              </div>
-              <div className="p-3 rounded-lg bg-blue-50 text-center">
-                <div className="text-lg font-bold">{summary.izin}</div>
-                <div className="text-xs text-gray-500">Izin</div>
-              </div>
-              <div className="p-3 rounded-lg bg-rose-50 text-center">
-                <div className="text-lg font-bold">{summary.alfa}</div>
-                <div className="text-xs text-gray-500">Alfa</div>
-              </div>
+              <div className="p-3 rounded-lg bg-sky-50 text-center"><div className="text-lg font-bold">{summary.hadir}</div><div className="text-xs text-gray-500">Hadir</div></div>
+              <div className="p-3 rounded-lg bg-yellow-50 text-center"><div className="text-lg font-bold">{summary.sakit}</div><div className="text-xs text-gray-500">Sakit</div></div>
+              <div className="p-3 rounded-lg bg-blue-50 text-center"><div className="text-lg font-bold">{summary.izin}</div><div className="text-xs text-gray-500">Izin</div></div>
+              <div className="p-3 rounded-lg bg-rose-50 text-center"><div className="text-lg font-bold">{summary.alfa}</div><div className="text-xs text-gray-500">Alfa</div></div>
             </div>
 
             <div className="mt-4 border-t pt-3">
@@ -580,7 +544,12 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
                       <div className="text-sm font-medium text-gray-800">{new Date(item.tanggal).toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' })}</div>
                       <div className="text-xs text-gray-500">{formatTime(item.jam_masuk)}</div>
                     </div>
-                    <div className={`text-xs font-semibold px-2 py-1 rounded-full ${item.status_kehadiran === 'Hadir' ? 'bg-emerald-100 text-emerald-700' : item.status_kehadiran === 'Sakit' ? 'bg-yellow-100 text-yellow-700' : item.status_kehadiran === 'Izin' ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'}`}>
+                    <div className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                      item.status_kehadiran === 'Hadir' ? 'bg-emerald-100 text-emerald-700'
+                      : item.status_kehadiran === 'Sakit' ? 'bg-yellow-100 text-yellow-700'
+                      : item.status_kehadiran === 'Izin' ? 'bg-sky-100 text-sky-700'
+                      : 'bg-rose-100 text-rose-700'
+                    }`}>
                       {item.status_kehadiran}
                     </div>
                   </li>
@@ -604,14 +573,21 @@ export default function SiswaDashboard({ siswa = {}, absensiHariIni = null, riwa
               <div className="text-xs text-gray-500">Tekan untuk melakukan absensi masuk</div>
             )}
           </div>
-          <button onClick={handleAbsen} disabled={processing || !!absensiHariIni || isTimeUp || locating} aria-label="Absen cepat" className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none ${processing || locating ? 'opacity-60 cursor-wait' : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.02] transition-transform'}`}>
+          <button
+            onClick={handleAbsen}
+            disabled={submitting || !!absensiHariIni || isTimeUp || locating}
+            aria-label="Absen cepat"
+            className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none ${
+              submitting || locating ? 'opacity-60 cursor-wait' : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.02] transition-transform'
+            }`}
+          >
             <ClockIcon className="w-5 h-5" />
-            <span className="text-sm">{processing || locating ? 'Memproses...' : (absensiHariIni ? 'Sudah Absen' : 'Absen Sekarang')}</span>
+            <span className="text-sm">{submitting || locating ? 'Memproses...' : (absensiHariIni ? 'Sudah Absen' : 'Absen Sekarang')}</span>
           </button>
         </div>
       </div>
 
-      {/* Fullscreen Modal Map */}
+      {/* Modal Peta */}
       {mapOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true">
           <div className="w-full sm:w-3/4 lg:w-1/2 bg-white rounded-t-xl sm:rounded-xl shadow-xl overflow-hidden">
