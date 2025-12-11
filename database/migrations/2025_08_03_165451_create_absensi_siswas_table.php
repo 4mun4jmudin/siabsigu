@@ -21,8 +21,17 @@ return new class extends Migration
             $table->time('jam_masuk')->nullable();
             $table->time('jam_pulang')->nullable();
             $table->integer('menit_keterlambatan')->nullable();
+
+            // Status kehadiran tetap sama
             $table->enum('status_kehadiran', ['Hadir', 'Sakit', 'Izin', 'Alfa']);
-            $table->enum('metode_absen', ['Sidik Jari', 'Barcode', 'Manual']);
+
+            // Tambahkan metode Geolocation/GPS agar valid dengan absensi berbasis lokasi
+            $table->enum('metode_absen', ['Sidik Jari', 'Barcode', 'Manual', 'Geolocation'])->default('Manual');
+
+            // Kolom koordinat untuk menyimpan lokasi absensi
+            $table->string('latitude', 50)->nullable();
+            $table->string('longitude', 50)->nullable();
+
             $table->text('keterangan')->nullable();
 
             $table->unsignedBigInteger('id_penginput_manual')->nullable();
@@ -38,6 +47,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('absensi_siswas');
+        // Pastikan nama tabel sesuai dengan yang dibuat di up()
+        Schema::dropIfExists('tbl_absensi_siswa');
     }
-};
+};  

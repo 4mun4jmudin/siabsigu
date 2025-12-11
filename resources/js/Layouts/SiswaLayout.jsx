@@ -13,6 +13,8 @@ import {
 
 const navigation = [
     { name: 'Absensi', href: route('siswa.dashboard'), icon: HomeIcon },
+    // navigasi ke halaman manajemen akun
+    { name: 'Akun Saya', href: route('siswa.akun.edit'), icon: ClipboardDocumentListIcon },
     { name: 'Logout', href: route('logout'), icon: XMarkIcon, method: 'post', as: 'button' },
 ];
 

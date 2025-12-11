@@ -105,6 +105,13 @@ Route::middleware('auth')->group(function () {
     Route::prefix('siswa')->name('siswa.')->middleware('check.level:Siswa')->group(function () {
         Route::get('/dashboard', [SiswaAbsensiController::class, 'index'])->name('dashboard');
         Route::post('/absensi',  [SiswaAbsensiController::class, 'store'])->name('absensi.store');
+
+        Route::get('/akun', [\App\Http\Controllers\Siswa\AccountController::class, 'edit'])
+            ->name('akun.edit');
+        Route::post('/akun', [\App\Http\Controllers\Siswa\AccountController::class, 'updateProfile'])
+            ->name('akun.update');
+        Route::post('/akun/password', [\App\Http\Controllers\Siswa\AccountController::class, 'updatePassword'])
+            ->name('akun.password.update');
     });
 
     /*
