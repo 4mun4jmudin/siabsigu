@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import SiswaForm from './Partials/SiswaForm';
 
 export default function Edit({ auth, siswa, kelasOptions }) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { data, setData, post, processing, errors } = useForm({
         _method: 'PUT',
         nis: siswa.nis || '',
@@ -11,7 +12,7 @@ export default function Edit({ auth, siswa, kelasOptions }) {
         id_kelas: siswa.id_kelas || '',
         nama_lengkap: siswa.nama_lengkap || '',
         nama_panggilan: siswa.nama_panggilan || '',
-        foto_profil: null, // Selalu null di awal
+        foto_profil: null,
         nik: siswa.nik || '',
         nomor_kk: siswa.nomor_kk || '',
         tempat_lahir: siswa.tempat_lahir || '',
@@ -26,8 +27,27 @@ export default function Edit({ auth, siswa, kelasOptions }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        
+        // DEBUG: Log form data
+        console.log('Form submission started', {
+            hasPhoto: data.foto_profil !== null,
+            photoName: data.foto_profil?.name || 'No file',
+            photoSize: data.foto_profil?.size || 0,
+            formData: data,
+        });
+
+        setIsSubmitting(true);
+        
         post(route('admin.siswa.update', siswa.id_siswa), {
-            forceFormData: true,
+            forceFormData: true,  // PENTING: Untuk file upload
+            onSuccess: () => {
+                console.log('Form submitted successfully');
+                setIsSubmitting(false);
+            },
+            onError: (errors) => {
+                console.error('Form submission error', errors);
+                setIsSubmitting(false);
+            },
         });
     };
 
@@ -35,16 +55,29 @@ export default function Edit({ auth, siswa, kelasOptions }) {
         <AdminLayout user={auth.user} header="Edit Siswa">
             <Head title="Edit Siswa" />
 
-             <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                    <SiswaForm data={data} setData={setData} errors={errors} kelasOptions={kelasOptions} siswa={siswa} />
+                    <SiswaForm 
+                        data={data} 
+                        setData={setData} 
+                        errors={errors} 
+                        kelasOptions={kelasOptions} 
+                        siswa={siswa}
+                    />
                 </div>
                 
                 <div className="flex items-center gap-4">
-                    <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md" disabled={processing}>
-                        Update
+                    <button 
+                        type="submit" 
+                        className="px-4 py-2 bg-gray-800 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={processing || isSubmitting}
+                    >
+                        {processing || isSubmitting ? 'Memproses...' : 'Update'}
                     </button>
-                    <Link href={route('admin.siswa.index')} className="px-4 py-2 bg-gray-200 rounded-md">
+                    <Link 
+                        href={route('admin.siswa.index')} 
+                        className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+                    >
                         Batal
                     </Link>
                 </div>
