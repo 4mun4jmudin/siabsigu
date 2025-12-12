@@ -28,7 +28,7 @@ class SiswaController extends Controller
         $siswas = Siswa::with('kelas')
             ->when($request->input('search'), function ($query, $search) {
                 $query->where('nama_lengkap', 'like', "%{$search}%")
-                      ->orWhere('nis', 'like', "%{$search}%");
+                    ->orWhere('nis', 'like', "%{$search}%");
             })
             ->when($request->input('kelas'), function ($query, $kelasId) {
                 $query->where('id_kelas', $kelasId);
@@ -83,9 +83,9 @@ class SiswaController extends Controller
             // 1. Buat akun User baru untuk siswa
             $user = User::create([
                 'nama_lengkap' => $validated['nama_lengkap'],
-                'username'     => $validated['nis'], // Username WAJIB menggunakan NIS
-                'password'     => Hash::make($validated['nis']), // Password default WAJIB NIS
-                'level'        => 'Siswa',
+                'username' => $validated['nis'], // Username WAJIB menggunakan NIS
+                'password' => Hash::make($validated['nis']), // Password default WAJIB NIS
+                'level' => 'Siswa',
             ]);
 
             // 2. Tambahkan id_pengguna ke data siswa yang akan disimpan
@@ -101,7 +101,7 @@ class SiswaController extends Controller
         });
 
         return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil ditambahkan beserta akun loginnya.');
-        
+
     }
 
     /**
@@ -137,6 +137,9 @@ class SiswaController extends Controller
     /**
      * Memperbarui data siswa di database.
      */
+    /**
+     * Memperbarui data siswa di database.
+     */
     public function update(Request $request, Siswa $siswa)
     {
         $validated = $request->validate([
@@ -145,7 +148,7 @@ class SiswaController extends Controller
             'id_kelas' => 'required|exists:tbl_kelas,id_kelas',
             'nama_lengkap' => 'required|string|max:100',
             'nama_panggilan' => 'nullable|string|max:30',
-            'foto_profil' => 'nullable|image|max:2048',
+            'foto_profil' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',  // IMPROVED: Tambah mimes
             'nik' => ['required', 'string', 'max:16', Rule::unique('tbl_siswa')->ignore($siswa->id_siswa, 'id_siswa')],
             'nomor_kk' => 'required|string|max:16',
             'tempat_lahir' => 'required|string|max:50',
@@ -159,30 +162,87 @@ class SiswaController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $siswa, $validated) {
+            // DEBUG LOGGING
+            \Log::info('=== UPDATE SISWA START ===', [
+                'siswa_id' => $siswa->id_siswa,
+                'has_file' => $request->hasFile('foto_profil'),
+                'request_files' => array_keys($request->allFiles()),
+                'request_input_keys' => array_keys($request->all()),
+            ]);
+
+            // PROSES FOTO PROFIL
             if ($request->hasFile('foto_profil')) {
-                // Hapus foto lama jika ada
-                if ($siswa->foto_profil) {
-                    Storage::disk('public')->delete($siswa->foto_profil);
+                try {
+                    $file = $request->file('foto_profil');
+
+                    \Log::info('File details', [
+                        'original_name' => $file->getClientOriginalName(),
+                        'size' => $file->getSize(),
+                        'mime' => $file->getMimeType(),
+                        'is_valid' => $file->isValid(),
+                    ]);
+
+                    // Hapus foto lama jika ada
+                    if ($siswa->foto_profil && Storage::disk('public')->exists($siswa->foto_profil)) {
+                        Storage::disk('public')->delete($siswa->foto_profil);
+                        \Log::info('Old photo deleted', ['path' => $siswa->foto_profil]);
+                    }
+
+                    // Simpan foto baru dengan naming yang konsisten
+                    $timestamp = now()->timestamp;
+                    $filename = "siswa_{$siswa->id_siswa}_{$timestamp}." . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('foto_profil_siswa', $filename, 'public');
+
+                    \Log::info('New photo saved', [
+                        'filename' => $filename,
+                        'path' => $path,
+                        'full_url' => asset("storage/{$path}"),
+                    ]);
+
+                    $validated['foto_profil'] = $path;
+
+                } catch (\Exception $e) {
+                    \Log::error('File upload error', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    throw new \Exception('Gagal mengupload foto: ' . $e->getMessage());
                 }
-                // Simpan foto baru
-                $path = $request->file('foto_profil')->store('foto_profil_siswa', 'public');
-                $validated['foto_profil'] = $path;
+            } else {
+                \Log::info('No file uploaded, keeping existing photo');
             }
 
-            $siswa->update($validated);
+            // UPDATE DATA SISWA
+            try {
+                $siswa->update($validated);
+                \Log::info('Siswa data updated successfully', [
+                    'siswa_id' => $siswa->id_siswa,
+                    'foto_profil_in_db' => $siswa->foto_profil,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Database update error', [
+                    'error' => $e->getMessage(),
+                    'siswa_id' => $siswa->id_siswa,
+                ]);
+                throw $e;
+            }
 
-            // Sinkronkan data di tabel User jika ada
+            // SINKRONKAN USER DATA
             if ($siswa->pengguna) {
                 $siswa->pengguna->update([
                     'nama_lengkap' => $validated['nama_lengkap'],
-                    'username' => $validated['nis'], // Jika NIS berubah, username juga berubah
+                    'username' => $validated['nis'],
                 ]);
+                \Log::info('User data synced');
             }
+
+            \Log::info('=== UPDATE SISWA END ===');
         });
 
         return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil diperbarui.');
     }
-    
+
+
     /**
      * Memperbarui data keamanan (barcode & sidik jari) untuk siswa.
      */
@@ -198,9 +258,9 @@ class SiswaController extends Controller
         }
 
         $siswa->update($validated);
-        
+
         return redirect()->route('admin.siswa.show', $siswa->id_siswa)
-                         ->with('message', 'Data keamanan berhasil diperbarui.');
+            ->with('message', 'Data keamanan berhasil diperbarui.');
     }
 
     /**
@@ -221,14 +281,14 @@ class SiswaController extends Controller
 
                 if ($userExists) {
                     $failedCount++;
-                    return; 
+                    return;
                 }
 
                 $user = User::create([
                     'nama_lengkap' => $siswa->nama_lengkap,
-                    'username'     => $siswa->nis,
-                    'password'     => Hash::make($siswa->nis),
-                    'level'        => 'Siswa',
+                    'username' => $siswa->nis,
+                    'password' => Hash::make($siswa->nis),
+                    'level' => 'Siswa',
                 ]);
 
                 $siswa->id_pengguna = $user->id_pengguna;
@@ -239,7 +299,7 @@ class SiswaController extends Controller
         }
 
         if ($createdCount === 0 && $failedCount === 0) {
-             return back()->with('message', 'Semua siswa aktif sudah memiliki akun.');
+            return back()->with('message', 'Semua siswa aktif sudah memiliki akun.');
         }
 
         $message = "Proses selesai. Berhasil membuat {$createdCount} akun baru.";
@@ -259,7 +319,7 @@ class SiswaController extends Controller
             if ($siswa->foto_profil) {
                 Storage::disk('public')->delete($siswa->foto_profil);
             }
-            
+
             if ($siswa->pengguna) {
                 $siswa->pengguna->delete();
             }

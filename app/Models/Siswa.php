@@ -86,19 +86,27 @@ class Siswa extends Model
     {
         return Attribute::make(
             get: function ($value, $attributes) {
-                $foto = $attributes['foto_profil'] ?? null; // aman kalau key tidak ada
+                $foto = $attributes['foto_profil'] ?? null;
 
+                // Kalau kosong benar-benar, ya kembalikan null (biar fallback ke avatar)
                 if (!$foto) {
-                    // bisa kembalikan null atau default image
-                    // return Storage::url('default_siswa.png');
                     return null;
                 }
 
+                // Kalau sudah full URL (misal CDN / link luar)
                 if (filter_var($foto, FILTER_VALIDATE_URL)) {
                     return $foto;
                 }
 
-                return Storage::url($foto);
+                // Kalau file tidak ada di disk public → null, biar fallback avatar
+                if (!Storage::disk('public')->exists($foto)) {
+                    return null;
+                }
+
+                // Pakai route khusus yang sudah kamu buat: storage.public
+                return route('storage.public', [
+                    'path' => urlencode($foto),
+                ]);
             }
         );
     }
