@@ -88,28 +88,28 @@ class Siswa extends Model
             get: function ($value, $attributes) {
                 $foto = $attributes['foto_profil'] ?? null;
 
-                // Kalau kosong benar-benar, ya kembalikan null (biar fallback ke avatar)
-                if (!$foto) {
-                    return null;
-                }
+                if (!$foto) return null;
 
-                // Kalau sudah full URL (misal CDN / link luar)
-                if (filter_var($foto, FILTER_VALIDATE_URL)) {
-                    return $foto;
-                }
+                // kalau sudah URL penuh
+                if (filter_var($foto, FILTER_VALIDATE_URL)) return $foto;
 
-                // Kalau file tidak ada di disk public → null, biar fallback avatar
+                // normalisasi biar "public/..." atau "/storage/..." nggak bikin exists() gagal
+                $foto = ltrim($foto, '/');
+                $foto = preg_replace('#^storage/#', '', $foto);
+                $foto = preg_replace('#^public/#', '', $foto);
+
                 if (!Storage::disk('public')->exists($foto)) {
                     return null;
                 }
 
-                // Pakai route khusus yang sudah kamu buat: storage.public
-                return route('storage.public', [
-                    'path' => urlencode($foto),
-                ]);
+                // cache busting: ganti query string ketika updated_at berubah
+                $v = $attributes['updated_at'] ?? time();
+
+                return route('storage.public', ['path' => urlencode($foto)]) . '?v=' . urlencode($v);
             }
         );
     }
+
 
 
     /**

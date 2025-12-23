@@ -115,7 +115,8 @@ class AbsensiController extends Controller
             'absensiHariIni'  => $absensiHariIni,
             'riwayatAbsensi'  => $riwayatAbsensi,
             'batasWaktuAbsen' => $batasWaktuAbsen,
-            'pengaturan'      => $pengaturanForFrontend,
+            // 'pengaturan'      => $pengaturanForFrontend,
+            'pengaturanAbsensi' => $pengaturanForFrontend,
 
             // info filter (opsional, bisa dipakai buat sync state di frontend)
             'activeFilter'    => $filter,

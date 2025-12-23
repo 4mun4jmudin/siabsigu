@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\GuruController;
@@ -61,15 +62,19 @@ use Illuminate\Support\Facades\Storage;
 
 // ------------- PUBLIC STORAGE ROUTE (untuk foto profil, dll) -------------
 Route::get('/storage-public/{path}', function (string $path) {
-    // dari JS akan di-encode, jadi decode dulu
     $path = urldecode($path);
 
     if (!Storage::disk('public')->exists($path)) {
         abort(404);
     }
 
-    return Storage::disk('public')->response($path);
+    return response()->file(Storage::disk('public')->path($path), [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma' => 'no-cache',
+        'Expires' => '0',
+    ]);
 })->where('path', '.*')->name('storage.public');
+
 
 
 /*
@@ -89,7 +94,20 @@ Route::get('/', function () {
 });
 
 // Dasbor default (admin)
-Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+// Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+Route::get('/dashboard', function () {
+    $level = Auth::user()?->level ?? null;
+
+    return match ($level) {
+        'Admin', 'Kepala Sekolah' => redirect()->route('admin.dashboard'),
+        'Guru'                   => redirect()->route('guru.dashboard'),
+        'Siswa'                  => redirect()->route('siswa.dashboard'),
+        'Orang Tua'              => redirect()->route('orangtua.dashboard'),
+        default                  => abort(403),
+    };
+})->middleware('auth')->name('dashboard');
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -256,7 +274,19 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('admin')->name('admin.')->middleware('check.level:Admin')->group(function () {
-        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        // Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', function () {
+            $level = Auth::user()?->level ?? null;
+
+            return match ($level) {
+                'Admin', 'Kepala Sekolah' => redirect()->route('admin.dashboard'),
+                'Guru'                   => redirect()->route('guru.dashboard'),
+                'Siswa'                  => redirect()->route('siswa.dashboard'),
+                'Orang Tua'              => redirect()->route('orangtua.dashboard'),
+                default                  => abort(403),
+            };
+        })->middleware('auth')->name('dashboard');
+
 
         Route::post('/mode', function (Request $request) {
             $request->validate(['mode' => 'required|in:absensi,full']);

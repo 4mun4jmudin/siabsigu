@@ -64,13 +64,37 @@ class PengaturanController extends Controller
             $pengaturan = Pengaturan::firstOrCreate(['id' => 1]);
             $dataToUpdate = $request->except(['_method', 'logo']);
 
+            // if ($request->hasFile('logo')) {
+            //     if ($pengaturan->logo_url) {
+            //         $oldPath = str_replace('/storage/', 'public/', $pengaturan->logo_url);
+            //         Storage::delete($oldPath);
+            //     }
+            //     $path = $request->file('logo')->store('logos', 'public');
+            //     $dataToUpdate['logo_url'] = Storage::url($path);
+            // }
+
             if ($request->hasFile('logo')) {
+                // hapus file lama (lebih aman pakai disk public + path relatif)
                 if ($pengaturan->logo_url) {
-                    $oldPath = str_replace('/storage/', 'public/', $pengaturan->logo_url);
-                    Storage::delete($oldPath);
+                    $old = $pengaturan->logo_url;
+
+                    // case 1: dulu tersimpan /storage/logos/xxx.png
+                    if (str_starts_with($old, '/storage/')) {
+                        $relative = str_replace('/storage/', '', $old); // logos/xxx.png
+                        Storage::disk('public')->delete($relative);
+                    }
+
+                    // case 2: kalau nanti tersimpan /storage-public/logos/xxx.png
+                    if (str_contains($old, '/storage-public/')) {
+                        $relative = urldecode(\Illuminate\Support\Str::after($old, '/storage-public/'));
+                        Storage::disk('public')->delete($relative);
+                    }
                 }
-                $path = $request->file('logo')->store('logos', 'public');
-                $dataToUpdate['logo_url'] = Storage::url($path);
+
+                $path = $request->file('logo')->store('logos', 'public'); // logos/xxx.png
+
+                // ✅ pakai route custom kamu
+                $dataToUpdate['logo_url'] = route('storage.public', ['path' => $path]);
             }
 
             $pengaturan->update($dataToUpdate);

@@ -8,8 +8,12 @@ import UserSettingsForm from './Partials/UserSettingsForm';
 import BackupSettingsForm from './Partials/BackupSettingsForm';
 import SystemSettingsForm from './Partials/SystemSettingsForm';
 import { Home, Clock, Users, Server, Database, ChevronLeft, ChevronRight } from 'lucide-react';
+import CenterPopupNotice from "@/Components/CenterPopupNotice";
 
-export default function Pengaturan({ auth, pengaturan = {}, tahun_ajaran = [], stats = {} }) {
+
+// export default function Pengaturan({ auth, pengaturan = {}, tahun_ajaran = [], stats = {} }) {
+export default function Pengaturan({ auth, pengaturan = {}, tahun_ajaran = [], stats = {}, status = null, error = null }) {
+
   const STORAGE_KEY = 'pengaturan.activeTab.v1';
   const defaultTab = 'umum';
   const [activeTab, setActiveTab] = useState(() => {
@@ -34,7 +38,7 @@ export default function Pengaturan({ auth, pengaturan = {}, tahun_ajaran = [], s
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, activeTab);
-    } catch (e) {}
+    } catch (e) { }
   }, [activeTab]);
 
   // Keyboard navigation: left / right to switch tabs
@@ -80,6 +84,10 @@ export default function Pengaturan({ auth, pengaturan = {}, tahun_ajaran = [], s
   return (
     <AdminLayout user={auth.user}>
       <Head title="Pengaturan Sistem" />
+      <CenterPopupNotice
+        message={status || error}
+        type={error ? "error" : "success"}
+      />
 
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">

@@ -3,146 +3,142 @@
 namespace App\Http\Controllers\Siswa;
 
 use App\Http\Controllers\Controller;
+use App\Models\Siswa;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class AccountController extends Controller
 {
-    /**
-     * Helper untuk ambil user & siswa yang sedang login.
-     */
-    protected function getCurrentUserAndSiswa(): array
+    private function getSiswaFromUser(Request $request): Siswa
     {
-        $user = Auth::user();
+        $user = $request->user();
+        $idPengguna = $user->id_pengguna ?? $user->id ?? null;
 
-        $siswa = $user->siswa()->with('kelas')->first();
-
-        if (! $siswa) {
-            abort(404, 'Data siswa tidak ditemukan.');
-        }
-
-        return [$user, $siswa];
+        return Siswa::with('kelas')
+            ->where('id_pengguna', $idPengguna)
+            ->firstOrFail();
     }
 
-    /**
-     * Halaman utama manajemen akun siswa (data profil + password).
-     */
-    public function edit()
+    public function edit(Request $request)
     {
-        [$user, $siswa] = $this->getCurrentUserAndSiswa();
+        $user = $request->user();
+        $siswa = $this->getSiswaFromUser($request);
 
         return Inertia::render('Siswa/Account/Edit', [
-            'user'  => $user,
+            'user' => $user,
             'siswa' => $siswa,
         ]);
     }
 
-    /**
-     * Update data profil (tanpa foto & password).
-     */
+    public function editPhoto(Request $request)
+    {
+        $user = $request->user();
+        $siswa = $this->getSiswaFromUser($request);
+
+        return Inertia::render('Siswa/Account/EditPhoto', [
+            'user' => $user,
+            'siswa' => $siswa,
+        ]);
+    }
+
     public function updateProfile(Request $request)
     {
-        [$user, $siswa] = $this->getCurrentUserAndSiswa();
+        $user = $request->user();
+        $siswa = $this->getSiswaFromUser($request);
 
         $validated = $request->validate([
-            'nama_lengkap'    => ['required', 'string', 'max:100'],
-            'nama_panggilan'  => ['nullable', 'string', 'max:30'],
-            'tempat_lahir'    => ['nullable', 'string', 'max:50'],
-            'tanggal_lahir'   => ['nullable', 'date'],
-            'alamat_lengkap'  => ['nullable', 'string'],
-            'username'        => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('tbl_pengguna', 'username')->ignore($user->id_pengguna, 'id_pengguna'),
-            ],
+            'nama_lengkap' => ['required', 'string', 'max:255'],
+            'nama_panggilan' => ['nullable', 'string', 'max:255'],
+            'tempat_lahir' => ['nullable', 'string', 'max:255'],
+            'tanggal_lahir' => ['nullable', 'date'],
+            'alamat_lengkap' => ['nullable', 'string'],
+            'username' => ['required', 'string', 'max:255'],
+            'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:2048'],
         ]);
 
-        // Update data siswa
-        $siswa->nama_lengkap    = $validated['nama_lengkap'];
-        $siswa->nama_panggilan  = $validated['nama_panggilan'] ?? $siswa->nama_panggilan;
-        $siswa->tempat_lahir    = $validated['tempat_lahir'] ?? $siswa->tempat_lahir;
-        $siswa->tanggal_lahir   = $validated['tanggal_lahir'] ?? $siswa->tanggal_lahir;
-        $siswa->alamat_lengkap  = $validated['alamat_lengkap'] ?? $siswa->alamat_lengkap;
-        $siswa->save();
+        // update siswa fields
+        $siswa->fill([
+            'nama_lengkap' => $validated['nama_lengkap'],
+            'nama_panggilan' => $validated['nama_panggilan'] ?? null,
+            'tempat_lahir' => $validated['tempat_lahir'] ?? null,
+            'tanggal_lahir' => $validated['tanggal_lahir'] ?? null,
+            'alamat_lengkap' => $validated['alamat_lengkap'] ?? null,
+        ]);
 
-        // Update juga data user (tbl_pengguna)
-        $user->nama_lengkap = $validated['nama_lengkap'];
-        $user->username     = $validated['username'];
+        // update username user
+        $user->username = $validated['username'];
         $user->save();
+
+        // handle foto (kalau ada)
+        if ($request->hasFile('foto_profil')) {
+            // hapus lama (kalau path valid)
+            $old = $siswa->foto_profil;
+            if ($old) {
+                $old = ltrim($old, '/');
+                $old = preg_replace('#^storage/#', '', $old);
+                $old = preg_replace('#^public/#', '', $old);
+
+                if (Storage::disk('public')->exists($old)) {
+                    Storage::disk('public')->delete($old);
+                }
+            }
+
+            // SIMPAN KE DISK public TANPA PREFIX "public/"
+            $path = $request->file('foto_profil')->store('foto-profil/siswa', 'public');
+            $siswa->foto_profil = $path;
+        }
+
+        $siswa->save();
 
         return back()->with('success', 'Profil berhasil diperbarui.');
     }
 
-    /**
-     * Halaman khusus untuk ubah foto profil.
-     */
-    public function editPhoto()
-    {
-        [$user, $siswa] = $this->getCurrentUserAndSiswa();
-
-        return Inertia::render('Siswa/Account/EditPhoto', [
-            'user'  => $user,
-            'siswa' => $siswa,
-        ]);
-    }
-
-    /**
-     * Proses upload / update foto profil.
-     */
     public function updatePhoto(Request $request)
     {
-        [$user, $siswa] = $this->getCurrentUserAndSiswa();
+        $siswa = $this->getSiswaFromUser($request);
 
         $request->validate([
-            'foto_profil' => [
-                'required',
-                'image',
-                'mimes:jpeg,jpg,png,webp,gif',
-                'max:2048',
-            ],
+            'foto_profil' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:2048'],
         ]);
 
-        // Hapus foto lama jika ada
-        if ($siswa->foto_profil && Storage::disk('public')->exists($siswa->foto_profil)) {
-            Storage::disk('public')->delete($siswa->foto_profil);
+        // hapus foto lama
+        $old = $siswa->foto_profil;
+        if ($old) {
+            $old = ltrim($old, '/');
+            $old = preg_replace('#^storage/#', '', $old);
+            $old = preg_replace('#^public/#', '', $old);
+
+            if (Storage::disk('public')->exists($old)) {
+                Storage::disk('public')->delete($old);
+            }
         }
 
-        $file = $request->file('foto_profil');
-        $extension = $file->getClientOriginalExtension();
-
-        // Nama file unik: siswa_[ID]_TIMESTAMP_RANDOM.ext
-        $filename = 'siswa_' . $siswa->id_siswa . '_' . time() . '_' . uniqid() . '.' . $extension;
-
-        // Simpan ke disk public, folder foto_profil_siswa
-        $path = $file->storeAs('foto_profil_siswa', $filename, 'public');
-
-        // Simpan path ke kolom foto_profil di tbl_siswa
+        // simpan baru (nama random otomatis, URL berubah, cache aman)
+        $path = $request->file('foto_profil')->store('foto-profil/siswa', 'public');
         $siswa->foto_profil = $path;
         $siswa->save();
 
         return back()->with('success', 'Foto profil berhasil diperbarui.');
     }
 
-    /**
-     * Update password siswa.
-     */
     public function updatePassword(Request $request)
     {
-        $user = Auth::user();
+        $user = $request->user();
 
         $request->validate([
-            'current_password' => ['required', 'current_password'],
-            'password'         => ['required', 'confirmed', 'min:8'],
+            'current_password' => ['required'],
+            'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
-        $user->password = Hash::make($request->input('password'));
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'Password saat ini salah.']);
+        }
+
+        $user->password = Hash::make($request->password);
         $user->save();
 
-        return back()->with('success', 'Kata sandi berhasil diperbarui.');
+        return back()->with('success', 'Password berhasil diperbarui.');
     }
 }
