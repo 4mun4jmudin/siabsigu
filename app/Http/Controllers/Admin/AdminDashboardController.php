@@ -13,11 +13,38 @@ use App\Models\Pengumuman;
 use App\Models\Siswa;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response;
 
 class AdminDashboardController extends Controller
 {
+    // ✅ FIX 2: Add constructor-level authorization check (Defence in Depth)
+    public function __construct()
+    {
+        // Double-check authorization at controller level
+        // This is a fallback in case middleware is bypassed
+        $this->middleware(function ($request, $next) {
+            if (!Auth::check() || Auth::user()->level !== 'Admin') {
+                // Log unauthorized access attempt
+                Log::warning('Unauthorized admin dashboard access attempt', [
+                    'user_id' => Auth::id(),
+                    'user_level' => Auth::user()?->level,
+                    'ip_address' => $request->ip(),
+                    'timestamp' => now(),
+                ]);
+
+                // Return 403 Forbidden with custom error page
+                return response()->view('errors.403', [
+                    'message' => 'Anda tidak memiliki akses ke dashboard admin.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+            return $next($request);
+        });
+    }
+
     public function index()
     {
         // Locale Indonesia untuk nama hari
