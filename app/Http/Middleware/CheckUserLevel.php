@@ -16,35 +16,36 @@ class CheckUserLevel
      */
     public function handle(Request $request, Closure $next, ...$levels): Response
     {
+        // ✅ FIX: Check if user is authenticated
         if (!Auth::check()) {
-            return redirect('login');
+            return redirect('login')
+                ->with('error', 'Harap login terlebih dahulu.');
         }
 
         $user = Auth::user();
-        $userLevel = strtolower($user->level);
+        $userLevel = strtolower($user->level ?? '');
 
-        // Cek apakah level pengguna ada dalam daftar level yang diizinkan
+        // Check apakah level pengguna ada dalam daftar level yang diizinkan
         foreach ($levels as $level) {
-            if ($userLevel == strtolower($level)) {
-                return $next($request); // Izinkan akses
+            if ($userLevel === strtolower($level)) {
+                return $next($request); // ✅ Izinkan akses
             }
         }
 
-        // --- INI BAGIAN YANG DIPERBAIKI ---
-        // Jika tidak diizinkan, arahkan kembali ke dasbor masing-masing
-        $message = 'X';
+        // ✅ FIX: Improved error handling & routing
+        // Jika tidak diizinkan, arahkan ke dashboard masing-masing dengan pesan error
+        $routeMap = [
+            'admin'    => 'admin.dashboard',
+            'guru'     => 'guru.dashboard',
+            'siswa'    => 'siswa.dashboard',
+            'orang tua'=> 'orangtua.dashboard',
+        ];
 
-        switch ($userLevel) {
-            case 'admin':
-                return redirect()->route('admin.dashboard')->with('error', $message);
-            case 'guru':
-                return redirect()->route('guru.dashboard')->with('error', $message);
-            case 'siswa':
-                return redirect()->route('siswa.dashboard')->with('error', $message);
-            default:
-                // Fallback jika ada peran lain, logout untuk keamanan
-                Auth::logout();
-                return redirect('/')->with('error', 'Level pengguna tidak dikenali.');
-        }
+        $redirectRoute = $routeMap[$userLevel] ?? '/';
+        $errorMessage = 'Anda tidak memiliki akses ke halaman ini.';
+
+        return redirect()
+            ->route($redirectRoute)
+            ->with('error', $errorMessage);
     }
 }
