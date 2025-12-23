@@ -88,8 +88,22 @@ Route::get('/', function () {
     ]);
 });
 
-// Dasbor default (admin)
-Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+// ✅ FIX 1: Smart dashboard redirect based on user level
+// Mengubah dari hardcoded admin dashboard menjadi smart redirect
+Route::middleware('auth')->get('/dashboard', function () {
+    $user = auth()->user();
+    if (!$user) {
+        return redirect('/login');
+    }
+    
+    return match(strtolower($user->level)) {
+        'admin'    => redirect()->route('admin.dashboard'),
+        'guru'     => redirect()->route('guru.dashboard'),
+        'siswa'    => redirect()->route('siswa.dashboard'),
+        'orang tua'=> redirect()->route('orangtua.dashboard'),
+        default    => redirect('/')->with('error', 'Level pengguna tidak dikenali'),
+    };
+})->name('dashboard');
 
 /*
 |--------------------------------------------------------------------------
