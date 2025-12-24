@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
+
 
 class SiswaController extends Controller
 {
@@ -163,7 +165,7 @@ class SiswaController extends Controller
 
         DB::transaction(function () use ($request, $siswa, $validated) {
             // DEBUG LOGGING
-            \Log::info('=== UPDATE SISWA START ===', [
+            Log::info('=== UPDATE SISWA START ===', [
                 'siswa_id' => $siswa->id_siswa,
                 'has_file' => $request->hasFile('foto_profil'),
                 'request_files' => array_keys($request->allFiles()),
@@ -175,7 +177,7 @@ class SiswaController extends Controller
                 try {
                     $file = $request->file('foto_profil');
 
-                    \Log::info('File details', [
+                    Log::info('File details', [
                         'original_name' => $file->getClientOriginalName(),
                         'size' => $file->getSize(),
                         'mime' => $file->getMimeType(),
@@ -185,7 +187,7 @@ class SiswaController extends Controller
                     // Hapus foto lama jika ada
                     if ($siswa->foto_profil && Storage::disk('public')->exists($siswa->foto_profil)) {
                         Storage::disk('public')->delete($siswa->foto_profil);
-                        \Log::info('Old photo deleted', ['path' => $siswa->foto_profil]);
+                        Log::info('Old photo deleted', ['path' => $siswa->foto_profil]);
                     }
 
                     // Simpan foto baru dengan naming yang konsisten
@@ -193,7 +195,7 @@ class SiswaController extends Controller
                     $filename = "siswa_{$siswa->id_siswa}_{$timestamp}." . $file->getClientOriginalExtension();
                     $path = $file->storeAs('foto_profil_siswa', $filename, 'public');
 
-                    \Log::info('New photo saved', [
+                    Log::info('New photo saved', [
                         'filename' => $filename,
                         'path' => $path,
                         'full_url' => asset("storage/{$path}"),
@@ -202,25 +204,25 @@ class SiswaController extends Controller
                     $validated['foto_profil'] = $path;
 
                 } catch (\Exception $e) {
-                    \Log::error('File upload error', [
+                    Log::error('File upload error', [
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString(),
                     ]);
                     throw new \Exception('Gagal mengupload foto: ' . $e->getMessage());
                 }
             } else {
-                \Log::info('No file uploaded, keeping existing photo');
+                Log::info('No file uploaded, keeping existing photo');
             }
 
             // UPDATE DATA SISWA
             try {
                 $siswa->update($validated);
-                \Log::info('Siswa data updated successfully', [
+                Log::info('Siswa data updated successfully', [
                     'siswa_id' => $siswa->id_siswa,
                     'foto_profil_in_db' => $siswa->foto_profil,
                 ]);
             } catch (\Exception $e) {
-                \Log::error('Database update error', [
+                Log::error('Database update error', [
                     'error' => $e->getMessage(),
                     'siswa_id' => $siswa->id_siswa,
                 ]);
@@ -233,10 +235,10 @@ class SiswaController extends Controller
                     'nama_lengkap' => $validated['nama_lengkap'],
                     'username' => $validated['nis'],
                 ]);
-                \Log::info('User data synced');
+                Log::info('User data synced');
             }
 
-            \Log::info('=== UPDATE SISWA END ===');
+            Log::info('=== UPDATE SISWA END ===');
         });
 
         return to_route('admin.siswa.index')->with('message', 'Data Siswa berhasil diperbarui.');

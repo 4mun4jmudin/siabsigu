@@ -29,16 +29,18 @@ class SuratIzinController extends Controller
             'sampai' => 'nullable|date|after_or_equal:dari',
         ]);
 
-        $query = SuratIzin::with([
+        $query = SuratIzin::query()
+            ->with([
                 // sertakan foto_profil agar accessor siswa tidak error
                 'siswa:id_siswa,nis,nama_lengkap,foto_profil',
                 'penyetuju:id_pengguna,nama_lengkap',
             ])
-            ->when($filters['status'] ?? null, fn ($q, $st) => $q->where('status_pengajuan', $st))
+            ->when($filters['status'] ?? null, fn($q, $st) => $q->where('status_pengajuan', $st))
             ->when($filters['q'] ?? null, function ($q, $s) {
+                $s = trim($s);
                 $q->whereHas('siswa', function ($sq) use ($s) {
                     $sq->where('nama_lengkap', 'like', "%{$s}%")
-                       ->orWhere('nis', 'like', "%{$s}%");
+                        ->orWhere('nis', 'like', "%{$s}%");
                 });
             })
             ->when(($filters['dari'] ?? null) && ($filters['sampai'] ?? null), function ($q) use ($filters) {
@@ -47,6 +49,33 @@ class SuratIzinController extends Controller
             ->latest('tanggal_pengajuan');
 
         $surat = $query->paginate(15)->withQueryString();
+
+        // ✅ bikin URL lampiran yang stabil + backward compatible dengan UI (item.file_lampiran)
+        $surat->getCollection()->transform(function ($item) {
+            $path = $this->normalizeLampiranPath($item->file_lampiran);
+
+            $item->file_lampiran_path = $path; // path asli buat debug/opsional
+            $item->lampiran_url = null;
+            $item->lampiran_ext = null;
+            $item->lampiran_is_image = false;
+
+            if ($path && Storage::disk('public')->exists($path)) {
+                $url = route('storage.public', ['path' => $path]);
+
+                // ✅ agar UI kamu yang pakai item.file_lampiran tetap jalan
+                $item->file_lampiran = $url;
+
+                $item->lampiran_url = $url;
+                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                $item->lampiran_ext = $ext;
+                $item->lampiran_is_image = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+            } else {
+                // file tidak ada / null
+                $item->file_lampiran = null;
+            }
+
+            return $item;
+        });
 
         return Inertia::render('admin/SuratIzin/Index', [
             'filters' => [
@@ -65,11 +94,19 @@ class SuratIzinController extends Controller
      */
     public function create()
     {
-        // daftar siswa aktif untuk select (sertakan foto_profil agar aman dipakai di UI)
         $siswa = Siswa::where('status', 'Aktif')
             ->select('id_siswa', 'nis', 'nama_lengkap', 'foto_profil')
             ->orderBy('nama_lengkap')
-            ->get();
+            ->get()
+            ->map(function ($s) {
+                $foto = $s->foto_profil;
+
+                $s->foto_url = ($foto && Storage::disk('public')->exists($foto))
+                    ? url('/storage-public/' . ltrim($foto, '/'))
+                    : null;
+
+                return $s;
+            });
 
         return Inertia::render('admin/SuratIzin/Create', [
             'siswa' => $siswa,
@@ -77,7 +114,7 @@ class SuratIzinController extends Controller
                 'tanggal_mulai_izin' => now()->toDateString(),
                 'tanggal_selesai_izin' => now()->toDateString(),
                 'jenis_izin' => 'Izin',
-                'langsung_setujui' => false, // centang ini bila mau auto approve + sync
+                'langsung_setujui' => false,
             ],
         ]);
     }
@@ -94,7 +131,7 @@ class SuratIzinController extends Controller
             'tanggal_selesai_izin' => 'required|date|after_or_equal:tanggal_mulai_izin',
             'jenis_izin'           => 'required|in:Sakit,Izin',
             'keterangan'           => 'required|string',
-            'file_lampiran'        => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'file_lampiran'        => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:2048',
             'langsung_setujui'     => 'nullable|boolean',
         ]);
 
@@ -102,22 +139,23 @@ class SuratIzinController extends Controller
         try {
             $lampiranPath = null;
             if ($request->hasFile('file_lampiran')) {
+                // ✅ simpan PATH saja (bukan Storage::url) biar konsisten
                 $lampiranPath = $request->file('file_lampiran')->store('surat-izin', 'public');
             }
 
             $langsung = (bool) ($validated['langsung_setujui'] ?? false);
 
             $surat = SuratIzin::create([
-                'id_siswa'            => $validated['id_siswa'],
-                'tanggal_pengajuan'   => now(), // datetime
-                'tanggal_mulai_izin'  => $validated['tanggal_mulai_izin'],
-                'tanggal_selesai_izin'=> $validated['tanggal_selesai_izin'],
-                'jenis_izin'          => $validated['jenis_izin'], // Sakit / Izin
-                'keterangan'          => $validated['keterangan'],
-                'file_lampiran'       => $lampiranPath ? Storage::url($lampiranPath) : null,
-                'status_pengajuan'    => $langsung ? 'Disetujui' : 'Diajukan',
-                'id_penyetuju'        => $langsung ? (Auth::user()?->id_pengguna) : null,
-                'tanggal_persetujuan' => $langsung ? now() : null,
+                'id_siswa'             => $validated['id_siswa'],
+                'tanggal_pengajuan'    => now(), // datetime
+                'tanggal_mulai_izin'   => $validated['tanggal_mulai_izin'],
+                'tanggal_selesai_izin' => $validated['tanggal_selesai_izin'],
+                'jenis_izin'           => $validated['jenis_izin'],
+                'keterangan'           => $validated['keterangan'],
+                'file_lampiran'        => $lampiranPath, // ✅ PATH
+                'status_pengajuan'     => $langsung ? 'Disetujui' : 'Diajukan',
+                'id_penyetuju'         => $langsung ? (Auth::user()?->id_pengguna) : null,
+                'tanggal_persetujuan'  => $langsung ? now() : null,
             ]);
 
             LogAktivitas::create([
@@ -126,7 +164,6 @@ class SuratIzinController extends Controller
                 'keterangan'  => 'Surat #' . $surat->id_surat . ' dibuat oleh admin' . ($langsung ? ' & langsung disetujui' : ''),
             ]);
 
-            // Jika admin pilih langsung setujui, sinkronkan ke absensi
             if ($langsung) {
                 $this->syncAbsensiDariSurat($surat);
             }
@@ -158,9 +195,9 @@ class SuratIzinController extends Controller
         DB::beginTransaction();
         try {
             $surat->update([
-                'status_pengajuan'     => 'Disetujui',
-                'id_penyetuju'         => Auth::user()?->id_pengguna,
-                'tanggal_persetujuan'  => now(),
+                'status_pengajuan'    => 'Disetujui',
+                'id_penyetuju'        => Auth::user()?->id_pengguna,
+                'tanggal_persetujuan' => now(),
             ]);
 
             $this->syncAbsensiDariSurat($surat);
@@ -191,9 +228,9 @@ class SuratIzinController extends Controller
         }
 
         $surat->update([
-            'status_pengajuan'     => 'Ditolak',
-            'id_penyetuju'         => Auth::user()?->id_pengguna,
-            'tanggal_persetujuan'  => now(),
+            'status_pengajuan'    => 'Ditolak',
+            'id_penyetuju'        => Auth::user()?->id_pengguna,
+            'tanggal_persetujuan' => now(),
         ]);
 
         LogAktivitas::create([
@@ -206,7 +243,7 @@ class SuratIzinController extends Controller
     }
 
     /**
-     * (Opsional) Paksa re-sinkron absensi dari surat (misal setelah perbaikan data absensi manual).
+     * Paksa re-sinkron absensi dari surat (tidak menimpa status selain Alfa bila overwrite=false).
      * POST admin/surat-izin/{surat}/resync
      */
     public function resync(Request $request, SuratIzin $surat)
@@ -229,7 +266,7 @@ class SuratIzinController extends Controller
     }
 
     /**
-     * (Opsional) Batalkan efek sinkronisasi dari surat pada tanggal rentang (tidak menghapus surat).
+     * Batalkan efek sinkronisasi dari surat pada tanggal rentang (tidak menghapus surat).
      * POST admin/surat-izin/{surat}/unsync
      */
     public function unsync(Request $request, SuratIzin $surat)
@@ -241,25 +278,24 @@ class SuratIzinController extends Controller
         DB::beginTransaction();
         try {
             $dates = $this->dateRange($surat->tanggal_mulai_izin, $surat->tanggal_selesai_izin);
+
             foreach ($dates as $tgl) {
                 $abs = AbsensiSiswa::where('id_siswa', $surat->id_siswa)
                     ->whereDate('tanggal', $tgl)
                     ->first();
 
-                if (!$abs) {
-                    continue;
-                }
+                if (!$abs) continue;
 
                 $marker = "SuratIzin#{$surat->id_surat}";
                 if ($abs->keterangan && str_contains($abs->keterangan, $marker)) {
-                    // kembali ke Alfa agar jejak ada
                     $abs->update([
-                        'status_kehadiran'     => 'Alfa',
-                        'jam_masuk'            => null,
-                        'jam_pulang'           => null,
-                        'menit_keterlambatan'  => 0,
-                        'keterangan'           => "Revert dari {$marker}",
-                        'id_penginput_manual'  => Auth::user()?->id_pengguna,
+                        'status_kehadiran'    => 'Alfa',
+                        'jam_masuk'           => null,
+                        'jam_pulang'          => null,
+                        'menit_keterlambatan' => 0,
+                        'keterangan'          => "Revert dari {$marker}",
+                        'id_penginput_manual' => Auth::user()?->id_pengguna,
+                        'metode_absen'        => 'Manual',
                     ]);
                 }
             }
@@ -276,10 +312,37 @@ class SuratIzinController extends Controller
     /* ============================ Helpers ============================ */
 
     /**
+     * Normalize nilai file_lampiran yang kadang berisi:
+     * - path: "surat-izin/xxx.pdf"
+     * - url: "/storage/surat-izin/xxx.pdf"
+     * - full url: "https://domain/storage/surat-izin/xxx.pdf"
+     */
+    private function normalizeLampiranPath($raw): ?string
+    {
+        if (!$raw || !is_string($raw)) return null;
+
+        $raw = trim($raw);
+        if ($raw === '') return null;
+
+        // /storage/surat-izin/xxx.pdf -> surat-izin/xxx.pdf
+        if (str_starts_with($raw, '/storage/')) {
+            return ltrim(str_replace('/storage/', '', $raw), '/');
+        }
+
+        // full url .../storage/surat-izin/xxx.pdf -> surat-izin/xxx.pdf
+        if (preg_match('~/storage/(.+)$~', $raw, $m)) {
+            return $m[1] ?? null;
+        }
+
+        // sudah path
+        return ltrim($raw, '/');
+    }
+
+    /**
      * Sinkronkan absensi dari 1 surat izin.
      *
      * @param  \App\Models\SuratIzin  $surat
-     * @param  bool $overwrite  true: timpa semua non-Hadir; false: hanya buat/update jika belum ada atau status Alfa
+     * @param  bool $overwrite  true: timpa semua non-Hadir; false: hanya update jika belum ada atau status Alfa
      */
     private function syncAbsensiDariSurat(SuratIzin $surat, bool $overwrite = true): void
     {
@@ -289,9 +352,7 @@ class SuratIzinController extends Controller
         $marker      = "SuratIzin#{$surat->id_surat}";
         $dates       = $this->dateRange($surat->tanggal_mulai_izin, $surat->tanggal_selesai_izin);
 
-        foreach ($dates as $tgl) {
-            $tglStr = Carbon::parse($tgl)->toDateString();
-
+        foreach ($dates as $tglStr) {
             $abs = AbsensiSiswa::where('id_siswa', $idSiswa)
                 ->whereDate('tanggal', $tglStr)
                 ->first();
@@ -307,26 +368,26 @@ class SuratIzinController extends Controller
                 }
 
                 $abs->update([
-                    'status_kehadiran'     => $statusAbsen,
-                    'jam_masuk'            => null,
-                    'jam_pulang'           => null,
-                    'menit_keterlambatan'  => 0,
-                    'keterangan'           => trim(($abs->keterangan ? $abs->keterangan . ' | ' : '') . $marker),
-                    'metode_absen'         => 'Manual',
-                    'id_penginput_manual'  => $approverId,
+                    'status_kehadiran'    => $statusAbsen,
+                    'jam_masuk'           => null,
+                    'jam_pulang'          => null,
+                    'menit_keterlambatan' => 0,
+                    'keterangan'          => trim(($abs->keterangan ? $abs->keterangan . ' | ' : '') . $marker),
+                    'metode_absen'        => 'Manual',
+                    'id_penginput_manual' => $approverId,
                 ]);
             } else {
                 AbsensiSiswa::create([
-                    'id_absensi'           => 'AS-' . Carbon::parse($tglStr)->format('ymd') . '-' . $idSiswa,
-                    'id_siswa'             => $idSiswa,
-                    'tanggal'              => $tglStr,
-                    'jam_masuk'            => null,
-                    'jam_pulang'           => null,
-                    'menit_keterlambatan'  => 0,
-                    'status_kehadiran'     => $statusAbsen,
-                    'metode_absen'         => 'Manual',
-                    'keterangan'           => $marker,
-                    'id_penginput_manual'  => $approverId,
+                    'id_absensi'          => 'AS-' . Carbon::parse($tglStr)->format('ymd') . '-' . $idSiswa,
+                    'id_siswa'            => $idSiswa,
+                    'tanggal'             => $tglStr,
+                    'jam_masuk'           => null,
+                    'jam_pulang'          => null,
+                    'menit_keterlambatan' => 0,
+                    'status_kehadiran'    => $statusAbsen,
+                    'metode_absen'        => 'Manual',
+                    'keterangan'          => $marker,
+                    'id_penginput_manual' => $approverId,
                 ]);
             }
         }

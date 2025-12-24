@@ -325,6 +325,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/surat-izin/{surat}/reject', [SuratIzinController::class, 'reject'])->name('surat-izin.reject');
         Route::post('/surat-izin/{surat}/resync', [SuratIzinController::class, 'resync'])->name('surat-izin.resync');
         Route::post('/surat-izin/{surat}/unsync', [SuratIzinController::class, 'unsync'])->name('surat-izin.unsync');
+        
+        Route::get('/surat-izin/{surat}/lampiran', [SuratIzinController::class, 'lampiranView'])
+            ->name('surat-izin.lampiran.view');
+
+        Route::get('/surat-izin/{surat}/lampiran/download', [SuratIzinController::class, 'lampiranDownload'])
+            ->name('surat-izin.lampiran.download');
 
         // Master Data
         Route::resource('guru', GuruController::class);
