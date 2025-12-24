@@ -34,6 +34,7 @@ use App\Http\Controllers\OrangTua\DashboardController;
 use App\Http\Controllers\OrangTua\ProfileController as OrangTuaProfileController;
 use App\Http\Controllers\OrangTua\AbsensiController;
 use App\Http\Controllers\OrangTua\NotificationController as OrangTuaNotificationController;
+use App\Http\Controllers\OrangTua\SuratIzinController as OrangTuaSuratIzinController;
 
 // Notifikasi umum
 use App\Http\Controllers\NotificationController;
@@ -173,6 +174,27 @@ Route::middleware('auth')->group(function () {
             Route::get('/notifications', [OrangTuaNotificationController::class, 'index'])->name('notifications.index');
             Route::post('/notifications/mark-as-read', [OrangTuaNotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
             Route::post('/notifications/mark-all-as-read', [OrangTuaNotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-as-read');
+
+            // Surat Izin (Orang Tua)
+            Route::get('/surat-izin', [OrangTuaSuratIzinController::class, 'index'])->name('surat-izin.index');
+            Route::post('/surat-izin', [OrangTuaSuratIzinController::class, 'store'])->name('surat-izin.store');
+            Route::get('/surat-izin/{id_surat}/download', [OrangTuaSuratIzinController::class, 'download'])->name('surat-izin.download');
+
+            Route::post('/surat-izin/{surat}/cancel', [\App\Http\Controllers\OrangTua\SuratIzinController::class, 'cancel'])->name('surat-izin.cancel');
+
+            Route::get('/surat-izin/{id_surat}/view', [\App\Http\Controllers\OrangTua\SuratIzinController::class, 'view'])->name('surat-izin.view');
+            Route::get('/surat-izin/{id_surat}/download', [\App\Http\Controllers\OrangTua\SuratIzinController::class, 'download'])->name('surat-izin.download');
+
+            // ✅ Manajemen akun (NAMA ROUTE sesuai yang biasanya dipakai UI)
+            Route::put('/profile/account', [OrangTuaProfileController::class, 'updateAccount'])
+                ->name('profile.account');
+
+            Route::put('/profile/password', [OrangTuaProfileController::class, 'updatePassword'])
+                ->name('profile.password');
+
+            // (opsional) kalau kamu butuh halaman terpisah, jangan pakai nama yang sama
+            Route::get('/profile/account', [OrangTuaProfileController::class, 'account'])
+                ->name('profile.account.page');
         });
 
     /*
@@ -275,17 +297,18 @@ Route::middleware('auth')->group(function () {
     */
     Route::prefix('admin')->name('admin.')->middleware('check.level:Admin')->group(function () {
         // Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/dashboard', function () {
-            $level = Auth::user()?->level ?? null;
+        // Route::get('/dashboard', function () {
+        //     $level = Auth::user()?->level ?? null;
 
-            return match ($level) {
-                'Admin', 'Kepala Sekolah' => redirect()->route('admin.dashboard'),
-                'Guru'                   => redirect()->route('guru.dashboard'),
-                'Siswa'                  => redirect()->route('siswa.dashboard'),
-                'Orang Tua'              => redirect()->route('orangtua.dashboard'),
-                default                  => abort(403),
-            };
-        })->middleware('auth')->name('dashboard');
+        //     return match ($level) {
+        //         'Admin', 'Kepala Sekolah' => redirect()->route('admin.dashboard'),
+        //         'Guru'                   => redirect()->route('guru.dashboard'),
+        //         'Siswa'                  => redirect()->route('siswa.dashboard'),
+        //         'Orang Tua'              => redirect()->route('orangtua.dashboard'),
+        //         default                  => abort(403),
+        //     };
+        // })->middleware('auth')->name('dashboard');
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
 
         Route::post('/mode', function (Request $request) {

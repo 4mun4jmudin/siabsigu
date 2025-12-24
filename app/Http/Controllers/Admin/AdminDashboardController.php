@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
+use Illuminate\Routing\Controller as BaseController;
 use App\Models\AbsensiGuru;
 use App\Models\AbsensiSiswa;
 use App\Models\Guru;
@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
-class AdminDashboardController extends Controller
+class AdminDashboardController extends BaseController
 {
     // ✅ FIX 2: Add constructor-level authorization check (Defence in Depth)
     public function __construct()
