@@ -40,6 +40,7 @@ export default function Edit({ auth, siswa, kelasOptions }) {
         
         post(route('admin.siswa.update', siswa.id_siswa), {
             forceFormData: true,  // PENTING: Untuk file upload
+            preserveScroll: true,
             onSuccess: () => {
                 console.log('Form submitted successfully');
                 setIsSubmitting(false);

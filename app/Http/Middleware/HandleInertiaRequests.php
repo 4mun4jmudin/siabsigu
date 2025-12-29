@@ -43,15 +43,25 @@ class HandleInertiaRequests extends Middleware
             'semester_aktif' => $pengaturan->semester_aktif ?? null,
         ];
 
+        // ✅ Flash: ambil pakai get() biar tidak "ketelen" sebelum frontend baca.
+        $success = $request->session()->get('success');
+        $message = $request->session()->get('message'); // fallback controller lama
+        $error   = $request->session()->get('error');
+
+        if (!$success && $message) {
+            $success = $message;
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $request->user(),
             ],
 
-            // ✅ WAJIB: flash top-level closure (stabil)
-            'flash' => fn () => [
-                'success' => $request->session()->pull('success'),
-                'error'   => $request->session()->pull('error'),
+            // ✅ Flash selalu ada & selalu berubah (ts)
+            'flash' => [
+                'success' => $success,
+                'error'   => $error,
+                '_ts'     => microtime(true),
             ],
 
             'pengaturan' => $pengaturan,

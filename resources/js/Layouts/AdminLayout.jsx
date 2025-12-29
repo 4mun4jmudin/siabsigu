@@ -108,7 +108,8 @@ export default function AdminLayout({ user, header, children }) {
 
     // Inertia shared props
     const pageProps = usePage().props || {};
-    const { flash, pengaturan, adminMode } = pageProps;
+    const flash = pageProps.flash || {};
+    const { pengaturan, adminMode, errors } = pageProps;
     const currentUser = user ?? pageProps.auth?.user ?? null;
 
     // Flag mode absensi (untuk sembunyikan menu lain saat mode ringkas absensi)
@@ -117,7 +118,9 @@ export default function AdminLayout({ user, header, children }) {
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
-    }, [flash]);
+    }, [flash?._ts]); // ✅ yang penting ini
+
+
 
     const toggleIconPath = pengaturan?.toggle_icon_url || "/images/sidebar-toggle-blue.png";
 
@@ -359,7 +362,7 @@ export default function AdminLayout({ user, header, children }) {
                         )}
                         {/* dan tampilkan laporan saat mode non-absensi jadi laporan bisa muncul di kedua mode */}
 
-                       
+
                         {!isAbsensiMode && (
                             <li>
                                 <NavLink
