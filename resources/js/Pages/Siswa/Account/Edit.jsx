@@ -6,11 +6,26 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 import { Transition } from '@headlessui/react';
-import { KeyIcon, PencilSquareIcon, PhotoIcon } from '@heroicons/react/24/solid';
+import { 
+  KeyIcon, 
+  PencilSquareIcon, 
+  PhotoIcon, 
+  UserCircleIcon, 
+  ShieldCheckIcon,
+  CloudArrowUpIcon,
+  EyeIcon,
+  EyeSlashIcon
+} from '@heroicons/react/24/outline'; // Menambahkan EyeIcon & EyeSlashIcon
+import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
 export default function Edit({ user, siswa }) {
   const { flash } = usePage().props;
   const [activeTab, setActiveTab] = useState('profile');
+
+  // State untuk toggle visibility password
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Local state for foto profil
   const [selectedFile, setSelectedFile] = useState(null);
@@ -69,6 +84,10 @@ export default function Edit({ user, siswa }) {
           password: '',
           password_confirmation: '',
         });
+        // Reset visibility saat sukses
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
       },
     });
   };
@@ -107,436 +126,386 @@ export default function Edit({ user, siswa }) {
   const fotoUrl = previewUrl || siswa.foto_profil_url || fallbackAvatarUrl;
 
   return (
-    <SiswaLayout header="Akun Saya">
+    <SiswaLayout header="Pengaturan Akun">
       <Head title="Manajemen Akun" />
 
-      <div className="min-h-[calc(100vh-120px)] bg-gradient-to-b from-sky-50 via-white to-slate-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-          {/* GLOBAL FLASH */}
+      <div className="min-h-screen bg-slate-50/50 pb-20">
+        
+        {/* HERO HEADER */}
+        <div className="bg-slate-900 pt-8 pb-24 px-4 sm:px-6 lg:px-8 shadow-lg relative overflow-hidden">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#bae6fd 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
+            
+            <div className="max-w-5xl mx-auto relative z-10 flex flex-col md:flex-row items-center gap-6">
+                <div className="relative group">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-500 to-indigo-500 rounded-full opacity-75 group-hover:opacity-100 transition duration-500 blur"></div>
+                    <img
+                        src={fotoUrl}
+                        alt="Foto profil"
+                        className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-full object-cover border-4 border-slate-900 bg-slate-800 shadow-2xl"
+                        onError={(e) => { e.target.onerror = null; e.target.src = fallbackAvatarUrl; }}
+                    />
+                    <button 
+                        onClick={triggerFileInput}
+                        className="absolute bottom-0 right-0 bg-white text-slate-900 p-2 rounded-full shadow-lg hover:bg-sky-50 transition border border-slate-200"
+                        title="Ganti Foto"
+                    >
+                        <PencilSquareIcon className="w-4 h-4" />
+                    </button>
+                </div>
+                
+                <div className="text-center md:text-left text-white">
+                    <h1 className="text-3xl font-bold tracking-tight">{siswa.nama_lengkap}</h1>
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-2 text-sm text-slate-300">
+                        <span className="flex items-center gap-1 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
+                            <UserCircleIcon className="w-4 h-4 text-sky-400"/>
+                            {user.username}
+                        </span>
+                        {siswa.kelas && (
+                            <span className="flex items-center gap-1 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                {siswa.kelas.tingkat} {siswa.kelas.jurusan}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-20">
+          
+          {/* FLASH MESSAGE */}
           {flash?.success && (
-            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
+            <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700 shadow-sm flex items-center gap-3 animate-fade-in-up">
+              <CheckCircleIcon className="w-5 h-5 text-emerald-500" />
               {flash.success}
             </div>
           )}
 
-          {/* HEADER PROFILE */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sky-700 via-sky-600 to-indigo-700 px-6 py-6 sm:px-8 sm:py-7 shadow-xl mb-8">
-            <div className="absolute inset-y-0 right-0 opacity-20 pointer-events-none">
-              <div className="h-full w-64 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.25),_transparent_60%)]" />
-            </div>
-
-            <div className="relative flex flex-col sm:flex-row sm:items-center gap-5">
-              <div className="shrink-0">
-                <img
-                  src={fotoUrl}
-                  alt="Foto profil"
-                  className="h-24 w-24 sm:h-28 sm:w-28 rounded-full object-cover ring-4 ring-white/80 shadow-xl bg-white"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = fallbackAvatarUrl;
-                  }}
-                />
+          {/* TAB NAVIGATION */}
+          <div className="flex space-x-1 rounded-xl bg-slate-200/80 p-1 mb-8 shadow-inner max-w-md mx-auto md:mx-0 backdrop-blur-sm">
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`w-full rounded-lg py-2.5 text-sm font-bold leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-sky-400 focus:outline-none focus:ring-2 transition-all duration-200 ${
+                activeTab === 'profile'
+                  ? 'bg-white text-sky-700 shadow'
+                  : 'text-slate-600 hover:bg-white/[0.5] hover:text-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <UserCircleIcon className="w-5 h-5" />
+                Data Pribadi
               </div>
-
-              <div className="flex-1 text-white">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                  {siswa.nama_lengkap}
-                </h1>
-                <p className="mt-1 text-sm text-sky-100">
-                  Kelola identitas, data pribadi, dan keamanan akun dengan tenang. Kami
-                  menjaga kerahasiaan data Anda.
-                </p>
-
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs sm:text-sm">
-                  {siswa.kelas && (
-                    <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 backdrop-blur border border-white/20">
-                      <span className="mr-1.5 h-2 w-2 rounded-full bg-emerald-400" />
-                      {siswa.kelas.tingkat} {siswa.kelas.jurusan}
-                    </span>
-                  )}
-
-                  <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 backdrop-blur border border-white/20">
-                    <span className="mr-1.5 text-sky-100/80">Username:</span>
-                    <span className="font-semibold">{user.username}</span>
-                  </span>
-                </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('security')}
+              className={`w-full rounded-lg py-2.5 text-sm font-bold leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-sky-400 focus:outline-none focus:ring-2 transition-all duration-200 ${
+                activeTab === 'security'
+                  ? 'bg-white text-sky-700 shadow'
+                  : 'text-slate-600 hover:bg-white/[0.5] hover:text-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <ShieldCheckIcon className="w-5 h-5" />
+                Keamanan
               </div>
-            </div>
+            </button>
           </div>
 
-          {/* TAB NAV */}
-          <div className="mb-6">
-            <div className="inline-flex items-center rounded-full bg-slate-100 p-1 shadow-inner">
-              <button
-                type="button"
-                onClick={() => setActiveTab('profile')}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition ${
-                  activeTab === 'profile'
-                    ? 'bg-white text-sky-700 shadow-sm'
-                    : 'text-slate-500 hover:text-sky-700'
-                }`}
-              >
-                <PencilSquareIcon className="h-4 w-4" />
-                <span>Data Pribadi</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('security')}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition ${
-                  activeTab === 'security'
-                    ? 'bg-white text-sky-700 shadow-sm'
-                    : 'text-slate-500 hover:text-sky-700'
-                }`}
-              >
-                <KeyIcon className="h-4 w-4" />
-                <span>Keamanan Akun</span>
-              </button>
-            </div>
-          </div>
-
-          {/* TAB: DATA PRIBADI */}
-          {activeTab === 'profile' && (
-            <section className="grid grid-cols-1 lg:grid-cols-[2fr,1.2fr] gap-6 mb-10">
-              {/* FORM DATA PRIBADI */}
-              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-6 sm:p-7">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
-                      <PencilSquareIcon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h2 className="text-base sm:text-lg font-semibold text-slate-900">
-                        Data Pribadi
-                      </h2>
-                      <p className="text-xs text-slate-500">
-                        Pastikan data sesuai dengan identitas resmi sekolah.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <form onSubmit={submitProfile} className="space-y-5">
-                  <div>
-                    <InputLabel value="Nama Lengkap" />
-                    <TextInput
-                      className="mt-1 block w-full"
-                      value={profileData.nama_lengkap}
-                      onChange={(e) =>
-                        setProfileData('nama_lengkap', e.target.value)
-                      }
-                    />
-                    <InputError message={profileErrors.nama_lengkap} />
-                  </div>
-
-                  <div>
-                    <InputLabel value="Nama Panggilan" />
-                    <TextInput
-                      className="mt-1 block w-full"
-                      value={profileData.nama_panggilan}
-                      onChange={(e) =>
-                        setProfileData('nama_panggilan', e.target.value)
-                      }
-                    />
-                    <InputError message={profileErrors.nama_panggilan} />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <InputLabel value="Tempat Lahir" />
-                      <TextInput
-                        className="mt-1 block w-full"
-                        value={profileData.tempat_lahir}
-                        onChange={(e) =>
-                          setProfileData('tempat_lahir', e.target.value)
-                        }
-                      />
-                      <InputError message={profileErrors.tempat_lahir} />
-                    </div>
-
-                    <div>
-                      <InputLabel value="Tanggal Lahir" />
-                      <TextInput
-                        type="date"
-                        className="mt-1 block w-full"
-                        value={profileData.tanggal_lahir}
-                        onChange={(e) =>
-                          setProfileData('tanggal_lahir', e.target.value)
-                        }
-                      />
-                      <InputError message={profileErrors.tanggal_lahir} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <InputLabel value="Alamat Lengkap" />
-                    <textarea
-                      className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 text-sm"
-                      rows="3"
-                      value={profileData.alamat_lengkap}
-                      onChange={(e) =>
-                        setProfileData('alamat_lengkap', e.target.value)
-                      }
-                    />
-                    <InputError message={profileErrors.alamat_lengkap} />
-                  </div>
-
-                  <div>
-                    <InputLabel value="Username" />
-                    <TextInput
-                      className="mt-1 block w-full"
-                      value={profileData.username}
-                      onChange={(e) =>
-                        setProfileData('username', e.target.value)
-                      }
-                    />
-                    <InputError message={profileErrors.username} />
-                  </div>
-
-                  {/* FOTO PROFIL */}
-                  <div>
-                    <InputLabel value="Foto Profil" />
-                    <div className="mt-2 flex gap-4 items-center">
-                      <img
-                        src={fotoUrl}
-                        alt="Foto profil"
-                        className="h-20 w-20 rounded-full object-cover ring-2 ring-sky-500/80 shadow-md bg-white"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = fallbackAvatarUrl;
-                        }}
-                      />
-                      <div className="flex-1">
-                        <div
-                          onDrop={handleDrop}
-                          onDragOver={handleDragOver}
-                          className="group cursor-pointer rounded-xl border border-dashed border-sky-200 bg-sky-50/40 px-4 py-3 text-xs sm:text-sm text-slate-600 hover:border-sky-400 hover:bg-sky-50 transition"
-                          onClick={triggerFileInput}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-sky-600 shadow-sm">
-                              <PhotoIcon className="h-5 w-5" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* LEFT CONTENT (FORMS) */}
+            <div className="lg:col-span-2 space-y-6">
+                
+                {/* TAB: PROFILE */}
+                {activeTab === 'profile' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in">
+                        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                            <h3 className="text-lg font-bold text-slate-800">Edit Informasi Pribadi</h3>
+                            <p className="text-sm text-slate-500 mt-1">Perbarui detail profil dan informasi kontak Anda.</p>
+                        </div>
+                        
+                        <form onSubmit={submitProfile} className="p-6 md:p-8 space-y-6">
+                            {/* Upload Area */}
+                            <div className="p-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-sky-400 hover:bg-sky-50/30 transition-colors cursor-pointer group"
+                                onDrop={handleDrop}
+                                onDragOver={handleDragOver}
+                                onClick={triggerFileInput}
+                            >
+                                <div className="flex flex-col items-center justify-center text-center">
+                                    <div className="p-3 bg-slate-100 text-slate-400 rounded-full mb-3 group-hover:bg-white group-hover:text-sky-500 group-hover:shadow-sm transition-all">
+                                        <CloudArrowUpIcon className="w-8 h-8" />
+                                    </div>
+                                    <p className="text-sm font-medium text-slate-700">
+                                        {selectedFile ? <span className="text-sky-600">{selectedFile.name}</span> : <span>Klik untuk upload atau drag & drop</span>}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-1">PNG, JPG, GIF max 2MB</p>
+                                </div>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    onChange={handleFileChange}
+                                />
+                                {profileErrors.foto_profil && (
+                                    <p className="text-xs text-rose-500 text-center mt-2">{profileErrors.foto_profil}</p>
+                                )}
                             </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="col-span-1 md:col-span-2">
+                                    <InputLabel value="Nama Lengkap" className="text-slate-600 mb-1.5" />
+                                    <TextInput
+                                        className="w-full"
+                                        value={profileData.nama_lengkap}
+                                        onChange={(e) => setProfileData('nama_lengkap', e.target.value)}
+                                        placeholder="Nama lengkap sesuai rapor"
+                                    />
+                                    <InputError message={profileErrors.nama_lengkap} className="mt-1" />
+                                </div>
+
+                                <div>
+                                    <InputLabel value="Nama Panggilan" className="text-slate-600 mb-1.5" />
+                                    <TextInput
+                                        className="w-full"
+                                        value={profileData.nama_panggilan}
+                                        onChange={(e) => setProfileData('nama_panggilan', e.target.value)}
+                                        placeholder="Panggilan akrab"
+                                    />
+                                    <InputError message={profileErrors.nama_panggilan} className="mt-1" />
+                                </div>
+
+                                <div>
+                                    <InputLabel value="Username" className="text-slate-600 mb-1.5" />
+                                    <TextInput
+                                        className="w-full bg-slate-50 text-slate-500 cursor-not-allowed"
+                                        value={profileData.username}
+                                        onChange={(e) => setProfileData('username', e.target.value)}
+                                        disabled
+                                    />
+                                    <p className="text-[10px] text-slate-400 mt-1">*Username tidak dapat diubah sembarangan.</p>
+                                    <InputError message={profileErrors.username} className="mt-1" />
+                                </div>
+
+                                <div>
+                                    <InputLabel value="Tempat Lahir" className="text-slate-600 mb-1.5" />
+                                    <TextInput
+                                        className="w-full"
+                                        value={profileData.tempat_lahir}
+                                        onChange={(e) => setProfileData('tempat_lahir', e.target.value)}
+                                    />
+                                    <InputError message={profileErrors.tempat_lahir} className="mt-1" />
+                                </div>
+
+                                <div>
+                                    <InputLabel value="Tanggal Lahir" className="text-slate-600 mb-1.5" />
+                                    <TextInput
+                                        type="date"
+                                        className="w-full"
+                                        value={profileData.tanggal_lahir}
+                                        onChange={(e) => setProfileData('tanggal_lahir', e.target.value)}
+                                    />
+                                    <InputError message={profileErrors.tanggal_lahir} className="mt-1" />
+                                </div>
+
+                                <div className="col-span-1 md:col-span-2">
+                                    <InputLabel value="Alamat Lengkap" className="text-slate-600 mb-1.5" />
+                                    <textarea
+                                        className="w-full rounded-xl border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 text-sm py-3 px-4"
+                                        rows="3"
+                                        value={profileData.alamat_lengkap}
+                                        onChange={(e) => setProfileData('alamat_lengkap', e.target.value)}
+                                        placeholder="Alamat tempat tinggal saat ini..."
+                                    />
+                                    <InputError message={profileErrors.alamat_lengkap} className="mt-1" />
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-4">
+                                <Transition
+                                    show={profileSuccess}
+                                    enter="transition ease-out duration-200"
+                                    enterFrom="opacity-0 translate-y-1"
+                                    enterTo="opacity-100 translate-y-0"
+                                    leave="transition ease-in duration-100"
+                                    leaveFrom="opacity-100 translate-y-0"
+                                    leaveTo="opacity-0 translate-y-1"
+                                >
+                                    <p className="text-sm text-emerald-600 font-medium flex items-center gap-1">
+                                        <CheckCircleIcon className="w-4 h-4"/> Tersimpan
+                                    </p>
+                                </Transition>
+                                <PrimaryButton disabled={profileProcessing} className="px-6 py-2.5 rounded-lg text-sm bg-sky-600 hover:bg-sky-700 focus:ring-sky-500">
+                                    {profileProcessing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                </PrimaryButton>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {/* TAB: SECURITY */}
+                {activeTab === 'security' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in">
+                        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                            <h3 className="text-lg font-bold text-slate-800">Ubah Kata Sandi</h3>
+                            <p className="text-sm text-slate-500 mt-1">Pastikan menggunakan password yang kuat dan aman.</p>
+                        </div>
+
+                        <form onSubmit={updatePassword} className="p-6 md:p-8 space-y-6">
+                            {/* Current Password Field */}
                             <div>
-                              <p className="font-medium text-slate-800">
-                                {selectedFile ? selectedFile.name : 'Tarik atau pilih foto baru'}
-                              </p>
-                              <p className="text-[11px] text-slate-500">
-                                Format: JPG, PNG, maks. 2 MB. Foto yang jelas
-                                membantu keakuratan data presensi.
-                              </p>
+                                <InputLabel value="Password Saat Ini" className="text-slate-600 mb-1.5" />
+                                <div className="relative">
+                                    <TextInput
+                                        type={showCurrentPassword ? "text" : "password"}
+                                        className="w-full pr-10"
+                                        value={passwordData.current_password}
+                                        onChange={(e) => setPasswordData('current_password', e.target.value)}
+                                        placeholder="••••••••"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    >
+                                        {showCurrentPassword ? (
+                                            <EyeSlashIcon className="h-5 w-5" aria-hidden="true" />
+                                        ) : (
+                                            <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                                        )}
+                                    </button>
+                                </div>
+                                <InputError message={passwordErrors.current_password} className="mt-1" />
                             </div>
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleFileChange}
-                          />
+
+                            <div className="pt-2 border-t border-slate-100"></div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* New Password Field */}
+                                <div>
+                                    <InputLabel value="Password Baru" className="text-slate-600 mb-1.5" />
+                                    <div className="relative">
+                                        <TextInput
+                                            type={showNewPassword ? "text" : "password"}
+                                            className="w-full pr-10"
+                                            value={passwordData.password}
+                                            onChange={(e) => setPasswordData('password', e.target.value)}
+                                            placeholder="Min. 8 karakter"
+                                        />
+                                        <button
+                                            type="button"
+                                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                        >
+                                            {showNewPassword ? (
+                                                <EyeSlashIcon className="h-5 w-5" aria-hidden="true" />
+                                            ) : (
+                                                <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <InputError message={passwordErrors.password} className="mt-1" />
+                                </div>
+
+                                {/* Confirm Password Field */}
+                                <div>
+                                    <InputLabel value="Konfirmasi Password Baru" className="text-slate-600 mb-1.5" />
+                                    <div className="relative">
+                                        <TextInput
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            className="w-full pr-10"
+                                            value={passwordData.password_confirmation}
+                                            onChange={(e) => setPasswordData('password_confirmation', e.target.value)}
+                                            placeholder="Ulangi password baru"
+                                        />
+                                        <button
+                                            type="button"
+                                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        >
+                                            {showConfirmPassword ? (
+                                                <EyeSlashIcon className="h-5 w-5" aria-hidden="true" />
+                                            ) : (
+                                                <EyeIcon className="h-5 w-5" aria-hidden="true" />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <InputError message={passwordErrors.password_confirmation} className="mt-1" />
+                                </div>
+                            </div>
+
+                            <div className="bg-sky-50 rounded-xl p-4 text-xs text-sky-800 border border-sky-100">
+                                <ul className="list-disc pl-4 space-y-1">
+                                    <li>Gunakan minimal 8 karakter.</li>
+                                    <li>Kombinasikan huruf besar, huruf kecil, dan angka.</li>
+                                    <li>Hindari menggunakan tanggal lahir sebagai password.</li>
+                                </ul>
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-4">
+                                <Transition
+                                    show={passwordSuccess}
+                                    enter="transition ease-out duration-200"
+                                    enterFrom="opacity-0 translate-y-1"
+                                    enterTo="opacity-100 translate-y-0"
+                                    leave="transition ease-in duration-100"
+                                    leaveFrom="opacity-100 translate-y-0"
+                                    leaveTo="opacity-0 translate-y-1"
+                                >
+                                    <p className="text-sm text-emerald-600 font-medium flex items-center gap-1">
+                                        <CheckCircleIcon className="w-4 h-4"/> Password Diperbarui
+                                    </p>
+                                </Transition>
+                                <PrimaryButton disabled={passwordProcessing} className="px-6 py-2.5 rounded-lg text-sm bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500">
+                                    {passwordProcessing ? 'Memproses...' : 'Ubah Password'}
+                                </PrimaryButton>
+                            </div>
+                        </form>
+                    </div>
+                )}
+            </div>
+
+            {/* RIGHT CONTENT (SIDEBAR INFO) */}
+            <div className="lg:col-span-1 space-y-6">
+                
+                {/* INFO CARD 1 */}
+                <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-white/10 rounded-lg">
+                            <ShieldCheckIcon className="w-6 h-6 text-sky-400"/>
                         </div>
-
-                        <div className="mt-2 flex items-center justify-between">
-                          <Link
-                            href={route('siswa.akun.edit-foto')}
-                            className="text-xs text-sky-600 hover:text-sky-700 hover:underline"
-                          >
-                            Pengaturan foto lebih lanjut
-                          </Link>
-                          {profileErrors.foto_profil && (
-                            <p className="text-xs text-rose-600">
-                              {profileErrors.foto_profil}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                        <h4 className="font-bold text-lg">Keamanan Data</h4>
                     </div>
-                  </div>
-
-                  {/* ACTION */}
-                  <div className="flex items-center gap-4 pt-3">
-                    <PrimaryButton disabled={profileProcessing}>
-                      {profileProcessing ? 'Menyimpan...' : 'Simpan Perubahan'}
-                    </PrimaryButton>
-
-                    <Transition
-                      show={profileSuccess}
-                      enter="transition ease-out duration-200"
-                      enterFrom="opacity-0 translate-y-1"
-                      enterTo="opacity-100 translate-y-0"
-                      leave="transition ease-in duration-100"
-                      leaveFrom="opacity-100 translate-y-0"
-                      leaveTo="opacity-0 translate-y-1"
-                    >
-                      <p className="text-sm text-emerald-600">
-                        Perubahan profil berhasil disimpan.
-                      </p>
-                    </Transition>
-                  </div>
-                </form>
-              </div>
-
-              {/* PANEL INFO KEBOLEHAN DATA */}
-              <aside className="rounded-2xl bg-slate-900 text-slate-50 p-5 sm:p-6 shadow-lg">
-                <h3 className="text-sm font-semibold tracking-wide text-sky-200 uppercase">
-                  Integritas Data
-                </h3>
-                <p className="mt-2 text-sm text-slate-100/90">
-                  Data yang Anda ubah terhubung langsung dengan sistem akademik
-                  sekolah. Gunakan identitas asli dan pastikan seluruh informasi
-                  sudah benar.
-                </p>
-
-                <ul className="mt-4 space-y-3 text-xs text-slate-200">
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    <span>
-                      Perubahan tersimpan dengan aman di server sekolah dan hanya
-                      dapat diakses oleh pihak berwenang.
-                    </span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-400" />
-                    <span>
-                      Foto profil digunakan untuk mengurangi kesalahan identitas saat
-                      presensi dan penilaian.
-                    </span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                    <span>
-                      Jangan meminjamkan akun Anda kepada orang lain demi
-                      keamanan data.
-                    </span>
-                  </li>
-                </ul>
-              </aside>
-            </section>
-          )}
-
-          {/* TAB: KEAMANAN AKUN */}
-          {activeTab === 'security' && (
-            <section className="grid grid-cols-1 lg:grid-cols-[2fr,1.2fr] gap-6 mb-10">
-              {/* FORM PASSWORD */}
-              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-6 sm:p-7">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
-                      <KeyIcon className="h-5 w-5" />
+                    <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                        Data profil Anda terenkripsi dan tersimpan aman di server sekolah. Perubahan data diri akan langsung tersinkronisasi dengan sistem absensi harian.
+                    </p>
+                    <div className="text-xs bg-slate-800 rounded-lg p-3 border border-slate-700 text-slate-400">
+                        <p className="mb-2 font-semibold text-slate-300">Tips Keamanan:</p>
+                        <ul className="space-y-1.5">
+                            <li className="flex gap-2"><span className="text-sky-500">•</span> Jangan bagikan password ke siapapun.</li>
+                            <li className="flex gap-2"><span className="text-sky-500">•</span> Logout setelah menggunakan komputer umum.</li>
+                        </ul>
                     </div>
-                    <div>
-                      <h2 className="text-base sm:text-lg font-semibold text-slate-900">
-                        Keamanan Akun
-                      </h2>
-                      <p className="text-xs text-slate-500">
-                        Ganti kata sandi Anda secara berkala untuk menjaga akun
-                        tetap aman.
-                      </p>
-                    </div>
-                  </div>
                 </div>
 
-                <form onSubmit={updatePassword} className="space-y-5">
-                  <div>
-                    <InputLabel value="Password Saat Ini" />
-                    <TextInput
-                      type="password"
-                      className="mt-1 block w-full"
-                      value={passwordData.current_password}
-                      onChange={(e) =>
-                        setPasswordData('current_password', e.target.value)
-                      }
-                    />
-                    <InputError message={passwordErrors.current_password} />
-                  </div>
-
-                  <div>
-                    <InputLabel value="Password Baru" />
-                    <TextInput
-                      type="password"
-                      className="mt-1 block w-full"
-                      value={passwordData.password}
-                      onChange={(e) =>
-                        setPasswordData('password', e.target.value)
-                      }
-                    />
-                    <InputError message={passwordErrors.password} />
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Gunakan kombinasi huruf besar, kecil, angka, dan simbol.
-                      Minimal 8 karakter.
+                {/* INFO CARD 2 */}
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                    <h4 className="font-bold text-slate-800 mb-3 text-sm uppercase tracking-wide">Tentang Foto Profil</h4>
+                    <p className="text-sm text-slate-500 mb-4">
+                        Foto profil digunakan untuk identifikasi visual oleh guru dan sistem keamanan sekolah.
                     </p>
-                  </div>
+                    <div className="flex items-center gap-3">
+                        <img src="https://ui-avatars.com/api/?name=Contoh&background=e2e8f0&color=64748b" className="w-10 h-10 rounded-full opacity-50" alt="sample"/>
+                        <div className="text-xs text-slate-400">
+                            Gunakan foto formal/semi-formal dengan pencahayaan yang baik.
+                        </div>
+                    </div>
+                </div>
 
-                  <div>
-                    <InputLabel value="Konfirmasi Password Baru" />
-                    <TextInput
-                      type="password"
-                      className="mt-1 block w-full"
-                      value={passwordData.password_confirmation}
-                      onChange={(e) =>
-                        setPasswordData('password_confirmation', e.target.value)
-                      }
-                    />
-                    <InputError message={passwordErrors.password_confirmation} />
-                  </div>
+            </div>
 
-                  <div className="flex items-center gap-4 pt-3">
-                    <PrimaryButton disabled={passwordProcessing}>
-                      {passwordProcessing ? 'Memproses...' : 'Ubah Password'}
-                    </PrimaryButton>
-
-                    <Transition
-                      show={passwordSuccess}
-                      enter="transition ease-out duration-200"
-                      enterFrom="opacity-0 translate-y-1"
-                      enterTo="opacity-100 translate-y-0"
-                      leave="transition ease-in duration-100"
-                      leaveFrom="opacity-100 translate-y-0"
-                      leaveTo="opacity-0 translate-y-1"
-                    >
-                      <p className="text-sm text-emerald-600">
-                        Password berhasil diperbarui.
-                      </p>
-                    </Transition>
-                  </div>
-                </form>
-              </div>
-
-              {/* PANEL EDUKASI KEAMANAN */}
-              <aside className="rounded-2xl bg-slate-900 text-slate-50 p-5 sm:p-6 shadow-lg">
-                <h3 className="text-sm font-semibold tracking-wide text-sky-200 uppercase">
-                  Kepercayaan & Privasi
-                </h3>
-                <p className="mt-2 text-sm text-slate-100/90">
-                  Password Anda disimpan dengan aman menggunakan standar enkripsi
-                  modern. Pihak sekolah tidak dapat melihat isi password Anda.
-                </p>
-
-                <ul className="mt-4 space-y-3 text-xs text-slate-200">
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    <span>
-                      Jangan bagikan password kepada siapa pun, termasuk teman
-                      sekelas atau grup chat.
-                    </span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-400" />
-                    <span>
-                      Hindari menggunakan password yang sama dengan media sosial
-                      atau akun lain.
-                    </span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                    <span>
-                      Selalu logout dari perangkat umum (warnet, laboratorium,
-                      perangkat pinjaman).
-                    </span>
-                  </li>
-                </ul>
-              </aside>
-            </section>
-          )}
+          </div>
         </div>
       </div>
     </SiswaLayout>

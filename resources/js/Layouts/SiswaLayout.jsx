@@ -5,43 +5,21 @@ import { Dialog, Transition, Menu } from "@headlessui/react";
 import {
   HomeIcon,
   ClipboardDocumentListIcon,
-  Bars3Icon,
+  Bars3BottomLeftIcon, // Icon menu yang lebih modern
   XMarkIcon,
   ChevronDownIcon,
+  UserCircleIcon,
+  ArrowLeftOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 
-// ✅ lebih aman: simpan routeName, bukan URL hasil route()
+// ✅ Navigasi Sidebar
 const navigation = [
-  { name: "Absensi", routeName: "siswa.dashboard", icon: HomeIcon },
-  { name: "Akun Saya", routeName: "siswa.akun.edit", icon: ClipboardDocumentListIcon },
-  { name: "Logout", routeName: "logout", icon: XMarkIcon, method: "post", as: "button" },
+  { name: "Dashboard Absensi", routeName: "siswa.dashboard", icon: HomeIcon },
+  { name: "Profil Saya", routeName: "siswa.akun.edit", icon: ClipboardDocumentListIcon },
+  // Tombol logout kita pisahkan visualnya agar UX lebih jelas
 ];
 
-function pickFirst(...vals) {
-  return vals.find((v) => v !== null && v !== undefined && String(v).trim() !== "") ?? null;
-}
-
-function resolveAssetUrl(val) {
-  if (!val) return null;
-
-  const s = String(val).trim();
-
-  // full URL / data URL
-  if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
-
-  // sudah absolute path
-  if (s.startsWith("/")) return s;
-
-  // dianggap path di disk public → pakai route storage.public
-  // NOTE: param 'path' di route kamu pakai urldecode, jadi kita encode di sini
-  return route("storage.public", { path: encodeURIComponent(s) });
-}
-
-function withVersion(url, version) {
-  if (!url || !version) return url;
-  return url.includes("?") ? `${url}&v=${version}` : `${url}?v=${version}`;
-}
-
+// Komponen Link Navigasi Custom
 function NavLink({ href, active, children, label, method, as }) {
   const isButton = as === "button";
   return (
@@ -50,109 +28,108 @@ function NavLink({ href, active, children, label, method, as }) {
       method={method}
       as={as}
       type={isButton ? "button" : undefined}
-      className={`group flex items-center w-full p-2 rounded-lg transition-colors duration-150 text-sm font-medium ${
-        active ? "bg-sky-700 text-white" : "text-sky-100 hover:bg-sky-600"
+      className={`group relative flex items-center w-full px-3 py-3 rounded-xl transition-all duration-200 text-sm font-medium border-l-4 ${
+        active
+          ? "bg-white/10 text-white border-sky-400 shadow-lg shadow-sky-900/20"
+          : "border-transparent text-slate-400 hover:text-white hover:bg-white/5"
       }`}
     >
-      {children}
-      <span className="ml-3">{label}</span>
+      <span className={`shrink-0 transition-colors duration-200 ${active ? "text-sky-400" : "text-slate-400 group-hover:text-white"}`}>
+        {children}
+      </span>
+      <span className="ml-3 tracking-wide">{label}</span>
+      
+      {/* Indikator Glow Halus saat Active */}
+      {active && (
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-sky-400 rounded-l-full opacity-0 lg:opacity-100 shadow-[0_0_10px_rgba(56,189,248,0.5)]"></span>
+      )}
     </Link>
   );
 }
 
 export default function SiswaLayout({ children, header }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { auth, pengaturan } = usePage().props;
+  
+  // Ambil data app & user
+  const { auth, app } = usePage().props; 
   const user = auth?.user;
 
-  // ✅ ambil nama sekolah & logo dari pengaturan (pakai banyak kemungkinan nama kolom)
-  const schoolNameRaw = pickFirst(
-    pengaturan?.nama_sekolah,
-    pengaturan?.nama_instansi,
-    pengaturan?.nama_lembaga,
-    pengaturan?.school_name
-  );
-
-  const appLabelRaw = pickFirst(
-    pengaturan?.nama_aplikasi,
-    pengaturan?.app_name,
-    "SISWA AREA"
-  );
-
-  const logoRaw = pickFirst(
-    pengaturan?.logo_url,
-    pengaturan?.logo_sekolah_url,
-    pengaturan?.logo_sekolah,
-    pengaturan?.logo,
-    pengaturan?.logo_path
-  );
-
-  const version = useMemo(() => {
-    // cache-busting: pakai updated_at pengaturan kalau ada
-    try {
-      if (!pengaturan?.updated_at) return null;
-      return new Date(pengaturan.updated_at).getTime();
-    } catch {
-      return null;
-    }
-  }, [pengaturan?.updated_at]);
-
-  const schoolName = schoolNameRaw || "Nama Sekolah";
-  const appLabel = appLabelRaw || "SISWA AREA";
-
-  const defaultLogo =
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRl33BhpowHZZHfLJuzZrr3VVSMwe5t4evLmA&s";
-
-  const logoUrl = withVersion(resolveAssetUrl(logoRaw) || defaultLogo, version);
+  // Data Sekolah & Logo
+  const schoolName = app?.nama_sekolah || "Sistem Absensi";
+  const logoUrl = app?.logo_url || "https://ui-avatars.com/api/?name=S&background=0ea5e9&color=fff";
+  const appLabel = "STUDENT PORTAL";
 
   const SidebarContent = () => (
-    <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-sky-800 px-6 pb-4">
-      {/* BRAND */}
-      <div className="flex h-16 shrink-0 items-center gap-x-3">
-        <img
-          className="h-10 w-10 rounded-xl object-cover ring-2 ring-white/20 bg-white/10"
-          src={logoUrl}
-          alt="Logo Sekolah"
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = defaultLogo;
-          }}
-        />
+    <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-slate-900 px-6 pb-4 ring-1 ring-white/10">
+      {/* BRAND SECTION */}
+      <div className="flex h-20 shrink-0 items-center gap-x-4 mt-2 border-b border-slate-800">
+        <div className="relative group">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-600 to-indigo-600 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+          <img
+            className="relative h-11 w-11 rounded-xl object-cover ring-2 ring-slate-800 bg-slate-800"
+            src={logoUrl}
+            alt="Logo"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = "https://ui-avatars.com/api/?name=S&background=0ea5e9&color=fff";
+            }}
+          />
+        </div>
 
-        <div className="leading-tight">
-          <div className="text-white font-extrabold text-sm sm:text-base line-clamp-1">
+        <div className="leading-tight overflow-hidden">
+          <div className="text-white font-bold text-sm tracking-tight truncate" title={schoolName}>
             {schoolName}
           </div>
-          <div className="text-sky-100/80 text-[11px] font-semibold uppercase tracking-wide">
+          <div className="text-sky-500 text-[10px] font-bold uppercase tracking-widest mt-0.5">
             {appLabel}
           </div>
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col">
+      {/* NAVIGATION SECTION */}
+      <nav className="flex flex-1 flex-col mt-2">
         <ul role="list" className="flex flex-1 flex-col gap-y-7">
           <li>
-            <ul role="list" className="-mx-2 space-y-1">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">
+              Menu Utama
+            </div>
+            <ul role="list" className="-mx-2 space-y-2">
               {navigation.map((item) => {
-                const href = route(item.routeName);
-
-                // ✅ active check pakai route name (lebih akurat)
-                const isActive = item.method === "post" ? false : route().current(item.routeName);
+                let href = "#";
+                try { href = route(item.routeName); } catch (e) {}
+                const isActive = route().current(item.routeName);
 
                 return (
                   <li key={item.name}>
                     <NavLink
                       href={href}
-                      method={item.method}
-                      as={item.as}
                       active={isActive}
                       label={item.name}
                     >
-                      <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+                      <item.icon className="h-6 w-6" aria-hidden="true" />
                     </NavLink>
                   </li>
                 );
               })}
+            </ul>
+          </li>
+
+          <li className="mt-auto">
+             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">
+              Akun
+            </div>
+            <ul role="list" className="-mx-2 space-y-1">
+                <li>
+                    <NavLink
+                      href={route('logout')}
+                      method="post"
+                      as="button"
+                      active={false}
+                      label="Keluar Aplikasi"
+                    >
+                      <ArrowLeftOnRectangleIcon className="h-6 w-6 text-red-400" aria-hidden="true" />
+                    </NavLink>
+                </li>
             </ul>
           </li>
         </ul>
@@ -161,10 +138,19 @@ export default function SiswaLayout({ children, header }) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-sky-100 selection:text-sky-900">
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+            style: {
+                background: '#334155',
+                color: '#fff',
+                borderRadius: '12px',
+            }
+        }}
+      />
 
-      {/* Mobile Sidebar */}
+      {/* Mobile Sidebar (Modal) */}
       <Transition.Root show={sidebarOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
           <Transition.Child
@@ -176,7 +162,7 @@ export default function SiswaLayout({ children, header }) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-gray-900/80" />
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 flex">
@@ -201,11 +187,11 @@ export default function SiswaLayout({ children, header }) {
                 >
                   <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
                     <button type="button" className="-m-2.5 p-2.5" onClick={() => setSidebarOpen(false)}>
-                      <XMarkIcon className="h-6 w-6 text-white" />
+                      <span className="sr-only">Close sidebar</span>
+                      <XMarkIcon className="h-6 w-6 text-white" aria-hidden="true" />
                     </button>
                   </div>
                 </Transition.Child>
-
                 <SidebarContent />
               </Dialog.Panel>
             </Transition.Child>
@@ -213,61 +199,83 @@ export default function SiswaLayout({ children, header }) {
         </Dialog>
       </Transition.Root>
 
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+      {/* Desktop Sidebar (Static) */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col shadow-2xl">
         <SidebarContent />
       </div>
 
-      {/* Main */}
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-          <button type="button" className="-m-2.5 p-2.5 text-gray-700 lg:hidden" onClick={() => setSidebarOpen(true)}>
-            <Bars3Icon className="h-6 w-6" />
+      {/* Main Content Area */}
+      <div className="lg:pl-72 flex flex-col min-h-screen transition-all duration-300">
+        
+        {/* Glassmorphism Header */}
+        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-slate-200/70 bg-white/80 backdrop-blur-md px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+          <button type="button" className="-m-2.5 p-2.5 text-slate-700 lg:hidden hover:text-sky-600 transition" onClick={() => setSidebarOpen(true)}>
+            <span className="sr-only">Open sidebar</span>
+            <Bars3BottomLeftIcon className="h-6 w-6" aria-hidden="true" />
           </button>
 
           <div className="flex flex-1 items-center justify-between">
-            <h1 className="text-lg font-semibold">{header}</h1>
+            {/* Header Title */}
+            <div className="flex flex-col justify-center">
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight">{header}</h1>
+                <p className="hidden sm:block text-xs text-slate-500">Selamat datang kembali, Semangat belajar!</p>
+            </div>
 
-            <div className="flex items-center gap-x-6">
+            {/* User Dropdown */}
+            <div className="flex items-center gap-x-4 lg:gap-x-6">
+              {/* Divider vertical */}
+              <div className="hidden lg:block h-6 w-px bg-slate-200" aria-hidden="true" />
+
               <Menu as="div" className="relative">
-                <Menu.Button className="-m-1.5 flex items-center p-1.5">
+                <Menu.Button className="-m-1.5 flex items-center p-1.5 transition hover:bg-slate-100 rounded-full pr-3 pl-2">
+                  <span className="sr-only">Open user menu</span>
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 p-[2px]">
+                     <div className="h-full w-full rounded-full bg-white flex items-center justify-center">
+                        <UserCircleIcon className="h-6 w-6 text-slate-400" />
+                     </div>
+                  </div>
                   <span className="hidden lg:flex lg:items-center">
-                    <span className="ml-4 text-sm font-semibold leading-6 text-gray-900">
-                      {user?.nama_lengkap || "User"}
+                    <span className="ml-3 text-sm font-semibold leading-6 text-slate-700 max-w-[100px] truncate">
+                      {user?.nama_lengkap || "Siswa"}
                     </span>
-                    <ChevronDownIcon className="ml-2 h-5 w-5 text-gray-400" />
+                    <ChevronDownIcon className="ml-2 h-4 w-4 text-slate-400" aria-hidden="true" />
                   </span>
                 </Menu.Button>
 
                 <Transition
                   as={Fragment}
-                  enter="transition ease-out duration-100"
-                  enterFrom="opacity-0 scale-95"
-                  enterTo="opacity-100 scale-100"
+                  enter="transition ease-out duration-200"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
                   leave="transition ease-in duration-75"
-                  leaveFrom="opacity-100 scale-100"
-                  leaveTo="opacity-0 scale-95"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
                 >
-                  <Menu.Items className="absolute right-0 z-10 mt-2.5 w-36 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
+                  <Menu.Items className="absolute right-0 z-10 mt-2.5 w-48 origin-top-right rounded-2xl bg-white py-2 shadow-xl ring-1 ring-gray-900/5 focus:outline-none border border-slate-100">
+                    <div className="px-4 py-2 border-b border-slate-100 lg:hidden">
+                        <p className="text-xs text-slate-500">Login sebagai</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate">{user?.nama_lengkap}</p>
+                    </div>
                     <Menu.Item>
                       {({ active }) => (
                         <Link
                           href={route("profile.edit")}
-                          className={`${active ? "bg-gray-50" : ""} block px-3 py-1 text-sm text-gray-900`}
+                          className={`${active ? "bg-sky-50 text-sky-600" : "text-slate-700"} block px-4 py-2 text-sm font-medium transition-colors`}
                         >
-                          Profil
+                          Pengaturan Profil
                         </Link>
                       )}
                     </Menu.Item>
+                    <div className="h-px bg-slate-100 my-1"></div>
                     <Menu.Item>
                       {({ active }) => (
                         <Link
                           href={route("logout")}
                           method="post"
                           as="button"
-                          className={`${active ? "bg-gray-50" : ""} block w-full text-left px-3 py-1 text-sm text-gray-900`}
+                          className={`${active ? "bg-rose-50 text-rose-600" : "text-slate-700"} block w-full text-left px-4 py-2 text-sm font-medium transition-colors`}
                         >
-                          Log Out
+                          Keluar (Logout)
                         </Link>
                       )}
                     </Menu.Item>
@@ -278,8 +286,11 @@ export default function SiswaLayout({ children, header }) {
           </div>
         </header>
 
-        <main className="py-10">
-          <div className="px-4 sm:px-6 lg:px-8">{children}</div>
+        {/* Content Wrapper */}
+        <main className="py-8 animate-fade-in-up">
+          <div className="px-4 sm:px-6 lg:px-8">
+             {children}
+          </div>
         </main>
       </div>
     </div>

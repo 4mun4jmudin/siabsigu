@@ -12,16 +12,15 @@ use App\Models\JurnalMengajar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Str; // <-- 1. Impor Str helper untuk membuat string random
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
-
 class GuruController extends Controller
 {
     /**
-     * Menampilkan halaman daftar guru beserta statistik dan pencarian.
+     * Menampilkan daftar guru beserta statistik dan pencarian.
      */
     public function index(Request $request)
     {
@@ -35,11 +34,18 @@ class GuruController extends Controller
         $gurus = Guru::with(['pengguna', 'kelasWali'])
             ->when($request->input('search'), function ($query, $search) {
                 $query->where('nama_lengkap', 'like', "%{$search}%")
-                    ->orWhere('nip', 'like', "%{$search}%");
+                    ->orWhere('nip', 'like', "%{$search}%")
+                    ->orWhere('id_guru', 'like', "%{$search}%");
             })
             ->latest()
             ->paginate(10)
             ->withQueryString();
+
+        // Tambahkan URL foto helper (opsional, jika frontend butuh path lengkap)
+        $gurus->through(function ($guru) {
+            $guru->foto_url = $guru->foto_profil ? asset('storage/' . $guru->foto_profil) : null;
+            return $guru;
+        });
 
         return Inertia::render('admin/Guru/Index', [
             'gurus' => $gurus,
@@ -55,16 +61,19 @@ class GuruController extends Controller
     {
         $guru->load(['pengguna', 'kelasWali']);
 
+        // Data Tab Jadwal
         $jadwalMengajar = JadwalMengajar::where('id_guru', $guru->id_guru)
             ->with(['kelas', 'mataPelajaran', 'tahunAjaran'])
             ->get()
             ->groupBy('hari');
 
+        // Data Tab Riwayat Absen
         $riwayatAbsensi = AbsensiGuru::where('id_guru', $guru->id_guru)
             ->latest('tanggal')
             ->take(15)
             ->get();
 
+        // Data Tab Jurnal
         $jurnalMengajar = JurnalMengajar::whereHas('jadwalMengajar', function ($query) use ($guru) {
             $query->where('id_guru', $guru->id_guru);
         })
@@ -86,60 +95,61 @@ class GuruController extends Controller
      */
     public function create()
     {
-        $users = User::where('level', 'Guru')->whereDoesntHave('guru')->get();
-        return Inertia::render('admin/Guru/Create', [
-            'users' => $users,
-        ]);
+        // Tidak perlu mengambil list user lagi karena user akan dibuat otomatis
+        return Inertia::render('admin/Guru/Create');
     }
 
     /**
-     * Menyimpan data guru baru ke dalam database.
+     * Menyimpan data guru baru ke dalam database + Auto Create User.
      */
     public function store(Request $request)
     {
+        // Validasi Input Guru
         $validated = $request->validate([
             'id_guru' => 'required|string|max:20|unique:tbl_guru',
             'nama_lengkap' => 'required|string|max:100',
             'nip' => 'nullable|string|max:30|unique:tbl_guru',
             'jenis_kelamin' => 'required|in:Laki-laki,Perempuan',
             'status' => 'required|in:Aktif,Tidak Aktif,Pensiun',
-            'id_pengguna' => 'nullable|exists:tbl_pengguna,id_pengguna|unique:tbl_guru,id_pengguna',
             'foto_profil' => 'nullable|image|max:2048',
             'barcode_id' => 'nullable|string|max:100|unique:tbl_guru',
             'sidik_jari_template' => 'nullable|string',
         ]);
 
         DB::transaction(function () use ($request, $validated) {
-            // Membuat username dari nama lengkap (lowercase, tanpa spasi)
-            $username = strtolower(str_replace(' ', '', $validated['nama_lengkap']));
+            // 1. GENERATE USERNAME OTOMATIS
+            // Format: guru#[nama_tanpa_spasi_lowercase]
+            $cleanName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $validated['nama_lengkap']));
+            $baseUsername = 'guru#' . $cleanName;
             
-
-            // Cek jika username sudah ada, tambahkan angka random
+            // Cek keunikan username, jika ada tambah random string
+            $username = $baseUsername;
             if (User::where('username', $username)->exists()) {
-                $username = $username . Str::lower(Str::random(3));
+                $username = $baseUsername . Str::lower(Str::random(3));
             }
 
-            // Buat akun User baru untuk guru
+            // 2. BUAT AKUN USER
             $user = User::create([
                 'nama_lengkap' => $validated['nama_lengkap'],
                 'username'     => $username,
-                'password'     => Hash::make('password'), // Password default
+                'password'     => Hash::make('alhawari#cibiuk'), // Default Password
                 'level'        => 'Guru',
             ]);
 
-            // Tambahkan id_pengguna dari user yang baru dibuat ke data guru
+            // 3. HUBUNGKAN ID PENGGUNA KE DATA GURU
             $validated['id_pengguna'] = $user->id_pengguna;
 
+            // 4. UPLOAD FOTO (Jika ada)
             if ($request->hasFile('foto_profil')) {
                 $path = $request->file('foto_profil')->store('foto_profil_guru', 'public');
                 $validated['foto_profil'] = $path;
             }
 
-            // Buat data guru
+            // 5. SIMPAN DATA GURU
             Guru::create($validated);
         });
-        // Menggunakan 'success' agar sesuai dengan ToastNotification di frontend
-        return to_route('admin.guru.index')->with('success', 'Data Guru berhasil ditambahkan.');
+
+        return to_route('admin.guru.index')->with('success', 'Data Guru berhasil ditambahkan. Akun login telah dibuat otomatis.');
     }
 
     /**
@@ -147,15 +157,8 @@ class GuruController extends Controller
      */
     public function edit(Guru $guru)
     {
-        $users = User::where('level', 'Guru')
-            ->where(function ($query) use ($guru) {
-                $query->whereDoesntHave('guru')
-                    ->orWhere('id_pengguna', $guru->id_pengguna);
-            })->get();
-
         return Inertia::render('admin/Guru/Edit', [
             'guru' => $guru->load('pengguna'),
-            'users' => $users,
         ]);
     }
 
@@ -169,70 +172,161 @@ class GuruController extends Controller
             'nip' => ['nullable', 'string', 'max:30', Rule::unique('tbl_guru')->ignore($guru->id_guru, 'id_guru')],
             'jenis_kelamin' => 'required|in:Laki-laki,Perempuan',
             'status' => 'required|in:Aktif,Tidak Aktif,Pensiun',
-            'id_pengguna' => ['nullable', 'exists:tbl_pengguna,id_pengguna', Rule::unique('tbl_guru', 'id_pengguna')->ignore($guru->id_guru, 'id_guru')],
             'barcode_id' => ['nullable', 'string', 'max:100', Rule::unique('tbl_guru')->ignore($guru->id_guru, 'id_guru')],
             'sidik_jari_template' => 'nullable|string',
         ]);
 
-        if ($request->hasFile('foto_profil')) {
-            $request->validate(['foto_profil' => 'nullable|image|max:2048']);
+        DB::transaction(function () use ($request, $guru, $validated) {
+            // Handle Update Foto
+            if ($request->hasFile('foto_profil')) {
+                $request->validate(['foto_profil' => 'nullable|image|max:2048']);
 
-            if ($guru->foto_profil) {
-                Storage::disk('public')->delete($guru->foto_profil);
+                // Hapus foto lama jika ada
+                if ($guru->foto_profil && Storage::disk('public')->exists($guru->foto_profil)) {
+                    Storage::disk('public')->delete($guru->foto_profil);
+                }
+                
+                $path = $request->file('foto_profil')->store('foto_profil_guru', 'public');
+                $validated['foto_profil'] = $path;
             }
-            $path = $request->file('foto_profil')->store('foto_profil_guru', 'public');
-            $validated['foto_profil'] = $path;
-        }
 
-        $guru->update($validated);
+            // Update Data Guru
+            $guru->update($validated);
+
+            // Sinkronisasi Nama Lengkap ke Tabel User
+            if ($guru->pengguna) {
+                $guru->pengguna->update([
+                    'nama_lengkap' => $validated['nama_lengkap']
+                ]);
+            }
+        });
 
         return to_route('admin.guru.index')->with('success', 'Data Guru berhasil diperbarui.');
     }
 
     /**
-     * Menghapus data guru dari database.
+     * Menghapus data guru beserta akun user dan fotonya.
      */
     public function destroy(Guru $guru)
     {
-        if ($guru->foto_profil) {
-            Storage::disk('public')->delete($guru->foto_profil);
-        }
+        DB::transaction(function () use ($guru) {
+            // 1. Hapus Foto Fisik
+            if ($guru->foto_profil && Storage::disk('public')->exists($guru->foto_profil)) {
+                Storage::disk('public')->delete($guru->foto_profil);
+            }
 
-        $guru->delete();
+            // 2. Ambil Referensi User
+            $user = $guru->pengguna;
 
-        return to_route('admin.guru.index')->with('success', 'Data Guru berhasil dihapus.');
+            // 3. Hapus Data Guru
+            $guru->delete();
+
+            // 4. Hapus Akun User (Hanya jika levelnya Guru untuk keamanan)
+            if ($user && $user->level === 'Guru') {
+                $user->delete();
+            }
+        });
+
+        return to_route('admin.guru.index')->with('success', 'Data Guru dan akun terkait berhasil dihapus.');
     }
 
-    // --- 2. METHOD BARU UNTUK REGISTRASI SIDIK JARI ---
+    /*
+    |--------------------------------------------------------------------------
+    | FITUR RESET PASSWORD (KHUSUS ADMIN)
+    |--------------------------------------------------------------------------
+    */
+
     /**
-     * Menyimpan data template sidik jari untuk guru yang spesifik.
+     * Menampilkan halaman khusus reset password guru.
+     */
+    public function resetPasswordIndex(Request $request)
+    {
+        $gurus = Guru::with('pengguna')
+            ->when($request->input('search'), function ($query, $search) {
+                $query->where('nama_lengkap', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%")
+                    ->orWhere('id_guru', 'like', "%{$search}%");
+            })
+            ->whereNotNull('id_pengguna') // Hanya guru yang punya akun
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return Inertia::render('admin/Guru/ResetPassword', [
+            'gurus' => $gurus,
+            'filters' => $request->only(['search']),
+        ]);
+    }
+
+    /**
+     * Memproses reset password ke default.
+     * Default: Username = guru#[nama], Password = alhawari#cibiuk
+     */
+    public function resetPasswordStore(Guru $guru)
+    {
+        if (!$guru->pengguna) {
+            return back()->with('error', 'Guru ini tidak memiliki akun pengguna yang terhubung.');
+        }
+
+        try {
+            // Generate Username Default Baru
+            $cleanName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $guru->nama_lengkap));
+            $newUsername = 'guru#' . $cleanName;
+
+            // Pastikan username unik (kecuali milik user ini sendiri)
+            $exists = User::where('username', $newUsername)
+                ->where('id_pengguna', '!=', $guru->id_pengguna)
+                ->exists();
+            
+            if ($exists) {
+                $newUsername = $newUsername . Str::lower(Str::random(3));
+            }
+
+            // Update User
+            $guru->pengguna->update([
+                'username' => $newUsername,
+                'password' => Hash::make('alhawari#cibiuk'),
+            ]);
+
+            return back()->with('success', "Akun berhasil direset. Username: {$newUsername}, Password: alhawari#cibiuk");
+
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal mereset password: ' . $e->getMessage());
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FITUR TAMBAHAN (API / AJAX)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Menyimpan template sidik jari dari mesin fingerprint.
      */
     public function registerFingerprint(Request $request, Guru $guru)
     {
-        $request->validate([
-            'sidik_jari_template' => 'required|string',
-        ]);
-
+        $request->validate(['sidik_jari_template' => 'required|string']);
+        
         $guru->update([
-            'sidik_jari_template' => $request->sidik_jari_template,
+            'sidik_jari_template' => $request->sidik_jari_template
         ]);
 
-        return back()->with('success', 'Sidik jari untuk ' . $guru->nama_lengkap . ' berhasil diregistrasi.');
+        return back()->with('success', 'Sidik jari berhasil diregistrasi.');
     }
 
-    // --- 3. METHOD BARU UNTUK MEMBUAT/RESET BARCODE ---
     /**
-     * Membuat atau mereset Barcode ID untuk seorang guru.
+     * Generate ulang Barcode ID secara acak.
      */
     public function generateBarcode(Request $request, Guru $guru)
     {
-        // Buat ID unik. Format: GURU-[ID GURU]-[6 KARAKTER RANDOM]
+        // Format: GURU-[ID]-[RANDOM]
         $newBarcodeId = 'GURU-' . $guru->id_guru . '-' . strtoupper(Str::random(6));
-
+        
         $guru->update([
-            'barcode_id' => $newBarcodeId,
+            'barcode_id' => $newBarcodeId
         ]);
 
-        return back()->with('success', 'Barcode ID baru (' . $newBarcodeId . ') untuk ' . $guru->nama_lengkap . ' berhasil dibuat.');
+        return back()->with('success', 'Barcode ID baru berhasil dibuat.');
     }
 }

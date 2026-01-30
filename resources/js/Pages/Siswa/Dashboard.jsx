@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
 import SiswaLayout from '@/Layouts/SiswaLayout';
 import {
   ClockIcon,
@@ -8,18 +8,23 @@ import {
   NoSymbolIcon,
   MapPinIcon,
   XMarkIcon,
+  ArrowRightOnRectangleIcon,
+  CalendarDaysIcon,
+  ChartBarIcon,
+} from '@heroicons/react/24/outline';
+import {
+  ClockIcon as ClockSolid,
+  MapPinIcon as MapPinSolid,
 } from '@heroicons/react/24/solid';
 
 /**
- * Dashboard Absensi Siswa
- * - Mobile-first + layout desktop full-width (grid 3/2)
- * - Geolokasi presisi (watchPosition + cancel)
- * - Filter riwayat (Minggu / Bulan / Tahun)
- * - Highlight khusus untuk absensi hari ini di riwayat (blok menyala)
- * - Nuansa UI profesional, tenang, dan menekankan integritas data
+ * Dashboard Absensi Siswa (Final Version)
+ * - UI: Modern, Glassmorphism, Responsive.
+ * - Logic: Absen Masuk, Pulang, Geolocation, Time Checking (Terlambat & Terlalu Cepat).
+ * - Update: Validasi Waktu Pulang (15 menit sebelum jam pulang).
  */
 
-// ===================== helpers =====================
+// ===================== HELPERS =====================
 const getDistanceMeters = (lat1, lon1, lat2, lon2) => {
   const toRad = (v) => (v * Math.PI) / 180;
   const R = 6371000;
@@ -35,6 +40,10 @@ const getDistanceMeters = (lat1, lon1, lat2, lon2) => {
 const formatTime = (timeStr) => {
   if (!timeStr) return '-';
   try {
+    if (timeStr.includes(':') && !timeStr.includes('T')) {
+      const [h, m] = timeStr.split(':');
+      return `${h}:${m}`;
+    }
     if (timeStr.includes('T')) {
       return new Date(timeStr).toLocaleTimeString('id-ID', {
         hour: '2-digit',
@@ -69,11 +78,14 @@ const DigitalClock = () => {
     year: 'numeric',
   });
   return (
-    <div className="flex flex-col items-center">
-      <div className="font-mono text-4xl sm:text-5xl font-extrabold text-gray-900 leading-none tracking-tight select-none">
-        {timeString}
-      </div>
-      <div className="mt-1 text-xs text-gray-500">{dateString}</div>
+    <div className="flex flex-col items-center justify-center py-8 relative overflow-hidden group">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-sky-100 rounded-full blur-3xl opacity-50 -z-10 group-hover:scale-125 transition-transform duration-700"></div>
+        <div className="font-mono text-5xl sm:text-7xl font-black text-slate-800 tracking-tighter select-none drop-shadow-sm transition-all">
+            {timeString}
+        </div>
+        <div className="mt-2 text-sm font-semibold text-slate-500 uppercase tracking-widest bg-white/60 px-4 py-1.5 rounded-full border border-slate-200/60 backdrop-blur-sm shadow-sm">
+            {dateString}
+        </div>
     </div>
   );
 };
@@ -86,21 +98,22 @@ const Toast = ({ show, type = 'success', message, onClose }) => {
   }, [show, onClose]);
   if (!show) return null;
   return (
-    <div className="fixed z-50 left-1/2 -translate-x-1/2 bottom-24 sm:top-6 sm:bottom-auto">
+    <div className="fixed z-[100] top-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-4 pointer-events-none">
       <div
-        className={`px-4 py-3 rounded-xl shadow-lg text-white font-medium max-w-xs w-full ${
-          type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
+        className={`px-6 py-4 rounded-2xl shadow-2xl font-medium text-white flex items-center gap-3 transition-all transform animate-in slide-in-from-top-5 duration-300 pointer-events-auto ${
+          type === 'success' ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-rose-600 shadow-rose-900/20'
         }`}
         role="status"
         aria-live="polite"
       >
-        {message}
+        {type === 'success' ? <CheckCircleIcon className="w-6 h-6 shrink-0"/> : <InformationCircleIcon className="w-6 h-6 shrink-0"/>}
+        <span className="text-sm">{message}</span>
       </div>
     </div>
   );
 };
 
-// ===================== geolocation helper (watch + cancel) =====================
+// ===================== GEOLOCATION HELPER =====================
 function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
   let watchId = null;
   let timer = null;
@@ -152,14 +165,14 @@ function getPrecisePosition({ desiredAccuracy = 30, timeout = 30000 } = {}) {
     stop: () => {
       try {
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      } catch (e) {}
+      } catch (e) { }
       if (!resolved && rejectFn) rejectFn(new Error('Cancelled by user'));
       if (timer) clearTimeout(timer);
     },
   };
 }
 
-// ===================== MapEmbed =====================
+// ===================== MAP COMPONENT =====================
 function MapEmbed({
   schoolLat,
   schoolLng,
@@ -188,12 +201,11 @@ function MapEmbed({
         try {
           delete L.Icon.Default.prototype._getIconUrl;
           L.Icon.Default.mergeOptions({
-            iconRetinaUrl:
-              'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
             iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
             shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
           });
-        } catch (e) {}
+        } catch (e) { }
         if (!mounted) return;
         setComponents({
           MapContainer: mod.MapContainer,
@@ -203,7 +215,7 @@ function MapEmbed({
           Circle: mod.Circle,
         });
       } catch (err) {
-        console.warn('react-leaflet not available, will use iframe fallback', err);
+        console.warn('react-leaflet not available', err);
       }
     })();
     return () => {
@@ -211,77 +223,35 @@ function MapEmbed({
     };
   }, []);
 
-  const schoolCenter =
-    schoolLat && schoolLng ? [parseFloat(schoolLat), parseFloat(schoolLng)] : null;
-  const studentCenter =
-    studentCoords && typeof studentCoords.latitude === 'number'
+  const schoolCenter = schoolLat && schoolLng ? [parseFloat(schoolLat), parseFloat(schoolLng)] : null;
+  const studentCenter = studentCoords && typeof studentCoords.latitude === 'number'
       ? [studentCoords.latitude, studentCoords.longitude]
       : null;
 
-  const center =
-    centerMode === 'student' && studentCenter ? studentCenter : schoolCenter || studentCenter;
-  const iframeSrc = center
-    ? `https://www.google.com/maps?q=${center[0]},${center[1]}&z=16&output=embed`
-    : null;
+  const center = centerMode === 'student' && studentCenter ? studentCenter : schoolCenter || studentCenter;
+  const iframeSrc = center ? `https://www.google.com/maps?q=${center[0]},${center[1]}&z=16&output=embed` : null;
 
   if (components && center) {
     const { MapContainer, TileLayer, Marker, Popup, Circle } = components;
     return (
-      <div className={`${small ? 'h-40' : 'h-96'} rounded-lg overflow-hidden border`}>
-        <MapContainer
-          center={center}
-          zoom={16}
-          style={{ height: '100%', width: '100%' }}
-          scrollWheelZoom={true}
-        >
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
+      <div className={`${small ? 'h-52' : 'h-96'} w-full rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100 relative z-0`}>
+        <MapContainer center={center} zoom={16} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+          <TileLayer attribution="© OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {schoolCenter && (
             <Marker position={schoolCenter}>
-              <Popup>
-                Titik Sekolah
-                <br />
-                {schoolCenter[0]}, {schoolCenter[1]}
-              </Popup>
+              <Popup>Titik Sekolah</Popup>
             </Marker>
           )}
-
           {studentCenter && (
             <>
               <Marker position={studentCenter}>
-                <Popup>
-                  Lokasi Anda
-                  <br />
-                  {studentCenter[0].toFixed(6)}, {studentCenter[1].toFixed(6)}
-                  <br />
-                  Akurasi:{' '}
-                  {studentCoords?.accuracy ? `${studentCoords.accuracy} m` : '-'}
-                  <br />
-                  {studentCoords?.timestamp
-                    ? new Date(studentCoords.timestamp).toLocaleTimeString()
-                    : ''}
-                </Popup>
+                <Popup>Lokasi Anda <br/> Akurasi: {studentCoords?.accuracy}m</Popup>
               </Marker>
-
-              {typeof studentCoords?.accuracy !== 'undefined' && (
-                <Circle
-                  center={studentCenter}
-                  radius={Math.max(10, studentCoords.accuracy)}
-                  pathOptions={{ color: '#0ea5a4', fillOpacity: 0.08 }}
-                />
-              )}
+              <Circle center={studentCenter} radius={Math.max(10, studentCoords.accuracy)} pathOptions={{ color: '#0ea5a4', fillOpacity: 0.2 }} />
             </>
           )}
-
           {schoolCenter && (
-            <Circle
-              center={schoolCenter}
-              radius={parseInt(radius || 200, 10)}
-              pathOptions={{ color: '#7c3aed', fillOpacity: 0.08 }}
-            />
+            <Circle center={schoolCenter} radius={parseInt(radius || 200, 10)} pathOptions={{ color: '#7c3aed', fillOpacity: 0.1 }} />
           )}
         </MapContainer>
       </div>
@@ -290,32 +260,20 @@ function MapEmbed({
 
   if (iframeSrc) {
     return (
-      <div className={`${small ? 'h-40' : 'h-64'} rounded-lg overflow-hidden border`}>
-        <iframe
-          title="Peta"
-          src={iframeSrc}
-          width="100%"
-          height="100%"
-          style={{ border: 0 }}
-          allowFullScreen
-          loading="lazy"
-        ></iframe>
+      <div className={`${small ? 'h-52' : 'h-64'} rounded-2xl overflow-hidden border border-slate-200`}>
+        <iframe title="Peta" src={iframeSrc} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy"></iframe>
       </div>
     );
   }
 
   return (
-    <div
-      className={`${
-        small ? 'h-40' : 'h-64'
-      } flex items-center justify-center text-xs text-gray-400 border rounded-lg`}
-    >
-      Peta tidak tersedia
+    <div className={`${small ? 'h-52' : 'h-64'} flex items-center justify-center text-xs text-slate-400 border border-slate-200 rounded-2xl bg-slate-50`}>
+      {schoolLat ? 'Memuat Peta...' : 'Koordinat sekolah belum diatur.'}
     </div>
   );
 }
 
-// ===================== main component =====================
+// ===================== MAIN COMPONENT =====================
 export default function SiswaDashboard({
   siswa = {},
   absensiHariIni = null,
@@ -323,50 +281,111 @@ export default function SiswaDashboard({
   batasWaktuAbsen = null,
   pengaturan = null,
 }) {
-  const { post, processing } = useForm();
   const { flash } = usePage().props;
 
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [locationError, setLocationError] = useState('');
   const [coords, setCoords] = useState(null);
   const [distanceToSchool, setDistanceToSchool] = useState(null);
+  
+  // States Waktu
   const [isTimeUp, setIsTimeUp] = useState(false);
+  const [isTooEarly, setIsTooEarly] = useState(false); // State "Belum Waktunya" (Masuk/Pulang)
+  const [earlyTimeStr, setEarlyTimeStr] = useState(''); // Jam mulai absen (Masuk/Pulang)
+
   const [mapOpen, setMapOpen] = useState(false);
   const [mapCenterMode, setMapCenterMode] = useState('school');
-  const [locating, setLocating] = useState(false);
+  
+  // Status Loading
+  const [locating, setLocating] = useState(false); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const locateRequestRef = useRef(null);
-
-  // filter riwayat: 'week' | 'month' | 'year'
   const [historyFilter, setHistoryFilter] = useState('month');
 
+  // Effect Flash Message
   useEffect(() => {
-    if (flash?.success)
-      setToast({ show: true, message: flash.success, type: 'success' });
+    if (flash?.success) setToast({ show: true, message: flash.success, type: 'success' });
     if (flash?.error) setToast({ show: true, message: flash.error, type: 'error' });
   }, [flash]);
 
+  // Reset Coords jika sudah pulang
   useEffect(() => {
-    if (absensiHariIni) {
+    if (absensiHariIni && absensiHariIni.jam_pulang) {
       setCoords(null);
       setDistanceToSchool(null);
     }
   }, [absensiHariIni]);
 
+  // Logic Cek Waktu (Interval 10 detik)
   useEffect(() => {
     const checkTime = () => {
-      if (!batasWaktuAbsen) return setIsTimeUp(false);
       const now = new Date();
-      const [h, m] = batasWaktuAbsen.split(':').map(Number);
-      const deadline = new Date();
-      deadline.setHours(h, m || 0, 0, 0);
-      setIsTimeUp(now > deadline);
-    };
-    checkTime();
-    const id = setInterval(checkTime, 60000);
-    return () => clearInterval(id);
-  }, [batasWaktuAbsen]);
 
-  // summary global (30 terakhir) untuk kartu di profil
+      // Case 1: Sudah Selesai (Masuk & Pulang Tuntas)
+      if (absensiHariIni && absensiHariIni.jam_pulang) {
+        setIsTimeUp(false);
+        setIsTooEarly(false);
+        return;
+      }
+
+      // Case 2: Sudah Absen Masuk, Mau Absen Pulang (Cek Waktu Pulang)
+      if (absensiHariIni && !absensiHariIni.jam_pulang) {
+         setIsTimeUp(false); // Tidak ada batas akhir untuk pulang (biasanya)
+         
+         if (pengaturan?.jam_pulang_siswa) {
+             const [h, m] = pengaturan.jam_pulang_siswa.split(':').map(Number);
+             const exitTime = new Date();
+             exitTime.setHours(h, m || 0, 0, 0);
+             
+             // 15 menit sebelum jam pulang
+             const allowedTime = new Date(exitTime.getTime() - 15 * 60000); 
+             const startStr = allowedTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+             setEarlyTimeStr(startStr);
+
+             if (now < allowedTime) {
+                setIsTooEarly(true);
+             } else {
+                setIsTooEarly(false);
+             }
+         }
+         return;
+      }
+
+      // Case 3: Belum Absen Masuk (Cek Waktu Masuk)
+      if (!absensiHariIni) {
+          // 1. Cek Batas Akhir (Waktu Habis / Telat)
+          if (batasWaktuAbsen) {
+            const [h, m] = batasWaktuAbsen.split(':').map(Number);
+            const deadline = new Date();
+            deadline.setHours(h, m || 0, 0, 0);
+            setIsTimeUp(now > deadline);
+          }
+
+          // 2. Cek Batas Awal (Belum Waktunya Masuk) - 15 Menit Sebelum Masuk
+          if (pengaturan?.jam_masuk_siswa) {
+             const [h, m] = pengaturan.jam_masuk_siswa.split(':').map(Number);
+             const entryTime = new Date();
+             entryTime.setHours(h, m || 0, 0, 0);
+             
+             const allowedTime = new Date(entryTime.getTime() - 15 * 60000); 
+             const startStr = allowedTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+             setEarlyTimeStr(startStr);
+
+             if (now < allowedTime) {
+                setIsTooEarly(true);
+             } else {
+                setIsTooEarly(false);
+             }
+          }
+      }
+    };
+
+    checkTime();
+    const id = setInterval(checkTime, 10000);
+    return () => clearInterval(id);
+  }, [batasWaktuAbsen, absensiHariIni, pengaturan]);
+
   const summary = useMemo(() => {
     const last30 = (riwayatAbsensi || []).slice(0, 30);
     return {
@@ -378,19 +397,11 @@ export default function SiswaDashboard({
     };
   }, [riwayatAbsensi]);
 
-  // riwayat sesuai filter
   const filteredRiwayat = useMemo(() => {
     const list = riwayatAbsensi || [];
     if (!list.length) return [];
     const now = new Date();
-
-    let daysLimit = null;
-    if (historyFilter === 'week') daysLimit = 7;
-    else if (historyFilter === 'month') daysLimit = 30;
-    else if (historyFilter === 'year') daysLimit = 365;
-
-    if (!daysLimit) return list;
-
+    let daysLimit = historyFilter === 'week' ? 7 : historyFilter === 'month' ? 30 : 365;
     return list.filter((item) => {
       if (!item.tanggal) return false;
       const t = new Date(item.tanggal);
@@ -400,18 +411,6 @@ export default function SiswaDashboard({
     });
   }, [riwayatAbsensi, historyFilter]);
 
-  // summary untuk rekap kecil
-  const historySummary = useMemo(() => {
-    const base = filteredRiwayat;
-    return {
-      hadir: base.filter((r) => r.status_kehadiran === 'Hadir').length,
-      sakit: base.filter((r) => r.status_kehadiran === 'Sakit').length,
-      izin: base.filter((r) => r.status_kehadiran === 'Izin').length,
-      alfa: base.filter((r) => r.status_kehadiran === 'Alfa').length,
-      total: base.length,
-    };
-  }, [filteredRiwayat]);
-
   const tanggalHariIni = new Date().toLocaleDateString('id-ID', {
     weekday: 'long',
     day: 'numeric',
@@ -419,727 +418,485 @@ export default function SiswaDashboard({
     year: 'numeric',
   });
 
-  // ===================== absensi handler =====================
   const handleAbsen = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     setLocationError('');
     setToast({ show: false, message: '', type: 'success' });
 
+    const modeAbsen = absensiHariIni && !absensiHariIni.jam_pulang ? 'pulang' : 'masuk';
+
     if (!navigator.geolocation) {
-      const msg = 'Browser Anda tidak mendukung geolokasi.';
-      setLocationError(msg);
-      setToast({
-        show: true,
-        message: msg,
-        type: 'error',
-      });
+      setLocationError('Browser tidak mendukung GPS.');
       return;
     }
 
-    setLocating(true);
-    setToast({
-      show: true,
-      message: 'Mencari lokasi (mencapai akurasi tinggi)...',
-      type: 'success',
-    });
+    let finalLat = null, finalLng = null, finalAcc = null, finalTs = null;
 
-    const req = getPrecisePosition({ desiredAccuracy: 30, timeout: 30000 });
-    locateRequestRef.current = req;
+    if (coords && coords.latitude && coords.longitude) {
+       console.log("Using cached location");
+       finalLat = coords.latitude;
+       finalLng = coords.longitude;
+       finalAcc = coords.accuracy;
+       finalTs  = coords.timestamp;
+    } else {
+       setLocating(true);
+       setToast({ show: true, message: 'Mencari titik GPS...', type: 'success' });
+       try {
+         const req = getPrecisePosition({ desiredAccuracy: 50, timeout: 10000 });
+         locateRequestRef.current = req;
+         const pos = await req.promise;
+         finalLat = pos.coords.latitude;
+         finalLng = pos.coords.longitude;
+         finalAcc = Math.round(pos.coords.accuracy);
+         finalTs  = pos.timestamp;
+         setCoords({ latitude: finalLat, longitude: finalLng, accuracy: finalAcc, timestamp: finalTs });
+         setMapCenterMode('student');
+       } catch (err) {
+         setLocating(false);
+         const errMsg = err.message || 'Gagal mengunci GPS. Pastikan izin lokasi aktif.';
+         setLocationError(errMsg);
+         setToast({ show: true, message: errMsg, type: 'error' });
+         return; 
+       }
+    }
 
-    try {
-      const position = await req.promise;
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-      const accuracy = Math.round(position.coords.accuracy || 0);
-      const ts = position.timestamp || Date.now();
+    setLocating(false);
+    locateRequestRef.current = null;
 
-      setCoords({ latitude: lat, longitude: lng, accuracy, timestamp: ts });
-      setMapCenterMode('student');
-
-      if (
-        pengaturan &&
-        pengaturan.lokasi_sekolah_latitude &&
-        pengaturan.lokasi_sekolah_longitude
-      ) {
-        const schoolLat = parseFloat(pengaturan.lokasi_sekolah_latitude);
-        const schoolLng = parseFloat(pengaturan.lokasi_sekolah_longitude);
-        const dist = Math.round(getDistanceMeters(schoolLat, schoolLng, lat, lng));
+    if (pengaturan?.lokasi_sekolah_latitude && pengaturan?.lokasi_sekolah_longitude) {
+        const dist = Math.round(getDistanceMeters(parseFloat(pengaturan.lokasi_sekolah_latitude), parseFloat(pengaturan.lokasi_sekolah_longitude), finalLat, finalLng));
         setDistanceToSchool(dist);
-
         const allowed = parseInt(pengaturan.radius_absen_meters || 200, 10);
         if (dist > allowed) {
-          setToast({
-            show: true,
-            message: `Anda berada ${dist} m dari titik sekolah (batas ${allowed} m). Absen ditolak.`,
-            type: 'error',
-          });
-          setLocating(false);
-          return;
+            setToast({ show: true, message: `Jarak ${dist}m (Max ${allowed}m). Terlalu jauh!`, type: 'error' });
+            return;
         }
-      }
-
-      const payload = {
-        latitude: String(lat),
-        longitude: String(lng),
-        accuracy: String(accuracy),
-        timestamp: new Date(ts).toISOString(),
-      };
-
-      post(route('siswa.absensi.store'), {
-        data: payload,
-        preserveScroll: true,
-        onStart: () =>
-          setToast({
-            show: true,
-            message: 'Mengirim lokasi & menyimpan absensi...',
-            type: 'success',
-          }),
-        onSuccess: () =>
-          setToast({
-            show: true,
-            message: 'Absensi berhasil terekam ✔',
-            type: 'success',
-          }),
-        onError: (errors) => {
-          console.error('SERVER ERR', errors);
-          const msg =
-            errors.latitude ||
-            errors.longitude ||
-            (errors.message ? errors.message : 'Gagal absen, periksa konsol.');
-          setToast({ show: true, message: msg, type: 'error' });
-        },
-      });
-    } catch (err) {
-      console.error('Geolocation failed:', err);
-      const errMsg =
-        err && err.message
-          ? err.message
-          : 'Gagal mendapatkan lokasi. Coba lagi atau periksa pengaturan lokasi Anda.';
-      setLocationError(errMsg);
-      setToast({ show: true, message: errMsg, type: 'error' });
-    } finally {
-      setLocating(false);
-      locateRequestRef.current = null;
     }
+
+    const payload = {
+        latitude: String(finalLat),
+        longitude: String(finalLng),
+        accuracy: String(finalAcc),
+        mode: modeAbsen,
+    };
+
+    router.post(route('siswa.absensi.store'), payload, {
+        preserveScroll: true,
+        onStart: () => {
+            setIsSubmitting(true);
+            setToast({ show: true, message: 'Menghubungi server...', type: 'success' });
+        },
+        onFinish: () => {
+            setIsSubmitting(false);
+        },
+        onSuccess: () => {
+             setToast({ show: true, message: 'Berhasil disimpan! ✔', type: 'success' });
+        },
+        onError: (errors) => {
+             const msg = errors.latitude || errors.longitude || errors.message || 'Terjadi kesalahan sistem.';
+             setToast({ show: true, message: msg, type: 'error' });
+             setLocationError(msg);
+        }
+    });
   };
 
   const cancelLocating = () => {
-    if (locateRequestRef.current && typeof locateRequestRef.current.stop === 'function') {
+    if (locateRequestRef.current) {
       locateRequestRef.current.stop();
       locateRequestRef.current = null;
       setLocating(false);
-      setToast({
-        show: true,
-        message: 'Pencarian lokasi dibatalkan',
-        type: 'error',
-      });
+      setToast({ show: true, message: 'Dibatalkan', type: 'error' });
     }
   };
 
-  // ===================== foto profil =====================
-  const fallbackAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    siswa?.nama_lengkap || 'Siswa'
-  )}&background=7c3aed&color=fff`;
-
-  const profilePhotoUrl = siswa?.foto_profil_url || fallbackAvatarUrl;
-
-  const historyFilterLabel =
-    historyFilter === 'week' ? 'Mingguan' : historyFilter === 'month' ? 'Bulanan' : 'Tahunan';
+  const profilePhotoUrl = siswa?.foto_profil_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(siswa?.nama_lengkap || 'Siswa')}&background=0ea5e9&color=fff`;
+  const isCheckedIn = !!absensiHariIni;
+  const isCheckedOut = absensiHariIni && !!absensiHariIni.jam_pulang;
 
   return (
-    <SiswaLayout
-      header="Absensi"
-      className="bg-gradient-to-b from-sky-50 via-white to-slate-50"
-    >
-      <Head title="Absensi Siswa" />
+    <SiswaLayout header="Dashboard" className="bg-slate-50 font-sans">
+      <Head title="Dashboard Siswa" />
+      <Toast show={toast.show} type={toast.type} message={toast.message} onClose={() => setToast((s) => ({ ...s, show: false }))} />
 
-      <Toast
-        show={toast.show}
-        type={toast.type}
-        message={toast.message}
-        onClose={() => setToast((s) => ({ ...s, show: false }))}
-      />
-
-      <main className="max-w-6xl lg:max-w-7xl mx-auto px-4 sm:px-6 pb-32 pt-4 sm:pt-6">
-        {/* Strip informasi singkat */}
-        <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-sky-700 font-semibold">
-              Area Siswa • Presensi Harian
-            </p>
-            <p className="text-xs text-gray-500">
-              Data lokasi dan kehadiran Anda tersimpan aman dan hanya digunakan untuk
-              keperluan akademik sekolah.
-            </p>
-          </div>
-          <div className="text-xs text-gray-500">
-            Rekap 30 hari terakhir:{' '}
-            <span className="font-semibold text-gray-800">
-              {summary.hadir} hadir, {summary.izin} izin, {summary.sakit} sakit,{' '}
-              {summary.alfa} alfa
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Kolom kiri: Profil + Absensi */}
-          <div className="lg:col-span-3 space-y-5">
-            {/* Profile */}
-            <section>
-              <div className="bg-white rounded-2xl shadow-md overflow-hidden border border-slate-100/60">
-                <div className="p-4 flex items-center gap-4">
-                  <div className="relative">
-                    <img
-                      src={profilePhotoUrl}
-                      alt={siswa?.nama_lengkap}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = fallbackAvatarUrl;
-                      }}
+      {/* HERO SECTION */}
+      <div className="bg-slate-900 pb-20 pt-8 px-4 sm:px-6 lg:px-8 shadow-xl">
+         <div className="max-w-6xl lg:max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex flex-col md:flex-row items-center gap-5 text-center md:text-left">
+                    <img 
+                        src={profilePhotoUrl} 
+                        alt="Profile" 
+                        className="w-20 h-20 md:w-20 md:h-20 rounded-2xl border-4 border-slate-700 shadow-lg object-cover bg-slate-800"
+                        onError={(e) => { e.target.onerror = null; e.target.src = fallbackAvatarUrl; }} 
                     />
-                    <span
-                      className="absolute -right-0 -bottom-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white"
-                      aria-hidden
-                    ></span>
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {siswa?.nama_panggilan || siswa?.nama_lengkap}
+                    <div>
+                        <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{siswa?.nama_lengkap}</h2>
+                        <div className="text-slate-400 text-sm font-medium flex items-center justify-center md:justify-start gap-2 mt-1">
+                            <span className="bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/50">{siswa?.kelas ? `${siswa.kelas.tingkat} ${siswa.kelas.jurusan}` : 'Siswa'}</span>
+                            <span>•</span>
+                            <span className="opacity-80">NIS: {siswa?.nis || '-'}</span>
+                        </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {siswa?.kelas
-                        ? `${siswa.kelas.tingkat} ${siswa.kelas.jurusan}`
-                        : '-'}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      NIS:{' '}
-                      <span className="font-medium text-gray-700">
-                        {siswa?.nis || '-'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => {
-                        setMapCenterMode('school');
-                        setMapOpen(true);
-                      }}
-                      className="flex items-center gap-2 text-xs px-3 py-2 bg-sky-50 border border-sky-100 rounded-lg"
-                      aria-label="Lihat peta sekolah"
-                    >
-                      <MapPinIcon className="w-4 h-4 text-sky-600" />
-                      <span className="text-sky-700 font-medium">Peta Sekolah</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (coords) {
-                          setMapCenterMode('student');
-                          setMapOpen(true);
-                        } else {
-                          setToast({
-                            show: true,
-                            message:
-                              'Lokasi Anda belum tersedia. Tekan tombol Absen untuk mengizinkan lokasi.',
-                            type: 'error',
-                          });
-                        }
-                      }}
-                      className="flex items-center gap-2 text-xs px-3 py-2 bg-white border border-gray-100 rounded-lg shadow-sm"
-                    >
-                      <span className="text-gray-700 font-medium">
-                        Tampilkan Lokasi Saya
-                      </span>
-                    </button>
-                  </div>
                 </div>
 
-                <div className="p-3 bg-gradient-to-r from-sky-50 to-indigo-50 border-t">
-                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                    <div>
-                      <div className="text-sm font-bold text-gray-900">
-                        {summary.hadir}
-                      </div>
-                      <div className="text-gray-400">Hadir</div>
+                {/* Mini Stats (Fixed Mobile) */}
+                <div className="grid grid-cols-3 gap-2 w-full md:w-auto md:flex md:gap-4 mt-4 md:mt-0">
+                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl px-3 py-3 md:px-5 text-center border border-slate-700/50 md:min-w-[100px]">
+                        <div className="text-xl md:text-2xl font-bold text-white">{summary.hadir}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Hadir</div>
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-gray-900">
-                        {summary.sakit}
-                      </div>
-                      <div className="text-gray-400">Sakit</div>
+                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl px-3 py-3 md:px-5 text-center border border-slate-700/50 md:min-w-[100px]">
+                        <div className="text-xl md:text-2xl font-bold text-white">{summary.sakit + summary.izin}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Izin/Sakit</div>
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-gray-900">
-                        {summary.izin}
-                      </div>
-                      <div className="text-gray-400">Izin</div>
+                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl px-3 py-3 md:px-5 text-center border border-slate-700/50 md:min-w-[100px]">
+                        <div className="text-xl md:text-2xl font-bold text-rose-400">{summary.alfa}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-rose-400/80 font-bold">Alfa</div>
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-gray-900">
-                        {summary.alfa}
-                      </div>
-                      <div className="text-gray-400">Alfa</div>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            </section>
+            </div>
+         </div>
+      </div>
 
-            {/* Absensi + small map preview */}
-            <section>
-              <div className="bg-white rounded-2xl shadow-lg p-4 border border-slate-100/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">
-                      Absensi Hari Ini
-                    </h3>
-                    <p className="text-xs text-gray-500">{tanggalHariIni}</p>
-                  </div>
-                  <div className="text-xs text-gray-400">Status</div>
-                </div>
-
-                <div className="mt-4">
-                  <DigitalClock />
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-3">
-                  {(pengaturan?.lokasi_sekolah_latitude &&
-                    pengaturan?.lokasi_sekolah_longitude) ||
-                  coords ? (
-                    <div>
-                      <label className="text-xs font-medium text-gray-600">
-                        Preview Peta (Preferensi: {mapCenterMode})
-                      </label>
-                      <div className="mt-2">
-                        <Suspense
-                          fallback={
-                            <div className="h-40 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
-                              Memuat peta...
+      <main className="max-w-6xl lg:max-w-7xl mx-auto px-4 sm:px-6 -mt-12 pb-32 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* KOLOM KIRI: MAIN ACTION */}
+          <div className="lg:col-span-2 space-y-6">
+            <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden relative group hover:shadow-md transition-all duration-300">
+                <div className={`h-1.5 w-full ${isCheckedOut ? 'bg-emerald-500' : isCheckedIn ? 'bg-amber-500' : 'bg-slate-200'}`}></div>
+                
+                <div className="p-6 md:p-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 bg-slate-50 rounded-lg">
+                                <ClockIcon className="w-5 h-5 text-slate-500"/>
                             </div>
-                          }
-                        >
-                          <MapEmbed
-                            schoolLat={pengaturan?.lokasi_sekolah_latitude}
-                            schoolLng={pengaturan?.lokasi_sekolah_longitude}
-                            studentCoords={coords}
-                            radius={parseInt(
-                              pengaturan?.radius_absen_meters || 200,
-                              10
-                            )}
-                            small={true}
-                            centerMode={mapCenterMode}
-                          />
-                        </Suspense>
-                      </div>
+                            <h3 className="font-bold text-slate-800 text-lg">Absensi Hari Ini</h3>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
+                            isCheckedOut ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                            isCheckedIn ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                            'bg-slate-50 text-slate-500 border-slate-100'
+                        }`}>
+                            {isCheckedOut ? 'Selesai' : isCheckedIn ? 'Di Sekolah' : 'Belum Hadir'}
+                        </span>
                     </div>
-                  ) : null}
 
-                  <div>
-                    {absensiHariIni ? (
-                      <div className="rounded-lg bg-emerald-50 border-l-4 border-emerald-400 p-3 flex items-start gap-3">
-                        <CheckCircleIcon className="w-6 h-6 text-emerald-600" />
+                    <DigitalClock />
+
+                    <div className="mt-8 max-w-lg mx-auto space-y-6">
+                        {/* Map Area */}
+                        {(pengaturan?.lokasi_sekolah_latitude && !isCheckedOut) && (
+                            <div className="relative group rounded-2xl overflow-hidden shadow-sm border border-slate-200">
+                                <Suspense fallback={<div className="h-52 bg-slate-100 animate-pulse rounded-2xl"/>}>
+                                    <MapEmbed 
+                                        schoolLat={pengaturan.lokasi_sekolah_latitude} 
+                                        schoolLng={pengaturan.lokasi_sekolah_longitude}
+                                        studentCoords={coords}
+                                        radius={pengaturan.radius_absen_meters}
+                                        small={true}
+                                        centerMode={mapCenterMode}
+                                    />
+                                </Suspense>
+                                
+                                <div className="absolute top-3 right-3 flex flex-col gap-2 z-[1]">
+                                    <button 
+                                        onClick={() => { setMapCenterMode('school'); setMapOpen(true); }}
+                                        className="bg-white p-2.5 rounded-xl shadow-md text-slate-500 hover:text-sky-600 transition border border-slate-100"
+                                        title="Perbesar Peta"
+                                    >
+                                        <MapPinSolid className="w-5 h-5"/>
+                                    </button>
+                                </div>
+
+                                {distanceToSchool !== null && (
+                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1] bg-white/95 backdrop-blur px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 shadow-md border border-slate-100 flex items-center gap-2">
+                                        <span>Jarak ke Sekolah:</span>
+                                        <span className={distanceToSchool > (pengaturan?.radius_absen_meters || 200) ? "text-rose-600" : "text-emerald-600"}>{distanceToSchool}m</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* --- TOMBOL ABSEN / STATUS --- */}
                         <div>
-                          <div className="font-semibold text-emerald-800">
-                            Anda Sudah Absen
-                          </div>
-                          <div className="text-xs text-emerald-700 mt-1">
-                            Jam masuk:{' '}
-                            <strong>
-                              {formatTime(absensiHariIni.jam_masuk)}
-                            </strong>
-                            {absensiHariIni.jam_pulang && (
-                              <span>
-                                {' '}
-                                • Jam pulang:{' '}
-                                <strong>
-                                  {formatTime(absensiHariIni.jam_pulang)}
-                                </strong>
-                              </span>
+                            {isCheckedOut ? (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-4 text-center md:text-left">
+                                    <div className="bg-white p-3 rounded-full shadow-sm text-emerald-500 border border-emerald-100">
+                                        <CheckCircleIcon className="w-8 h-8"/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-emerald-900 text-lg">Sampai Jumpa Besok!</div>
+                                        <div className="text-sm text-emerald-700 opacity-90 mt-1">Terima kasih, data kehadiran Anda hari ini sudah lengkap.</div>
+                                        <div className="text-xs mt-3 font-mono font-medium text-emerald-800 bg-white/60 px-3 py-1 rounded-lg border border-emerald-100/50 inline-block">
+                                            Masuk: {formatTime(absensiHariIni.jam_masuk)} • Pulang: {formatTime(absensiHariIni.jam_pulang)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : isTimeUp && !isCheckedIn ? (
+                                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 text-center">
+                                    <NoSymbolIcon className="w-12 h-12 text-rose-400 mx-auto mb-3"/>
+                                    <h3 className="font-bold text-rose-800 text-lg">Batas Waktu Habis</h3>
+                                    <p className="text-sm text-rose-600 mt-1 max-w-xs mx-auto">Anda tidak dapat melakukan absen masuk karena waktu telah berakhir. Silakan lapor ke guru piket.</p>
+                                </div>
+                            ) : isTooEarly ? (
+                                // ✅ TAMPILAN JIKA BELUM WAKTUNYA ABSEN (MASUK / PULANG)
+                                <div className="bg-sky-50 border border-sky-100 rounded-2xl p-6 text-center">
+                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-sky-100">
+                                        <ClockSolid className="w-6 h-6 text-sky-500"/>
+                                    </div>
+                                    <h3 className="font-bold text-sky-800 text-lg">
+                                        {isCheckedIn ? 'Belum Waktunya Pulang' : 'Absensi Belum Dibuka'}
+                                    </h3>
+                                    <p className="text-sm text-sky-600 mt-1 max-w-xs mx-auto">
+                                        Silakan tunggu. {isCheckedIn ? 'Absensi pulang' : 'Absensi masuk'} akan dibuka pada pukul <strong className="font-mono bg-sky-100 px-1 rounded">{earlyTimeStr}</strong>.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <form onSubmit={handleAbsen}>
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmitting || locating}
+                                            className={`w-full group relative overflow-hidden rounded-2xl py-4 px-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] disabled:opacity-70 disabled:cursor-wait ${
+                                                isCheckedIn 
+                                                ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-orange-500/20' 
+                                                : 'bg-gradient-to-r from-sky-500 to-indigo-600 shadow-sky-500/20'
+                                            }`}
+                                        >
+                                            <div className="relative z-10 flex items-center justify-center gap-3 text-white">
+                                                {(isSubmitting || locating) ? (
+                                                    <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                ) : isCheckedIn ? (
+                                                    <ArrowRightOnRectangleIcon className="w-6 h-6"/>
+                                                ) : (
+                                                    <ClockSolid className="w-6 h-6"/>
+                                                )}
+
+                                                <div className="text-left">
+                                                    <span className="block font-bold text-lg leading-none">
+                                                        {locating 
+                                                            ? 'Mencari Lokasi...' 
+                                                            : isSubmitting 
+                                                                ? 'Mengirim Data...' 
+                                                                : isCheckedIn ? 'Absen Pulang' : 'Absen Masuk'}
+                                                    </span>
+                                                    {!isSubmitting && !locating && (
+                                                        <span className="text-[10px] uppercase tracking-wider opacity-80 font-medium block mt-1">
+                                                            {isCheckedIn ? 'Ketuk untuk pulang' : 'Ketuk untuk masuk'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-0"></div>
+                                        </button>
+
+                                        {locating && (
+                                            <button type="button" onClick={cancelLocating} className="mt-4 w-full text-center text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-rose-500 transition">
+                                                Batalkan Pencarian Lokasi
+                                            </button>
+                                        )}
+                                    </form>
+
+                                    {locationError && (
+                                        <div className="mt-4 p-3 bg-rose-50 text-rose-600 text-xs font-medium rounded-xl text-center border border-rose-100 animate-fade-in-up">
+                                            {locationError}
+                                        </div>
+                                    )}
+                                </div>
                             )}
-                          </div>
                         </div>
-                      </div>
-                    ) : isTimeUp ? (
-                      <div className="rounded-lg bg-rose-50 border-l-4 border-rose-400 p-3 text-center">
-                        <NoSymbolIcon className="w-6 h-6 text-rose-600 mx-auto" />
-                        <div className="font-semibold text-rose-800 mt-2">
-                          Waktu Absensi Berakhir
-                        </div>
-                        <div className="text-xs text-rose-700 mt-1">
-                          Silakan lapor ke guru piket untuk absensi manual.
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <form onSubmit={handleAbsen}>
-                          <div className="flex gap-2">
-                            <button
-                              type="submit"
-                              disabled={processing || locating}
-                              aria-label="Absen Masuk Sekarang"
-                              className={`flex-1 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none focus:ring-4 focus:ring-sky-200 transform transition ${
-                                processing || locating
-                                  ? 'opacity-60 cursor-wait'
-                                  : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.01]'
-                              }`}
-                            >
-                              <div className="flex items-center justify-center gap-3">
-                                <ClockIcon className="w-5 h-5" />
-                                <span>
-                                  {processing || locating
-                                    ? 'Memproses...'
-                                    : 'Absen Masuk Sekarang'}
-                                </span>
-                              </div>
-                            </button>
-
-                            {locating && (
-                              <button
-                                type="button"
-                                onClick={cancelLocating}
-                                className="px-3 py-3 rounded-xl bg-white border text-sm shadow-sm"
-                              >
-                                Batal
-                              </button>
-                            )}
-                          </div>
-                        </form>
-
-                        {coords && (
-                          <div className="p-3 bg-sky-50 rounded-lg text-xs text-gray-700">
-                            <div className="flex items-center justify-between">
-                              <div className="truncate">
-                                Koordinat: {coords.latitude.toFixed(6)},{' '}
-                                {coords.longitude.toFixed(6)}
-                              </div>
-                              <button
-                                onClick={() => {
-                                  setCoords(null);
-                                  setDistanceToSchool(null);
-                                  setMapCenterMode('school');
-                                }}
-                                aria-label="Reset koordinat"
-                                className="ml-2 p-1 rounded-md bg-white shadow-sm"
-                              >
-                                <XMarkIcon className="w-4 h-4 text-gray-600" />
-                              </button>
+                        
+                        {/* Info Lokasi Text */}
+                        {coords && !isCheckedOut && (
+                            <div className="flex justify-center items-center gap-4 text-xs text-slate-400">
+                                <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                                    <MapPinIcon className="w-3.5 h-3.5 text-slate-500"/>
+                                    <span>Akurasi GPS: <strong>{coords.accuracy}m</strong></span>
+                                </div>
+                                <button onClick={() => { setCoords(null); setDistanceToSchool(null); setMapCenterMode('school'); }} className="hover:text-sky-600 font-medium underline decoration-slate-300 underline-offset-2 hover:decoration-sky-600 transition">
+                                    Reset GPS
+                                </button>
                             </div>
-
-                            <div className="mt-1 text-xs text-gray-500">
-                              Akurasi:{' '}
-                              <strong>
-                                {coords.accuracy
-                                  ? `${coords.accuracy} m`
-                                  : '-'}
-                              </strong>{' '}
-                              • Waktu:{' '}
-                              {coords.timestamp
-                                ? new Date(
-                                    coords.timestamp
-                                  ).toLocaleTimeString()
-                                : '-'}
-                            </div>
-
-                            {distanceToSchool !== null && (
-                              <div className="mt-3 text-xs text-gray-500">
-                                Jarak ke sekolah:{' '}
-                                <strong>{distanceToSchool} m</strong>
-                              </div>
-                            )}
-
-                            <div className="mt-2">
-                              <button
-                                onClick={() => {
-                                  setMapCenterMode('student');
-                                  setMapOpen(true);
-                                }}
-                                className="text-xs px-3 py-2 rounded-md bg-white border border-gray-100 shadow-sm"
-                              >
-                                Tampilkan Lokasi Saya
-                              </button>
-                            </div>
-                          </div>
                         )}
-
-                        {locationError && (
-                          <div className="text-xs text-rose-600 text-center">
-                            {locationError}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="bg-blue-50 border border-blue-100 text-blue-800 px-3 py-2 rounded-lg flex items-start gap-3 text-xs">
-                    <InformationCircleIcon className="w-5 h-5" />
-                    <div>
-                      Pastikan lokasi & koneksi Anda aktif. Jika perangkat
-                      meminta izin lokasi, pilih <strong>Izinkan</strong>.
                     </div>
-                  </div>
                 </div>
-              </div>
             </section>
           </div>
 
-          {/* Kolom kanan: Rekap & Riwayat */}
-          <div className="lg:col-span-2">
-            <section>
-              <div className="bg-white rounded-2xl shadow-md p-4 h-full flex flex-col border border-slate-100/60">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900">
-                      Rekap & Riwayat
-                    </h4>
-                    <div className="text-xs text-gray-400">
-                      Periode: {historyFilterLabel}
+          {/* KOLOM KANAN: RIWAYAT */}
+          <div className="lg:col-span-1">
+            <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 h-full flex flex-col">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 bg-sky-50 rounded-lg">
+                            <CalendarDaysIcon className="w-5 h-5 text-sky-600"/>
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Riwayat</h4>
                     </div>
-                  </div>
-
-                  <div className="inline-flex items-center bg-gray-50 rounded-full p-1 text-xs">
-                    {[
-                      { value: 'week', label: 'Minggu' },
-                      { value: 'month', label: 'Bulan' },
-                      { value: 'year', label: 'Tahun' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setHistoryFilter(opt.value)}
-                        className={`px-3 py-1 rounded-full transition ${
-                          historyFilter === opt.value
-                            ? 'bg-sky-600 text-white shadow-sm'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Rekap kecil */}
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-sky-50 text-center">
-                    <div className="text-lg font-bold">
-                      {historySummary.hadir}
-                    </div>
-                    <div className="text-xs text-gray-500">Hadir</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-yellow-50 text-center">
-                    <div className="text-lg font-bold">
-                      {historySummary.sakit}
-                    </div>
-                    <div className="text-xs text-gray-500">Sakit</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-blue-50 text-center">
-                    <div className="text-lg font-bold">
-                      {historySummary.izin}
-                    </div>
-                    <div className="text-xs text-gray-500">Izin</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-rose-50 text-center">
-                    <div className="text-lg font-bold">
-                      {historySummary.alfa}
-                    </div>
-                    <div className="text-xs text-gray-500">Alfa</div>
-                  </div>
-                </div>
-
-                {/* Daftar riwayat */}
-                <div className="mt-4 border-t pt-3 flex-1 min-h-[120px]">
-                  <ul className="space-y-2">
-                    {filteredRiwayat.slice(0, 5).map((item) => {
-                      const t = new Date(item.tanggal);
-                      const isToday =
-                        t.toDateString() === new Date().toDateString();
-
-                      return (
-                        <li
-                          key={item.id_absensi}
-                          className={`py-3 px-3 flex items-center justify-between rounded-lg transition ${
-                            isToday
-                              ? 'bg-emerald-50/90 ring-2 ring-emerald-300 shadow-md animate-pulse'
-                              : 'bg-gray-50/70 border border-gray-100 hover:bg-white'
-                          }`}
+                    
+                    <div className="relative">
+                        <select 
+                            value={historyFilter} 
+                            onChange={(e) => setHistoryFilter(e.target.value)}
+                            className="appearance-none text-xs font-bold border-slate-200 rounded-lg py-2 pl-3 pr-8 focus:ring-sky-500 focus:border-sky-500 bg-slate-50 text-slate-600 cursor-pointer hover:bg-slate-100 transition"
                         >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm font-medium text-gray-800">
-                                {t.toLocaleDateString('id-ID', {
-                                  weekday: 'short',
-                                  day: '2-digit',
-                                  month: 'short',
-                                })}
-                              </div>
-                              {isToday && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white shadow-sm">
-                                  Hari ini
+                            <option value="week">Minggu Ini</option>
+                            <option value="month">Bulan Ini</option>
+                            <option value="year">Tahun Ini</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-2 -mr-2 space-y-3 custom-scrollbar" style={{maxHeight: '600px'}}>
+                    {filteredRiwayat.length > 0 ? filteredRiwayat.map((item) => (
+                        <div key={item.id_absensi} className="group relative bg-white border border-slate-100 rounded-2xl p-4 hover:border-sky-200 hover:shadow-md transition-all duration-300">
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <div className="font-bold text-slate-700 text-sm">
+                                        {new Date(item.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                                        {new Date(item.tanggal).getFullYear()}
+                                    </div>
+                                </div>
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
+                                    item.status_kehadiran === 'Hadir' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                    item.status_kehadiran === 'Sakit' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
+                                    item.status_kehadiran === 'Izin' ? 'bg-sky-50 text-sky-600 border-sky-100' :
+                                    'bg-rose-50 text-rose-600 border-rose-100'
+                                }`}>
+                                    {item.status_kehadiran}
                                 </span>
-                              )}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {formatTime(item.jam_masuk)}
+                            
+                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                                <div className="bg-slate-50 rounded-lg p-2 border border-slate-100 flex items-center gap-2 group-hover:bg-sky-50/50 group-hover:border-sky-100 transition-colors">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                                    <span className="font-mono font-medium">{formatTime(item.jam_masuk)}</span>
+                                </div>
+                                <div className="bg-slate-50 rounded-lg p-2 border border-slate-100 flex items-center gap-2 group-hover:bg-amber-50/50 group-hover:border-amber-100 transition-colors">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${item.jam_pulang ? 'bg-amber-400' : 'bg-slate-300'}`}></div>
+                                    <span className="font-mono font-medium">{formatTime(item.jam_pulang)}</span>
+                                </div>
                             </div>
-                          </div>
-                          <div
-                            className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                              item.status_kehadiran === 'Hadir'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : item.status_kehadiran === 'Sakit'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : item.status_kehadiran === 'Izin'
-                                ? 'bg-sky-100 text-sky-700'
-                                : 'bg-rose-100 text-rose-700'
-                            }`}
-                          >
-                            {item.status_kehadiran}
-                          </div>
-                        </li>
-                      );
-                    })}
-
-                    {filteredRiwayat.length === 0 && (
-                      <li className="py-3 text-sm text-gray-500 text-center">
-                        Belum ada riwayat absensi untuk rentang ini.
-                      </li>
+                        </div>
+                    )) : (
+                        <div className="flex flex-col items-center justify-center h-48 text-slate-400 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
+                            <ChartBarIcon className="w-10 h-10 mb-3 opacity-30"/>
+                            <p className="text-sm font-medium">Belum ada riwayat</p>
+                            <p className="text-xs opacity-70">Data absensi akan muncul di sini</p>
+                        </div>
                     )}
-                  </ul>
                 </div>
-
-                {/* Panel kecil soal integritas data */}
-                <div className="mt-3 text-[11px] text-gray-500 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
-                  Data kehadiran tersimpan di server sekolah. Sistem ini tidak
-                  membagikan lokasi Anda ke pihak lain selain pengelola resmi.
-                </div>
-              </div>
             </section>
           </div>
+
         </div>
       </main>
 
-      {/* Fixed bottom CTA (mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 sm:hidden bg-gradient-to-r from-white/70 to-white/70 backdrop-blur-md border-t border-gray-200 px-4 py-3 safe-bottom">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <div className="flex-1">
-            {absensiHariIni ? (
-              <div className="text-xs text-gray-700">
-                Terima kasih — Anda sudah absen ✔
-              </div>
-            ) : isTimeUp ? (
-              <div className="text-xs text-rose-600">
-                Waktu absen telah selesai
-              </div>
-            ) : (
-              <div className="text-xs text-gray-500">
-                Tekan untuk melakukan absensi masuk
-              </div>
-            )}
-          </div>
-          <button
-            onClick={handleAbsen}
-            disabled={processing || !!absensiHariIni || isTimeUp || locating}
-            aria-label="Absen cepat"
-            className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl text-white font-semibold shadow-lg focus:outline-none ${
-              processing || locating
-                ? 'opacity-60 cursor-wait'
-                : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:scale-[1.02] transition-transform'
-            }`}
-          >
-            <ClockIcon className="w-5 h-5" />
-            <span className="text-sm">
-              {processing || locating
-                ? 'Memproses...'
-                : absensiHariIni
-                ? 'Sudah Absen'
-                : 'Absen Sekarang'}
-            </span>
-          </button>
-        </div>
+      {/* Floating Action for Mobile (Only visible on small screens) */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-lg border-t border-slate-200 md:hidden z-50">
+         {!isCheckedOut && (!isTimeUp || isCheckedIn) && (
+            <button
+              onClick={handleAbsen}
+              disabled={isSubmitting || locating || isTooEarly} // Disable jika belum waktunya
+              className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-transform ${
+                  isTooEarly 
+                  ? 'bg-slate-400 cursor-not-allowed shadow-none' // Style tombol mati
+                  : isCheckedIn 
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-orange-500/20' 
+                  : 'bg-gradient-to-r from-sky-500 to-indigo-600 shadow-sky-500/20'
+              } disabled:opacity-70 disabled:cursor-wait`}
+            >
+                {(isSubmitting || locating) ? (
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                ) : isCheckedIn ? (
+                    <ArrowRightOnRectangleIcon className="w-6 h-6"/>
+                ) : isTooEarly ? (
+                    <ClockSolid className="w-6 h-6"/>
+                ) : (
+                    <ClockSolid className="w-6 h-6"/>
+                )}
+                <span>
+                    {locating 
+                        ? 'Mencari Lokasi...' 
+                        : isSubmitting 
+                            ? 'Mengirim Data...' 
+                            : isTooEarly 
+                                ? `Tunggu (${earlyTimeStr})` 
+                                : isCheckedIn ? 'Absen Pulang Sekarang' : 'Absen Masuk Sekarang'}
+                </span>
+            </button>
+         )}
+         {isCheckedOut && (
+             <div className="text-center py-3 text-sm font-bold text-emerald-700 bg-emerald-50 rounded-2xl border border-emerald-200 shadow-sm">
+                 <span className="flex items-center justify-center gap-2">
+                    <CheckCircleIcon className="w-5 h-5"/>
+                    Kehadiran Hari Ini Tuntas
+                 </span>
+             </div>
+         )}
       </div>
 
-      {/* Fullscreen Modal Map */}
+      {/* Fullscreen Map Modal */}
       {mapOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full sm:w-3/4 lg:w-1/2 bg-white rounded-t-xl sm:rounded-xl shadow-xl overflow-hidden">
-            <div className="p-3 flex items-center justify-between border-b">
-              <div className="flex items-center gap-3">
-                <MapPinIcon className="w-5 h-5 text-sky-600" />
-                <div className="text-sm font-semibold">Peta</div>
-                <div className="text-xs text-gray-400 ml-2">
-                  ({mapCenterMode === 'student' ? 'Lokasi Saya' : 'Sekolah'})
-                </div>
+        <div className="fixed inset-0 z-[80] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+           <div className="bg-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl transform transition-all scale-100 border border-white/20">
+              <div className="p-4 md:p-5 border-b border-slate-100 flex justify-between items-center bg-white">
+                 <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <MapPinSolid className="w-6 h-6"/>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-lg">Peta Lokasi</h3>
+                        <p className="text-xs text-slate-500 hidden sm:block">Pastikan posisi Anda berada di dalam lingkaran radius.</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setMapOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition text-slate-400 hover:text-slate-600">
+                    <XMarkIcon className="w-7 h-7"/>
+                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setMapCenterMode('school');
-                  }}
-                  className={`text-xs px-2 py-1 rounded ${
-                    mapCenterMode === 'school'
-                      ? 'bg-sky-50 border'
-                      : 'bg-white'
-                  }`}
-                >
-                  Sekolah
-                </button>
-                <button
-                  onClick={() => {
-                    if (coords) setMapCenterMode('student');
-                    else
-                      setToast({
-                        show: true,
-                        message:
-                          'Lokasi belum tersedia. Tekan absen untuk kirim lokasi dulu.',
-                        type: 'error',
-                      });
-                  }}
-                  className={`text-xs px-2 py-1 rounded ${
-                    mapCenterMode === 'student'
-                      ? 'bg-sky-50 border'
-                      : 'bg-white'
-                  }`}
-                >
-                  Lokasi Saya
-                </button>
-                <button
-                  onClick={() => setMapOpen(false)}
-                  className="p-2 rounded-md bg-gray-100"
-                >
-                  <XMarkIcon className="w-4 h-4" />
-                </button>
+              <div className="p-0 h-[60vh] md:h-[500px] relative bg-slate-100">
+                 <Suspense fallback={<div className="h-full flex items-center justify-center bg-slate-100 text-slate-400 font-medium">Memuat peta...</div>}>
+                    <MapEmbed 
+                       schoolLat={pengaturan?.lokasi_sekolah_latitude} 
+                       schoolLng={pengaturan?.lokasi_sekolah_longitude}
+                       studentCoords={coords}
+                       radius={pengaturan?.radius_absen_meters}
+                       small={false}
+                       centerMode={mapCenterMode}
+                    />
+                 </Suspense>
+                 
+                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-[400]">
+                    <button 
+                        onClick={() => setMapCenterMode('school')} 
+                        className={`px-5 py-2.5 rounded-full text-sm font-bold shadow-lg transition-transform active:scale-95 flex items-center gap-2 ${mapCenterMode === 'school' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                    >
+                        <MapPinSolid className="w-4 h-4"/> Sekolah
+                    </button>
+                    <button 
+                        onClick={() => setMapCenterMode('student')} 
+                        className={`px-5 py-2.5 rounded-full text-sm font-bold shadow-lg transition-transform active:scale-95 flex items-center gap-2 ${mapCenterMode === 'student' ? 'bg-sky-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                    >
+                        <MapPinSolid className="w-4 h-4"/> Posisi Saya
+                    </button>
+                 </div>
               </div>
-            </div>
-            <div className="p-4">
-              <Suspense
-                fallback={
-                  <div className="h-64 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
-                    Memuat peta...
-                  </div>
-                }
-              >
-                <MapEmbed
-                  schoolLat={pengaturan?.lokasi_sekolah_latitude}
-                  schoolLng={pengaturan?.lokasi_sekolah_longitude}
-                  studentCoords={coords}
-                  radius={parseInt(
-                    pengaturan?.radius_absen_meters || 200,
-                    10
-                  )}
-                  small={false}
-                  centerMode={mapCenterMode}
-                />
-              </Suspense>
-            </div>
-          </div>
+           </div>
         </div>
       )}
     </SiswaLayout>

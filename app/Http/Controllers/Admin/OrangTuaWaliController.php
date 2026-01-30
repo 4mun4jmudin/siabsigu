@@ -17,11 +17,13 @@ use Illuminate\Support\Str;
 
 class OrangTuaWaliController extends Controller
 {
-    /**
-     * Menampilkan halaman daftar orang tua/wali dengan statistik.
-     */
+    // ... [Method index, create, store, show, edit, update biarkan seperti semula] ...
+    // Agar file tidak kepanjangan, saya tulis ulang method INDEX sampai UPDATE sama persis, 
+    // FOKUS PERUBAHAN ada di method resetPasswordIndex dan resetPasswordStore di bawah.
+
     public function index(Request $request)
     {
+        // ... (Kode Index kamu yg lama tetap dipakai)
         $stats = [
             'total' => OrangTuaWali::count(),
             'ayah' => OrangTuaWali::where('hubungan', 'Ayah')->count(),
@@ -51,23 +53,15 @@ class OrangTuaWaliController extends Controller
         ]);
     }
 
-    /**
-     * Menampilkan form untuk menambah data orang tua/wali baru.
-     */
     public function create()
     {
         $siswaOptions = Siswa::whereDoesntHave('orangTuaWali')->where('status', 'Aktif')->get();
-
-        return Inertia::render('admin/OrangTuaWali/Create', [
-            'siswaOptions' => $siswaOptions,
-        ]);
+        return Inertia::render('admin/OrangTuaWali/Create', ['siswaOptions' => $siswaOptions]);
     }
 
-    /**
-     * Menyimpan data orang tua/wali baru beserta akun penggunanya.
-     */
     public function store(Request $request)
     {
+        // ... (Logic store kamu yg lama)
         $request->validate([
             'id_siswa' => 'required|exists:tbl_siswa,id_siswa|unique:tbl_orang_tua_wali,id_siswa',
             'nama_lengkap' => 'required|string|max:100',
@@ -106,13 +100,9 @@ class OrangTuaWaliController extends Controller
                 'no_telepon_wa' => $request->no_telepon_wa,
             ]);
         });
-
         return to_route('admin.orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil ditambahkan.');
     }
 
-    /**
-     * Menampilkan halaman detail lengkap untuk satu orang tua/wali.
-     */
     public function show(OrangTuaWali $orangTuaWali)
     {
         $orangTuaWali->load(['siswa.kelas', 'pengguna']);
@@ -120,36 +110,22 @@ class OrangTuaWaliController extends Controller
             ->latest('tanggal')
             ->take(5)
             ->get();
-
-        return Inertia::render('admin/OrangTuaWali/Show', [
-            'wali' => $orangTuaWali,
-            'absensiSiswa' => $absensiSiswa,
-        ]);
+        return Inertia::render('admin/OrangTuaWali/Show', ['wali' => $orangTuaWali, 'absensiSiswa' => $absensiSiswa]);
     }
 
-    /**
-     * Menampilkan form untuk mengedit data orang tua/wali.
-     */
     public function edit(OrangTuaWali $orangTuaWali)
     {
         $orangTuaWali->load('pengguna');
         $siswaOptions = Siswa::where('status', 'Aktif')
             ->where(function ($query) use ($orangTuaWali) {
-                $query->whereDoesntHave('orangTuaWali')
-                      ->orWhere('id_siswa', $orangTuaWali->id_siswa);
+                $query->whereDoesntHave('orangTuaWali')->orWhere('id_siswa', $orangTuaWali->id_siswa);
             })->get();
-
-        return Inertia::render('admin/OrangTuaWali/Edit', [
-            'wali' => $orangTuaWali,
-            'siswaOptions' => $siswaOptions,
-        ]);
+        return Inertia::render('admin/OrangTuaWali/Edit', ['wali' => $orangTuaWali, 'siswaOptions' => $siswaOptions]);
     }
 
-    /**
-     * Memperbarui data orang tua/wali di database.
-     */
     public function update(Request $request, OrangTuaWali $orangTuaWali)
     {
+        // ... (Logic update kamu yg lama)
         $user = $orangTuaWali->pengguna;
         $userId = $user ? $user->id_pengguna : null;
 
@@ -170,7 +146,6 @@ class OrangTuaWaliController extends Controller
 
         DB::transaction(function () use ($request, $orangTuaWali, $user) {
             $orangTuaWali->update($request->except(['username', 'email', 'password', 'password_confirmation']));
-
             if ($user) {
                 $user->nama_lengkap = $request->nama_lengkap;
                 $user->username = $request->username;
@@ -191,50 +166,79 @@ class OrangTuaWaliController extends Controller
                 $orangTuaWali->save();
             }
         });
-
         return to_route('admin.orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil diperbarui.');
     }
 
-    /**
-     * Mereset password untuk akun orang tua/wali.
-     */
-    public function resetPassword(Request $request, OrangTuaWali $orangTuaWali)
+    public function destroy(OrangTuaWali $orangTuaWali)
     {
-        $user = $orangTuaWali->pengguna;
+        // ... (Logic destroy kamu yg lama)
+        DB::transaction(function () use ($orangTuaWali) {
+            $user = $orangTuaWali->pengguna;
+            $orangTuaWali->delete();
+            if ($user) { $user->delete(); }
+        });
+        return to_route('admin.orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil dihapus.');
+    }
 
-        if (!$user) {
-            return back()->with('error', 'Wali ini tidak memiliki akun login untuk direset.');
-        }
+    /**
+     * [BARU] Menampilkan halaman khusus Reset Password Orang Tua.
+     */
+    public function resetPasswordIndex(Request $request)
+    {
+        $walis = OrangTuaWali::with(['siswa', 'pengguna'])
+            ->when($request->input('search'), function ($query, $search) {
+                $query->where('nama_lengkap', 'like', "%{$search}%")
+                    ->orWhere('nik', 'like', "%{$search}%")
+                    ->orWhereHas('siswa', function ($q) use ($search) {
+                        $q->where('nama_lengkap', 'like', "%{$search}%");
+                    });
+            })
+            // Hanya tampilkan yang punya akun untuk direset
+            ->whereNotNull('id_pengguna')
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
 
-        // Generate password acak baru (8 karakter)
-        $newPassword = Str::random(8);
-
-        // Update password pengguna
-        $user->password = Hash::make($newPassword);
-        $user->save();
-
-        // Kirim password baru ke frontend melalui flash session agar bisa ditampilkan di modal
-        return back()->with([
-            'success' => 'Password berhasil direset!',
-            'new_password' => $newPassword
+        return Inertia::render('admin/OrangTuaWali/ResetPassword', [
+            'walis' => $walis,
+            'filters' => $request->only(['search']),
         ]);
     }
 
     /**
-     * Menghapus data orang tua/wali beserta akun penggunanya.
+     * [MODIFIKASI] Reset password default: Username=NIK, Pass="alhawari#cibiuk"
      */
-    public function destroy(OrangTuaWali $orangTuaWali)
+    public function resetPasswordStore(OrangTuaWali $orangTuaWali)
     {
-        DB::transaction(function () use ($orangTuaWali) {
-            $user = $orangTuaWali->pengguna;
-            
-            $orangTuaWali->delete();
-
-            if ($user) {
-                $user->delete();
+        try {
+            if (!$orangTuaWali->pengguna) {
+                return back()->with('error', 'Wali ini belum memiliki akun pengguna.');
             }
-        });
 
-        return to_route('admin.orang-tua-wali.index')->with('success', 'Data Orang Tua/Wali berhasil dihapus.');
+            if (empty($orangTuaWali->nik)) {
+                return back()->with('error', 'Gagal reset: NIK Orang Tua kosong. Harap lengkapi data NIK terlebih dahulu.');
+            }
+
+            // Pastikan NIK unik di tabel pengguna jika username diubah
+            // Kecuali username dia sendiri yang sudah NIK
+            $existingUser = User::where('username', $orangTuaWali->nik)
+                ->where('id_pengguna', '!=', $orangTuaWali->id_pengguna)
+                ->first();
+            
+            if ($existingUser) {
+                return back()->with('error', 'Gagal reset: NIK ini sudah digunakan sebagai username oleh akun lain.');
+            }
+
+            // Update user: Username jadi NIK, Password jadi default
+            $orangTuaWali->pengguna->update([
+                'username' => $orangTuaWali->nik,
+                'password' => Hash::make('alhawari#cibiuk'),
+            ]);
+
+            return back()->with('success', "Akun Wali {$orangTuaWali->nama_lengkap} berhasil direset. Username: {$orangTuaWali->nik}, Password: alhawari#cibiuk");
+
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Terjadi kesalahan saat mereset password: ' . $e->getMessage());
+        }
     }
 }

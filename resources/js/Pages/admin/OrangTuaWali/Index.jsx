@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, UserGroupIcon, HeartIcon } from '@heroicons/react/24/outline';
+import { 
+    PlusIcon, 
+    PencilIcon, 
+    TrashIcon, 
+    EyeIcon, 
+    UserGroupIcon, 
+    HeartIcon,
+    KeyIcon 
+} from '@heroicons/react/24/outline';
 import { debounce } from 'lodash';
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
@@ -75,17 +83,28 @@ export default function Index({ auth, waliList, stats, filters }) {
 
             <div className="space-y-8">
                 {/* Header */}
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-800">Data Orang Tua/Wali</h1>
                         <p className="text-sm text-gray-500 mt-1">Kelola data orang tua dan wali siswa</p>
                     </div>
-                    <Link href={route('admin.orang-tua-wali.create')}>
-                        <button className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
-                            <PlusIcon className="h-5 w-5 mr-2" />
-                            Tambah Orang Tua/Wali
-                        </button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        {/* Tombol Reset Password */}
+                        <Link href={route('admin.orang-tua-wali.reset-password')}>
+                            <button className="flex items-center bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-700 transition">
+                                <KeyIcon className="h-5 w-5 mr-2" />
+                                Reset Password
+                            </button>
+                        </Link>
+                        
+                        {/* Tombol Tambah */}
+                        <Link href={route('admin.orang-tua-wali.create')}>
+                            <button className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
+                                <PlusIcon className="h-5 w-5 mr-2" />
+                                Tambah Orang Tua/Wali
+                            </button>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Kartu Statistik */}
@@ -99,7 +118,7 @@ export default function Index({ auth, waliList, stats, filters }) {
                 {/* Filter dan Pencarian */}
                 <div className="bg-white p-6 rounded-lg shadow-sm">
                     <h3 className="text-lg font-bold text-gray-800 mb-4">Filter dan Pencarian</h3>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-col sm:flex-row">
                         <input
                             type="text"
                             defaultValue={filters.search}
@@ -110,7 +129,7 @@ export default function Index({ auth, waliList, stats, filters }) {
                         <select
                             value={filters.hubungan || ''}
                             onChange={handleFilterHubungan}
-                            className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                            className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm w-full sm:w-auto"
                         >
                             <option value="">Semua Hubungan</option>
                             <option value="Ayah">Ayah</option>

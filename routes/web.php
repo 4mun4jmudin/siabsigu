@@ -325,20 +325,60 @@ Route::middleware('auth')->group(function () {
         Route::post('/surat-izin/{surat}/reject', [SuratIzinController::class, 'reject'])->name('surat-izin.reject');
         Route::post('/surat-izin/{surat}/resync', [SuratIzinController::class, 'resync'])->name('surat-izin.resync');
         Route::post('/surat-izin/{surat}/unsync', [SuratIzinController::class, 'unsync'])->name('surat-izin.unsync');
-        
+
         Route::get('/surat-izin/{surat}/lampiran', [SuratIzinController::class, 'lampiranView'])
             ->name('surat-izin.lampiran.view');
 
         Route::get('/surat-izin/{surat}/lampiran/download', [SuratIzinController::class, 'lampiranDownload'])
             ->name('surat-izin.lampiran.download');
 
-        // Master Data
+
+        Route::get('guru/reset-password', [GuruController::class, 'resetPasswordIndex'])
+            ->name('guru.reset-password');
+
+        Route::post('guru/reset-password/{guru}', [GuruController::class, 'resetPasswordStore'])
+            ->name('guru.reset-password.store');
+
+        Route::post('guru/{guru}/register-fingerprint', [GuruController::class, 'registerFingerprint'])
+            ->name('guru.register-fingerprint');
+
+        Route::post('guru/{guru}/generate-barcode', [GuruController::class, 'generateBarcode'])
+            ->name('guru.generate-barcode');
+
+        // 2. Resource Guru (DI BAWAH ROUTE KHUSUS)
         Route::resource('guru', GuruController::class);
+
+
+
+        // Route Khusus Reset Password Siswa
+        Route::get('siswa/reset-password', [SiswaController::class, 'resetPasswordIndex'])->name('siswa.reset-password');
+        Route::post('siswa/reset-password/{siswa}', [SiswaController::class, 'resetPasswordStore'])->name('siswa.reset-password.store');
+
+        // ==== ROUTE EXPORT PDF SISWA (Baru ditambahkan di sini) ====
+        Route::get('siswa/export-pdf', [SiswaController::class, 'exportPdf'])->name('siswa.export_pdf');
+
+        Route::get('siswa/import/template', [SiswaController::class, 'downloadTemplate'])->name('siswa.import.template');
+        Route::post('siswa/import/preview', [SiswaController::class, 'previewImport'])->name('siswa.import.preview');
+        Route::post('siswa/import/store', [SiswaController::class, 'importStore'])->name('siswa.import.store');
+
+         // ==== ROUTE BULK ACTION (BARU) ====
+        Route::post('siswa/bulk-delete', [SiswaController::class, 'bulkDelete'])->name('siswa.bulk-delete');
+        Route::post('siswa/bulk-update', [SiswaController::class, 'bulkUpdate'])->name('siswa.bulk-update');
+
         Route::resource('siswa', SiswaController::class);
         Route::resource('kelas', KelasController::class);
         Route::resource('mata-pelajaran', MataPelajaranController::class);
+        // --- RESET PASSWORD ORANG TUA (SIMPAN DI ATAS RESOURCE) ---
+        Route::get('orang-tua-wali/reset-password', [OrangTuaWaliController::class, 'resetPasswordIndex'])
+            ->name('orang-tua-wali.reset-password');
+
+        Route::post('orang-tua-wali/reset-password/{orangTuaWali}', [OrangTuaWaliController::class, 'resetPasswordStore'])
+            ->name('orang-tua-wali.reset-password.store');
+
+        // --- RESOURCE DEFAULT ---
         Route::resource('orang-tua-wali', OrangTuaWaliController::class);
-        Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
+
+        // Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
         Route::resource('pengumuman', App\Http\Controllers\Admin\PengumumanController::class);
 
         // Fitur tambahan
