@@ -20,6 +20,10 @@ return new class extends Migration
             $table->date('tanggal');
             $table->time('jam_masuk')->nullable();
             $table->time('jam_pulang')->nullable();
+            
+            // PERBAIKAN: Menambahkan kolom menit_keterlambatan
+            $table->integer('menit_keterlambatan')->nullable();
+
             $table->enum('status_kehadiran', ['Hadir', 'Sakit', 'Izin', 'Alfa', 'Dinas Luar']);
             $table->enum('metode_absen', ['Sidik Jari', 'Barcode', 'Manual']);
             $table->text('keterangan')->nullable();
@@ -29,6 +33,13 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
+
+            // PERBAIKAN: Menambahkan Unique Key untuk mencegah absen ganda di hari yang sama
+            $table->unique(['id_guru', 'tanggal'], 'uq_absen_guru_tanggal');
+            
+            // PERBAIKAN: Menambahkan Index untuk mempercepat pencarian data
+            $table->index('tanggal', 'idx_abs_guru_tanggal');
+            $table->index(['status_kehadiran', 'tanggal'], 'idx_abs_guru_status_tgl');
         });
     }
 
@@ -37,6 +48,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('absensi_gurus');
+        // PERBAIKAN: Ubah 'absensi_gurus' menjadi 'tbl_absensi_guru'
+        Schema::dropIfExists('tbl_absensi_guru');
     }
 };

@@ -33,6 +33,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('pengumumen');
+        // PERBAIKAN: Ubah 'pengumumen' yang lucu ini menjadi 'tbl_pengumuman'
+        Schema::dropIfExists('tbl_pengumuman');
     }
 };

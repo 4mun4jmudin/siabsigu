@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// Import path relatif
-import AdminLayout from '../../../Layouts/AdminLayout';
-import Modal from '../../../Components/Modal';
-import ToastNotification from '../../../Components/ToastNotification';
-import Checkbox from '../../../Components/Checkbox'; // Pastikan komponen ini ada
-import ImportModal from './ImportModal';
+// Import path relatif sesuaikan dengan struktur project kamu
+import AdminLayout from '@/Layouts/AdminLayout';
+import Modal from '@/Components/Modal';
+import ToastNotification from '@/Components/ToastNotification';
+import Checkbox from '@/Components/Checkbox';
+import ImportModal from './ImportModal'; // Pastikan file ini ada di folder yang sama
 import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
 import { 
     EyeIcon,
@@ -42,15 +42,15 @@ const TableSkeleton = () => {
     );
 };
 
-const Pagination = ({ links }) => (
-    <div className="mt-6 flex justify-center">
-        {links.map((link, key) => (
-            link.url === null ?
-                (<div key={key} className="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded" dangerouslySetInnerHTML={{ __html: link.label }} />) :
-                (<Link key={key} className={`mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded hover:bg-white focus:border-indigo-500 focus:text-indigo-500 ${link.active ? 'bg-white' : ''}`} href={link.url} dangerouslySetInnerHTML={{ __html: link.label }} />)
-        ))}
-    </div>
-);
+// const Pagination = ({ links }) => (
+//     <div className="flex flex-wrap justify-center gap-1">
+//         {links.map((link, key) => (
+//             link.url === null ?
+//                 (<div key={key} className="px-3 py-2 text-sm leading-4 text-gray-400 border rounded" dangerouslySetInnerHTML={{ __html: link.label }} />) :
+//                 (<Link key={key} className={`px-3 py-2 text-sm leading-4 border rounded hover:bg-white focus:border-indigo-500 focus:text-indigo-500 ${link.active ? 'bg-indigo-50 text-indigo-600 font-medium' : 'bg-white text-gray-700'}`} href={link.url} dangerouslySetInnerHTML={{ __html: link.label }} />)
+//         ))}
+//     </div>
+// );
 
 const EmptyState = () => (
     <div className="text-center py-12">
@@ -76,6 +76,9 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     const [selectedKelas, setSelectedKelas] = useState(filters.kelas || '');
     
+    // State Rows Per Page (Default 10)
+    const [perPage, setPerPage] = useState(filters.per_page || 10);
+    
     // State UI
     const [toast, setToast] = useState({ show: false, message: '' });
     const [isLoading, setIsLoading] = useState(false);
@@ -89,24 +92,23 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
     const [selectedIds, setSelectedIds] = useState([]);
     const [bulkAction, setBulkAction] = useState(null); // 'delete', 'move_class', 'change_status'
     const [bulkValue, setBulkValue] = useState(''); // Nilai target (id_kelas atau status)
+    
+    // State Loading khusus Bulk Action
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
     useEffect(() => {
         if (flash?.message) {
             setToast({ show: true, message: flash.message });
-            // Reset selection after success action
-            if (flash.type === 'success') {
-                setSelectedIds([]);
-                setBulkAction(null);
-            }
         }
     }, [flash]);
 
     const isFirstRender = useRef(true);
 
     // --- SEARCH & FILTER ---
-    const debouncedSearch = useCallback(debounce((searchVal, kelasVal) => {
+    // Update debouncedSearch untuk menyertakan perPage juga
+    const debouncedSearch = useCallback(debounce((searchVal, kelasVal, perPageVal) => {
         router.get(route('admin.siswa.index'), 
-            { search: searchVal, kelas: kelasVal, page: 1 }, 
+            { search: searchVal, kelas: kelasVal, per_page: perPageVal, page: 1 }, 
             {
                 preserveState: true,
                 replace: true,
@@ -123,21 +125,39 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         };
     }, [debouncedSearch]);
 
+    // Effect untuk Search dan Filter Kelas (Debounced)
     useEffect(() => {
         if (isFirstRender.current) {
             isFirstRender.current = false;
             return;
         }
-        debouncedSearch(search, selectedKelas);
+        // Jika hanya search/kelas berubah, panggil debounce
+        debouncedSearch(search, selectedKelas, perPage);
     }, [search, selectedKelas, debouncedSearch]);
+
+    // Handle Per Page Change (Langsung reload, tidak perlu debounce)
+    const handlePerPageChange = (e) => {
+        const newVal = e.target.value;
+        setPerPage(newVal);
+        
+        // Langsung reload tanpa debounce agar responsif
+        router.get(route('admin.siswa.index'), 
+            { search, kelas: selectedKelas, per_page: newVal, page: 1 }, 
+            {
+                preserveState: true,
+                replace: true,
+                preserveScroll: true,
+                onStart: () => setIsLoading(true),
+                onFinish: () => setIsLoading(false),
+            }
+        );
+    };
 
     const handleKelasChange = (e) => {
         setSelectedKelas(e.target.value);
     };
 
     // --- BULK ACTION LOGIC ---
-    
-    // Toggle Select All (Hanya halaman ini)
     const handleSelectAll = (e) => {
         if (e.target.checked) {
             const allIds = siswas.data.map(s => s.id_siswa);
@@ -147,7 +167,6 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         }
     };
 
-    // Toggle Select One
     const handleSelectOne = (id) => {
         if (selectedIds.includes(id)) {
             setSelectedIds(selectedIds.filter(itemId => itemId !== id));
@@ -156,30 +175,42 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         }
     };
 
-    // Execute Bulk Action
     const executeBulkAction = (e) => {
         e.preventDefault();
         
+        const requestOptions = {
+            preserveScroll: true,
+            onStart: () => setIsBulkProcessing(true),
+            onFinish: () => {
+                setIsBulkProcessing(false);
+                setBulkAction(null); 
+            },
+            onSuccess: () => {
+                setSelectedIds([]); 
+                setBulkValue('');   
+            },
+            onError: (errors) => {
+                console.error("Bulk action error:", errors);
+                setToast({ show: true, message: "Terjadi kesalahan saat memproses data." });
+            }
+        };
+
         if (bulkAction === 'delete') {
             if (confirm(`Yakin ingin menghapus ${selectedIds.length} siswa terpilih?`)) {
-                post(route('admin.siswa.bulk-delete'), {
-                    data: { ids: selectedIds },
-                    preserveScroll: true,
-                    onSuccess: () => setBulkAction(null),
-                });
+                router.post(route('admin.siswa.bulk-delete'), {
+                    ids: selectedIds
+                }, requestOptions);
+            } else {
+                setBulkAction(null);
             }
         } else if (bulkAction === 'move_class' || bulkAction === 'change_status') {
             if (!bulkValue) return alert('Silakan pilih target nilai.');
             
-            post(route('admin.siswa.bulk-update'), {
-                data: { 
-                    ids: selectedIds, 
-                    type: bulkAction === 'move_class' ? 'kelas' : 'status',
-                    value: bulkValue
-                },
-                preserveScroll: true,
-                onSuccess: () => setBulkAction(null),
-            });
+            router.post(route('admin.siswa.bulk-update'), { 
+                ids: selectedIds, 
+                type: bulkAction === 'move_class' ? 'kelas' : 'status',
+                value: bulkValue
+            }, requestOptions);
         }
     };
 
@@ -250,14 +281,17 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
 
                 {/* Filter Bar */}
                 <div className="bg-white p-6 rounded-lg shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-                        <div className="sm:col-span-1 relative">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                        {/* Search */}
+                        <div className="sm:col-span-5 relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
                             </div>
                             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama atau NIS..." className="block w-full pl-10 border-gray-300 rounded-md shadow-sm transition focus:ring-2 focus:ring-blue-200"/>
                         </div>
-                        <div className="sm:col-span-1">
+
+                        {/* Filter Kelas */}
+                        <div className="sm:col-span-3">
                             <select value={selectedKelas} onChange={handleKelasChange} className="block w-full border-gray-300 rounded-md shadow-sm">
                                 <option value="">Semua Kelas</option>
                                 {kelasOptions.map(kelas => (
@@ -265,22 +299,41 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                 ))}
                             </select>
                         </div>
-                        <div className="sm:col-span-1 flex justify-end gap-2">
+
+                        {/* Rows Per Page Selector (NEW) */}
+                        <div className="sm:col-span-2">
+                             <select 
+                                value={perPage} 
+                                onChange={handlePerPageChange} 
+                                className="block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                                title="Jumlah Baris Per Halaman"
+                             >
+                                <option value="10">10 Baris</option>
+                                <option value="25">25 Baris</option>
+                                <option value="50">50 Baris</option>
+                                <option value="100">100 Baris</option>
+                                <option value="all">Semua</option>
+                            </select>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="sm:col-span-2 flex justify-end gap-2">
                              <button
                                 onClick={() => setShowImportModal(true)}
-                                className="inline-flex items-center gap-x-2 px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase hover:bg-gray-50 transition"
+                                className="inline-flex items-center justify-center w-full sm:w-auto px-3 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase hover:bg-gray-50 transition"
+                                title="Import Excel"
                              >
                                 <ArrowDownOnSquareIcon className="h-4 w-4" />
-                                Import
-                            </button>
+                             </button>
 
                              <a 
                                 href={route('admin.siswa.export_pdf', { search: search, kelas: selectedKelas })}
                                 target="_blank"
-                                className="inline-flex items-center gap-x-2 px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase hover:bg-gray-50 transition"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center w-full sm:w-auto px-3 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase hover:bg-gray-50 transition"
+                                title="Export PDF"
                              >
                                 <ArrowUpOnSquareIcon className="h-4 w-4" />
-                                Export PDF
                             </a>
                         </div>
                     </div>
@@ -316,16 +369,25 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                     <div className="p-6 text-gray-900">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-semibold text-gray-800">Daftar Siswa</h3>
-                            <p className="text-sm text-gray-500">
-                                {isLoading ? 'Memuat data...' : `Total ${siswas.total} siswa ditemukan`}
-                            </p>
+                            <div className="text-sm text-gray-500 text-right">
+                                {isLoading ? 'Memuat data...' : (
+                                    <>
+                                        Total <strong>{siswas.total}</strong> siswa ditemukan
+                                        {perPage !== 'all' && (
+                                            <span className="ml-1 hidden sm:inline">
+                                                (Halaman {siswas.current_page} dari {siswas.last_page})
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                         
                         <div className="overflow-x-auto relative">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left">
+                                        <th className="px-6 py-3 text-left w-10">
                                             <Checkbox 
                                                 checked={siswas.data.length > 0 && selectedIds.length === siswas.data.length}
                                                 onChange={handleSelectAll}
@@ -385,7 +447,12 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                 </tbody>
                             </table>
                         </div>
-                        {!isLoading && siswas.data.length > 0 && <Pagination links={siswas.links} />}
+                        {/* Tampilkan Pagination hanya jika tidak sedang loading dan ada data
+                        {!isLoading && siswas.data.length > 0 && (
+                            <div className="mt-4 border-t pt-4">
+                                <Pagination links={siswas.links} />
+                            </div>
+                        )} */}
                     </div>
                 </div>
             </div>
@@ -451,10 +518,10 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                         <button 
                             onClick={executeBulkAction} 
                             type="button" 
-                            disabled={processing || (bulkAction !== 'delete' && !bulkValue)} 
+                            disabled={isBulkProcessing || (bulkAction !== 'delete' && !bulkValue)} 
                             className={`ml-3 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm disabled:opacity-50 ${bulkAction === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                         >
-                            {processing ? 'Memproses...' : 'Konfirmasi'}
+                            {isBulkProcessing ? 'Memproses...' : 'Konfirmasi'}
                         </button>
                     </div>
                 </div>

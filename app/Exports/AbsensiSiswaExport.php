@@ -6,6 +6,7 @@ use App\Models\Siswa;
 use App\Models\AbsensiSiswa;
 use App\Models\Kelas;
 use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -15,7 +16,7 @@ use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Events\AfterSheet;
 
-class AbsensiSiswaExport implements FromQuery, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithEvents
+class AbsensiSiswaExport implements FromQuery, WithChunkReading, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithEvents
 
 {
     protected $filters;
@@ -23,6 +24,11 @@ class AbsensiSiswaExport implements FromQuery, WithHeadings, WithMapping, Should
     public function __construct(array $filters)
     {
         $this->filters = $filters;
+    }
+
+    public function chunkSize(): int
+    {
+        return 200;
     }
 
     public function query()

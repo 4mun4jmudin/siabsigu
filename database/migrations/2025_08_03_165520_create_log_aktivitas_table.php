@@ -34,6 +34,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('log_aktivitas');
+        // PERBAIKAN: Ubah 'log_aktivitas' menjadi 'tbl_log_aktivitas'
+        Schema::dropIfExists('tbl_log_aktivitas');
     }
 };

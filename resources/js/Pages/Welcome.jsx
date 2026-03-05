@@ -3,16 +3,22 @@ import { useEffect, useState, useMemo } from 'react';
 
 /**
  * Modern Landing Page - Sistem Absensi Sekolah (SISAB)
- * Redesigned for better UX, readability, and performance.
+ * Data stats & logo sekarang dinamis dari database.
  */
 
-export default function Welcome({ auth, laravelVersion, phpVersion }) {
-  // --- Logic Statistik (Tetap dipertahankan karena fitur bagus) ---
-  const statsTarget = useMemo(() => ({ siswaAktif: 420, guruAktif: 42, rataKehadiran: 92.3 }), []);
+export default function Welcome({ auth, laravelVersion, phpVersion, landingStats, schoolData }) {
+  // --- Logic Statistik Dinamis ---
+  // Default nilai 0 jika props tidak tersedia (safety check)
+  const statsTarget = useMemo(() => ({ 
+    siswaAktif: landingStats?.siswa || 0, 
+    guruAktif: landingStats?.guru || 0, 
+    rataKehadiran: landingStats?.kehadiran || 0 
+  }), [landingStats]);
+
   const [counts, setCounts] = useState({ siswa: 0, guru: 0, rata: 0 });
 
   useEffect(() => {
-    const duration = 1500;
+    const duration = 2000; // Durasi animasi sedikit diperlambat agar lebih dramatis
     const start = performance.now();
     const tick = (now) => {
       const progress = Math.min(1, (now - start) / duration);
@@ -31,9 +37,9 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
 
   // --- Background Carousel Logic ---
   const backgroundImages = [
-    'https://www.idisionline.com/wp-content/uploads/2025/09/IMG_20250926_183716.jpg', // Gambar Baru
-    'https://png.pngtree.com/background/20230522/original/pngtree-3d-rendering-of-a-school-building-picture-image_2685696.jpg', // Gambar Lama (3D)
-    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop' // Gambar Placeholder (Sekolah)
+    'https://www.idisionline.com/wp-content/uploads/2025/09/IMG_20250926_183716.jpg', 
+    'https://png.pngtree.com/background/20230522/original/pngtree-3d-rendering-of-a-school-building-picture-image_2685696.jpg', 
+    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop'
   ];
   
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
@@ -41,7 +47,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
-    }, 5000); // Ganti setiap 5 detik
+    }, 5000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -55,7 +61,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
 
   return (
     <>
-      <Head title="Selamat Datang - Sistem Absensi Digital" />
+      <Head title={`Selamat Datang - ${schoolData?.nama || 'Sistem Absensi'}`} />
       
       <div className="min-h-screen bg-slate-50 font-sans text-slate-600 selection:bg-indigo-500 selection:text-white">
         
@@ -64,14 +70,24 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
             {/* Logo Area */}
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-1.5 rounded-lg shadow-indigo-200 shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
+              <div className={`p-1.5 rounded-lg shadow-lg transition-all ${scrolled ? 'bg-white shadow-indigo-100' : 'bg-white/10 backdrop-blur-sm shadow-black/10'}`}>
+                {schoolData?.logo ? (
+                    <img 
+                        src={schoolData.logo} 
+                        alt="Logo Sekolah" 
+                        className="w-8 h-8 object-contain"
+                    />
+                ) : (
+                    <svg className="w-8 h-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                )}
               </div>
-              <div className={`leading-tight transition-colors ${scrolled ? 'text-slate-800' : 'text-slate-800 lg:text-white'}`}>
+              <div className={`leading-tight transition-colors ${scrolled ? 'text-slate-800' : 'text-white'}`}>
                 <h1 className="font-bold text-lg tracking-tight">SISAB</h1>
-                <p className="text-[10px] uppercase tracking-wider opacity-80 font-medium">SMK IT ALHAWARI</p>
+                <p className="text-[10px] uppercase tracking-wider opacity-90 font-medium">
+                    {schoolData?.nama || 'SEKOLAH DIGITAL'}
+                </p>
               </div>
             </div>
 
@@ -121,14 +137,13 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                   alt={`School Background ${index + 1}`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    // Fallback jika gambar error
                     e.currentTarget.src = 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop';
                   }}
                 />
               </div>
             ))}
             
-            {/* Gradient Overlay yang elegan dan pasti terbaca */}
+            {/* Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-indigo-900/40 z-10"></div>
           </div>
 
@@ -144,7 +159,6 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                 <h1 className="text-4xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight">
                   Wujudkan Disiplin <br/>
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-300">
-                    {/* IMPLEMENTASI TYPING ANIMATION */}
                     <Typewriter 
                       words={['Generasi Emas', 'Masa Depan', 'Prestasi Juara']} 
                       speed={100} 
@@ -155,7 +169,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                 </h1>
                 
                 <p className="text-lg text-slate-300 max-w-xl leading-relaxed">
-                  Platform manajemen kehadiran sekolah yang modern, real-time, dan mudah diakses oleh Siswa, Guru, dan Orang Tua.
+                  Platform manajemen kehadiran sekolah yang modern, real-time, dan mudah diakses oleh Siswa, Guru, dan Orang Tua di {schoolData?.nama || 'Sekolah Kami'}.
                 </p>
 
                 <div className="flex flex-wrap gap-4">
@@ -168,7 +182,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                   </Link>
                 </div>
 
-                {/* Quick Stats in Hero */}
+                {/* Quick Stats in Hero (DATA REAL DARI DATABASE) */}
                 <div className="pt-8 border-t border-white/10 flex gap-8 lg:gap-12">
                   <HeroStat label="Siswa Aktif" value={counts.siswa} />
                   <HeroStat label="Guru & Staff" value={counts.guru} />
@@ -285,7 +299,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
            <div className="absolute top-0 left-0 w-full h-full opacity-30 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
            <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
              <h2 className="text-3xl font-bold text-white mb-6">Siap untuk Transformasi Digital?</h2>
-             <p className="text-slate-400 mb-8 text-lg">Bergabunglah dengan ekosistem pendidikan modern SMK IT Alhawari.</p>
+             <p className="text-slate-400 mb-8 text-lg">Bergabunglah dengan ekosistem pendidikan modern {schoolData?.nama || 'Sekolah Kami'}.</p>
              <div className="flex justify-center gap-4">
                 <Link href={route('register')} className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold shadow-lg transition-transform transform hover:scale-105">
                   Daftarkan Akun Baru
@@ -300,7 +314,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
             <div className="flex items-center gap-2">
                <span className="font-bold text-slate-700 text-lg">SISAB</span>
                <span className="hidden md:inline">|</span>
-               <span>&copy; {new Date().getFullYear()} SMK IT ALHAWARI</span>
+               <span>&copy; {new Date().getFullYear()} {schoolData?.nama || 'SMK IT ALHAWARI'}</span>
             </div>
             <div className="flex gap-6">
               <a href="#" className="hover:text-indigo-600">Kebijakan Privasi</a>

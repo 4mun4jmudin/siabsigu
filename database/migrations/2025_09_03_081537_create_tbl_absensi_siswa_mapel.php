@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tbl_absensi_siswa_mapel', function (Blueprint $table) {
-            // primary key custom string (mirip style project Anda)
-            $table->string('id_absensi_mapel', 40)->primary();
+            // PERBAIKAN: Panjang string diubah jadi 64 sesuai SQL
+            $table->string('id_absensi_mapel', 64)->primary();
 
             // referensi ke jadwal mengajar (jadwal per mapel)
             $table->string('id_jadwal', 20);
@@ -21,8 +21,8 @@ return new class extends Migration
             $table->time('jam_mulai')->nullable();
             $table->time('jam_selesai')->nullable();
 
-            // status & metode
-            $table->enum('status_kehadiran', ['Hadir','Sakit','Izin','Alfa','Tugas','Digantikan'])->default('Hadir');
+            // PERBAIKAN: Enum status_kehadiran disamakan persis dengan SQL
+            $table->enum('status_kehadiran', ['Hadir','Sakit','Izin','Alfa','Alfa_Mapel','Izin_Mapel','Sakit_Mapel','Tugas_Mapel','Belum Absen'])->default('Hadir');
             $table->enum('metode_absen', ['Sidik Jari','Barcode','Manual','QR','Geolocation'])->default('Manual');
 
             // optional: guru pengganti (jika status Digantikan)
@@ -30,6 +30,14 @@ return new class extends Migration
 
             // info tambahan
             $table->text('keterangan')->nullable();
+
+            // PERBAIKAN: Menambahkan 6 kolom override dan keterlambatan yang hilang
+            $table->boolean('is_overridden')->default(false);
+            $table->string('source_status', 20)->default('daily');
+            $table->dateTime('derived_at')->nullable();
+            $table->string('overridden_by', 50)->nullable();
+            $table->dateTime('overridden_at')->nullable();
+            $table->integer('menit_terlambat_mapel')->nullable();
 
             // user yg men-input (biasanya guru)
             $table->unsignedBigInteger('id_penginput_manual')->nullable();
@@ -45,7 +53,7 @@ return new class extends Migration
             // hindari double entry: satu siswa untuk satu jadwal pada tanggal yg sama
             $table->unique(['id_jadwal', 'id_siswa', 'tanggal'], 'unique_jadwal_siswa_tanggal');
 
-            // FK (jika tabel target ada). Sesuaikan nama tabel & kolom di DB Anda.
+            // FK
             $table->foreign('id_jadwal')->references('id_jadwal')->on('tbl_jadwal_mengajar')->onDelete('cascade');
             $table->foreign('id_siswa')->references('id_siswa')->on('tbl_siswa')->onDelete('cascade');
             $table->foreign('id_guru_pengganti')->references('id_guru')->on('tbl_guru')->onDelete('set null');

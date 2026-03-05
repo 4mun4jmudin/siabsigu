@@ -16,13 +16,16 @@ return new class extends Migration
             $table->string('nis', 30)->unique();
             $table->string('nisn', 20)->unique();
 
+            // Foreign key ke tbl_kelas
             $table->string('id_kelas', 20);
             $table->foreign('id_kelas')->references('id_kelas')->on('tbl_kelas');
 
             $table->string('nama_lengkap', 100);
             $table->string('nama_panggilan', 30)->nullable();
-            // $table->string('foto_profil')->default('default_siswa.png');
-            $table->string('foto_profil')->nullable()->default('default_siswa.png');
+            
+            // PERBAIKAN: Disesuaikan dengan SQL, tidak nullable tapi ada default-nya
+            $table->string('foto_profil')->default('default_siswa.png'); 
+            
             $table->string('nik', 16)->unique();
             $table->string('nomor_kk', 16);
             $table->string('tempat_lahir', 50);
@@ -32,6 +35,11 @@ return new class extends Migration
             $table->text('alamat_lengkap');
             $table->text('sidik_jari_template')->nullable();
             $table->string('barcode_id', 100)->unique()->nullable();
+
+            // PERBAIKAN: Menambahkan kolom id_pengguna yang terlewat
+            $table->unsignedBigInteger('id_pengguna')->unique()->nullable();
+            $table->foreign('id_pengguna')->references('id_pengguna')->on('tbl_pengguna')->onDelete('set null');
+
             $table->enum('status', ['Aktif', 'Lulus', 'Pindah', 'Drop Out']);
             $table->timestamps();
             $table->softDeletes();
@@ -43,6 +51,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('siswas');
+        // PERBAIKAN: Ubah 'siswas' menjadi 'tbl_siswa'
+        Schema::dropIfExists('tbl_siswa');
     }
 };

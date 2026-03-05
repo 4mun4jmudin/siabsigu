@@ -1,6 +1,5 @@
-// resources/js/Layouts/AdminLayout.jsx
 import React, { useState, Fragment, useEffect } from "react";
-import { Link, Head, usePage } from "@inertiajs/react";
+import { Link, Head, usePage, router } from "@inertiajs/react";
 import { Dialog, Transition, Menu } from "@headlessui/react";
 import { Toaster, toast } from "react-hot-toast";
 import {
@@ -24,6 +23,8 @@ import {
     ChartPieIcon,
     SparklesIcon,
     ComputerDesktopIcon,
+    CheckIcon,
+    EnvelopeOpenIcon
 } from "@heroicons/react/24/outline";
 
 /* ---------- Small Nav Components ---------- */
@@ -109,20 +110,37 @@ export default function AdminLayout({ user, header, children }) {
     // Inertia shared props
     const pageProps = usePage().props || {};
     const flash = pageProps.flash || {};
-    const { pengaturan, adminMode, errors } = pageProps;
+    // ✅ Tambahkan globalStats di sini
+    const { pengaturan, adminMode, errors, globalStats } = pageProps;
     const currentUser = user ?? pageProps.auth?.user ?? null;
 
-    // Flag mode absensi (untuk sembunyikan menu lain saat mode ringkas absensi)
+    // ✅ Ambil data notifikasi (asumsi struktur data dari backend)
+    // Jika backend belum kirim array, fallback ke array kosong
+    const notifications = globalStats?.notifications || []; 
+    // Prioritaskan hitungan dari unreadSurat jika ada, jika tidak gunakan panjang array notifikasi
+    const unreadCount = globalStats?.unreadSurat ?? notifications.length ?? 0;
+
+    // Flag mode absensi
     const isAbsensiMode = adminMode === "absensi";
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
-    }, [flash?._ts]); // ✅ yang penting ini
-
-
+    }, [flash?._ts]); 
 
     const toggleIconPath = pengaturan?.toggle_icon_url || "/images/sidebar-toggle-blue.png";
+
+    // --- Actions Notifikasi ---
+    // Karena kita menggunakan SuratIzin sebagai notifikasi, "Mark as Read" artinya menuju detail surat
+    const handleNotificationClick = (id) => {
+        // Redirect ke halaman index surat izin dengan filter ID tersebut
+        router.get(route('admin.surat-izin.index', { status: 'Diajukan', q: id }));
+    };
+
+    const markAllRead = () => {
+        // Opsi: Arahkan ke halaman index untuk memproses semua
+        router.visit(route("admin.surat-izin.index", { status: 'Diajukan' }));
+    };
 
     const SidebarHeader = ({ isCollapsed }) => (
         <div className={`flex items-center gap-3 p-4 ${isCollapsed ? "justify-center" : ""}`}>
@@ -157,13 +175,12 @@ export default function AdminLayout({ user, header, children }) {
     );
 
     const sidebarContent = (isMobile = false) => {
-        // grup Absensi dianggap aktif jika berada di salah satu route berikut
         const absensiActive =
             route().current("admin.absensi-guru.*") ||
             route().current("admin.absensi-siswa.*") ||
             route().current("admin.absensi-siswa-mapel.*") ||
             route().current("admin.absensi-siswa.bulanan.*") ||
-            route().current("admin.surat-izin.*"); // <— tambahkan surat izin
+            route().current("admin.surat-izin.*"); 
 
         return (
             <div className="flex flex-col h-full">
@@ -182,7 +199,7 @@ export default function AdminLayout({ user, header, children }) {
                             </NavLink>
                         </li>
 
-                        {/* Master Data — disembunyikan saat mode Absensi */}
+                        {/* Master Data */}
                         {!isAbsensiMode && (
                             <CollapsibleNavGroup
                                 title="Master Data"
@@ -249,7 +266,7 @@ export default function AdminLayout({ user, header, children }) {
                             </CollapsibleNavGroup>
                         )}
 
-                        {/* Absensi — selalu tampil */}
+                        {/* Absensi */}
                         <CollapsibleNavGroup
                             title="Absensi"
                             icon={<ClipboardDocumentListIcon className="w-6 h-6" />}
@@ -297,7 +314,7 @@ export default function AdminLayout({ user, header, children }) {
                                 </NavLink>
                             </li>
 
-                            {/* === Surat Izin (bagian dari Absensi) === */}
+                            {/* === Surat Izin === */}
                             <li>
                                 <NavLink
                                     href={route("admin.surat-izin.index")}
@@ -305,7 +322,13 @@ export default function AdminLayout({ user, header, children }) {
                                     isCollapsed={false}
                                     label="Surat Izin (Verifikasi)"
                                 >
-                                    <DocumentTextIcon className="w-5 h-5" />
+                                    <div className="relative">
+                                        <DocumentTextIcon className="w-5 h-5" />
+                                        {/* Badge Kecil di Sidebar jika collapsed/expand */}
+                                        {unreadCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-indigo-900" />
+                                        )}
+                                    </div>
                                 </NavLink>
                             </li>
                             <li>
@@ -320,7 +343,7 @@ export default function AdminLayout({ user, header, children }) {
                             </li>
                         </CollapsibleNavGroup>
 
-                        {/* Jadwal, Jurnal, Laporan, Pengaturan — disembunyikan saat mode Absensi */}
+                        {/* Jadwal, Jurnal */}
                         {!isAbsensiMode && (
                             <li>
                                 <NavLink
@@ -347,34 +370,17 @@ export default function AdminLayout({ user, header, children }) {
                             </li>
                         )}
 
-                        {/* tampilkan laporan saat mode absensi karena terkait dengan kehadiran */}
-                        {isAbsensiMode && (
-                            <li>
-                                <NavLink
-                                    href={route("admin.laporan.index")}
-                                    active={route().current("admin.laporan.*")}
-                                    isCollapsed={!isSidebarOpen && !isMobile}
-                                    label="Laporan"
-                                >
-                                    <ChartBarIcon className="w-6 h-6" />
-                                </NavLink>
-                            </li>
-                        )}
-                        {/* dan tampilkan laporan saat mode non-absensi jadi laporan bisa muncul di kedua mode */}
-
-
-                        {!isAbsensiMode && (
-                            <li>
-                                <NavLink
-                                    href={route("admin.laporan.index")}
-                                    active={route().current("admin.laporan.*")}
-                                    isCollapsed={!isSidebarOpen && !isMobile}
-                                    label="Laporan"
-                                >
-                                    <ChartBarIcon className="w-6 h-6" />
-                                </NavLink>
-                            </li>
-                        )}
+                        {/* Laporan (Tampil di kedua mode) */}
+                        <li>
+                            <NavLink
+                                href={route("admin.laporan.index")}
+                                active={route().current("admin.laporan.*")}
+                                isCollapsed={!isSidebarOpen && !isMobile}
+                                label="Laporan"
+                            >
+                                <ChartBarIcon className="w-6 h-6" />
+                            </NavLink>
+                        </li>
 
                         {!isAbsensiMode && (
                             <li>
@@ -554,17 +560,133 @@ export default function AdminLayout({ user, header, children }) {
                             )}
 
                             <div className="flex items-center gap-x-4 lg:gap-x-6">
-                                <button
-                                    type="button"
-                                    className="-m-2.5 p-2.5 text-indigo-600 hover:text-indigo-800 relative"
-                                >
-                                    <span className="sr-only">View notifications</span>
-                                    <BellIcon className="h-6 w-6" aria-hidden="true" />
-                                    <span className="absolute top-0 right-0 -mt-1 -mr-1 h-4 w-4 rounded-full bg-red-500 text-white text-[11px] flex items-center justify-center">
-                                        3
-                                    </span>
-                                </button>
+                                {/* ✅ Notifikasi Bell: Dropdown Interaktif */}
+                                <Menu as="div" className="relative">
+                                    <Menu.Button className="-m-2.5 p-2.5 text-indigo-600 hover:text-indigo-800 relative group outline-none">
+                                        <span className="sr-only">Lihat Pengajuan Baru</span>
+                                        <BellIcon className={`h-6 w-6 transition-transform ${unreadCount > 0 ? 'group-hover:animate-swing text-indigo-700' : ''}`} aria-hidden="true" />
+                                        {unreadCount > 0 && (
+                                            <span className="absolute top-0 right-0 -mt-1 -mr-1 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white animate-pulse">
+                                                {unreadCount > 9 ? '9+' : unreadCount}
+                                            </span>
+                                        )}
+                                    </Menu.Button>
 
+                                    <Transition
+                                        as={Fragment}
+                                        enter="transition ease-out duration-100"
+                                        enterFrom="transform opacity-0 scale-95"
+                                        enterTo="transform opacity-100 scale-100"
+                                        leave="transition ease-in duration-75"
+                                        leaveFrom="transform opacity-100 scale-100"
+                                        leaveTo="transform opacity-0 scale-95"
+                                    >
+                                        <Menu.Items className="absolute right-0 z-20 mt-3 w-80 sm:w-96 origin-top-right rounded-xl bg-white py-1 shadow-2xl ring-1 ring-black/5 focus:outline-none overflow-hidden">
+                                            {/* Header Notifikasi */}
+                                            <div className="flex items-center justify-between px-4 py-3 bg-indigo-50/50 border-b border-indigo-100">
+                                                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                                    <BellIcon className="h-4 w-4 text-indigo-600" /> Notifikasi
+                                                </h3>
+                                                {unreadCount > 0 && (
+                                                    <button
+                                                        onClick={markAllRead}
+                                                        className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
+                                                    >
+                                                        <EnvelopeOpenIcon className="h-3 w-3" /> Lihat semua
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* List Notifikasi */}
+                                            <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                                                {notifications.length > 0 ? (
+                                                    notifications.map((notif) => (
+                                                        <div key={notif.id} className="relative group border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
+                                                            <div 
+                                                                className="flex p-4 gap-3 cursor-pointer"
+                                                                onClick={() => handleNotificationClick(notif.id)}
+                                                            >
+                                                                {/* Icon Status */}
+                                                                <div className="flex-shrink-0 mt-1">
+                                                                    <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 text-blue-600">
+                                                                        <DocumentTextIcon className="h-4 w-4" />
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Konten */}
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-medium text-gray-900 leading-snug">
+                                                                        {notif.data?.message || "Pengajuan Surat Izin Baru"}
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                                                                        {notif.data?.description || "Klik untuk melihat detail pengajuan."}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1">
+                                                                        <CalendarDaysIcon className="h-3 w-3" />
+                                                                        {notif.created_at_human || "Baru saja"}
+                                                                    </p>
+                                                                </div>
+
+                                                                {/* Tombol Aksi (Tandai Baca/Lihat) */}
+                                                                <div className="flex-shrink-0 self-center">
+                                                                    <button
+                                                                        onClick={(e) => { 
+                                                                            e.stopPropagation(); 
+                                                                            handleNotificationClick(notif.id); 
+                                                                        }}
+                                                                        className="p-1.5 rounded-full text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                                                        title="Lihat Detail"
+                                                                    >
+                                                                        <CheckIcon className="h-5 w-5" />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    // State Kosong (Atau jika jumlah ada tapi list belum dikirim backend)
+                                                    unreadCount > 0 ? (
+                                                        <div className="py-6 px-4 text-center">
+                                                            <div className="mx-auto h-12 w-12 text-indigo-200 flex items-center justify-center rounded-full bg-indigo-50 mb-3 animate-pulse">
+                                                                <BellIcon className="h-6 w-6" />
+                                                            </div>
+                                                            <p className="text-sm text-gray-700 font-medium mb-1">Terdapat <b>{unreadCount}</b> pengajuan baru</p>
+                                                            <p className="text-xs text-gray-500 mb-3">Backend belum mengirim detail data, tapi jumlahnya terdeteksi.</p>
+                                                            <Link 
+                                                                href={route("admin.surat-izin.index", { status: 'Diajukan' })} 
+                                                                className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-full hover:bg-indigo-700 transition-colors"
+                                                            >
+                                                                Lihat Semua Pengajuan
+                                                            </Link>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="py-10 px-4 text-center">
+                                                            <div className="mx-auto h-12 w-12 text-gray-200 flex items-center justify-center rounded-full bg-gray-50 mb-3">
+                                                                <BellIcon className="h-6 w-6" />
+                                                            </div>
+                                                            <p className="text-sm text-gray-500 font-medium">Tidak ada notifikasi baru</p>
+                                                            <p className="text-xs text-gray-400 mt-1">Semua aman terkendali!</p>
+                                                        </div>
+                                                    )
+                                                )}
+                                            </div>
+
+                                            {/* Footer Dropdown */}
+                                            {(notifications.length > 0 || unreadCount > 0) && (
+                                                <div className="bg-gray-50 p-2 text-center border-t border-gray-100">
+                                                    <Link
+                                                        href={route("admin.surat-izin.index")}
+                                                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 block w-full py-1"
+                                                    >
+                                                        Lihat Semua Aktivitas &rarr;
+                                                    </Link>
+                                                </div>
+                                            )}
+                                        </Menu.Items>
+                                    </Transition>
+                                </Menu>
+
+                                {/* User Menu (Existing) */}
                                 <Menu as="div" className="relative">
                                     <Menu.Button className="-m-1.5 flex items-center p-1.5">
                                         <span className="sr-only">Open user menu</span>

@@ -40,6 +40,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('surat_izins');
+        // PERBAIKAN: Ubah 'surat_izins' menjadi 'tbl_surat_izin'
+        Schema::dropIfExists('tbl_surat_izin');
     }
 };

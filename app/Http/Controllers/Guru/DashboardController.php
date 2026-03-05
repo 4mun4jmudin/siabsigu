@@ -417,6 +417,22 @@ class DashboardController extends Controller
         return response()->json($series);
     }
 
+    public function topPresent(Request $request)
+    {
+        return $this->studentsRanking($request, 'top');
+    }
+
+    public function bottomPresent(Request $request)
+    {
+        return $this->studentsRanking($request, 'bottom');
+    }
+
+    public function studentsByType(Request $request, string $type)
+    {
+        $type = $type === 'bottom' ? 'bottom' : 'top';
+        return $this->studentsRanking($request, $type);
+    }
+
     // GET /api/guru/students/top_present?top=5   &  /api/guru/students/bottom_present?top=5
     public function studentsRanking(Request $request, string $type) // type: top|bottom
     {

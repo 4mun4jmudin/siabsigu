@@ -14,6 +14,7 @@ use App\Models\Siswa;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -54,13 +55,17 @@ class AdminDashboardController extends BaseController
         $endOfMonth    = Carbon::now()->endOfDay();
         $hariNamaID    = Carbon::now()->translatedFormat('l'); // "Senin", "Selasa", ...
 
-        // ===================== 1) Statistik dasar =====================
-        $totalGuru       = Guru::where('status', 'Aktif')->count();
-        $totalSiswa      = Siswa::where('status', 'Aktif')->count();
-        $totalMapel      = MataPelajaran::count();
-        $totalJadwalHariIni = JadwalMengajar::where('hari', $hariNamaID)->count();
+        // ===================== 1) Statistik dasar — CACHE 60 menit =====================
+        $statsBasic = Cache::remember('dashboard:stats_basic', now()->addHour(), function () use ($hariNamaID) {
+            return [
+                'totalGuru'   => Guru::where('status', 'Aktif')->count(),
+                'totalSiswa'  => Siswa::where('status', 'Aktif')->count(),
+                'totalMapel'  => MataPelajaran::count(),
+                'totalJadwal' => JadwalMengajar::where('hari', $hariNamaID)->count(),
+            ];
+        });
 
-        // ===================== 2) Ringkasan Kehadiran Hari Ini =====================
+        // ===================== 2) Ringkasan Kehadiran Hari Ini — REAL-TIME =====================
         $kehadiranGuruHariIni   = AbsensiGuru::whereDate('tanggal', $today);
         $guruHadir              = (clone $kehadiranGuruHariIni)->where('status_kehadiran', 'Hadir')->count();
         $totalBarisGuru         = (clone $kehadiranGuruHariIni)->count();
@@ -72,7 +77,7 @@ class AdminDashboardController extends BaseController
         $siswaTidakHadir        = max(0, $totalBarisSiswa - $siswaHadir);
 
         // ===================== 3) Ringkasan Per Kelas =====================
-        // Hari Ini
+        // Hari Ini — REAL-TIME
         $perKelasHariIni = DB::table('tbl_absensi_siswa as a')
             ->join('tbl_siswa as s', 's.id_siswa', '=', 'a.id_siswa')
             ->join('tbl_kelas as k', 'k.id_kelas', '=', 's.id_kelas')
@@ -98,34 +103,37 @@ class AdminDashboardController extends BaseController
             })
             ->values();
 
-        // Bulan Ini
-        $perKelasBulanIni = DB::table('tbl_absensi_siswa as a')
-            ->join('tbl_siswa as s', 's.id_siswa', '=', 'a.id_siswa')
-            ->join('tbl_kelas as k', 'k.id_kelas', '=', 's.id_kelas')
-            ->select(
-                'k.id_kelas',
-                'k.tingkat',
-                'k.jurusan',
-                DB::raw('SUM(CASE WHEN a.status_kehadiran = "Hadir" THEN 1 ELSE 0 END) AS hadir'),
-                DB::raw('SUM(CASE WHEN a.status_kehadiran <> "Hadir" THEN 1 ELSE 0 END) AS tidak_hadir'),
-                DB::raw('AVG(COALESCE(a.menit_keterlambatan,0)) AS telat_menit')
-            )
-            ->whereBetween('a.tanggal', [$startOfMonth, $endOfMonth])
-            ->groupBy('k.id_kelas', 'k.tingkat', 'k.jurusan')
-            ->orderBy('k.tingkat')
-            ->get()
-            ->map(function ($r) {
-                return [
-                    'kelas'       => trim(($r->tingkat ?? '') . ' ' . ($r->jurusan ?? '')) ?: $r->id_kelas,
-                    'hadir'       => (int) $r->hadir,
-                    'tidakHadir'  => (int) $r->tidak_hadir,
-                    'telatMenit'  => round((float)$r->telat_menit),
-                ];
-            })
-            ->values();
+        // Bulan Ini — CACHE 15 menit
+        $monthKey = $startOfMonth->format('Y-m');
+        $perKelasBulanIni = Cache::remember("dashboard:kelas_bulan:{$monthKey}", now()->addMinutes(15), function () use ($startOfMonth, $endOfMonth) {
+            return DB::table('tbl_absensi_siswa as a')
+                ->join('tbl_siswa as s', 's.id_siswa', '=', 'a.id_siswa')
+                ->join('tbl_kelas as k', 'k.id_kelas', '=', 's.id_kelas')
+                ->select(
+                    'k.id_kelas',
+                    'k.tingkat',
+                    'k.jurusan',
+                    DB::raw('SUM(CASE WHEN a.status_kehadiran = "Hadir" THEN 1 ELSE 0 END) AS hadir'),
+                    DB::raw('SUM(CASE WHEN a.status_kehadiran <> "Hadir" THEN 1 ELSE 0 END) AS tidak_hadir'),
+                    DB::raw('AVG(COALESCE(a.menit_keterlambatan,0)) AS telat_menit')
+                )
+                ->whereBetween('a.tanggal', [$startOfMonth, $endOfMonth])
+                ->groupBy('k.id_kelas', 'k.tingkat', 'k.jurusan')
+                ->orderBy('k.tingkat')
+                ->get()
+                ->map(function ($r) {
+                    return [
+                        'kelas'       => trim(($r->tingkat ?? '') . ' ' . ($r->jurusan ?? '')) ?: $r->id_kelas,
+                        'hadir'       => (int) $r->hadir,
+                        'tidakHadir'  => (int) $r->tidak_hadir,
+                        'telatMenit'  => round((float)$r->telat_menit),
+                    ];
+                })
+                ->values();
+        });
 
         // ===================== 4) Ringkasan Per Guru =====================
-        // Hari Ini
+        // Hari Ini — REAL-TIME
         $perGuruHariIni = DB::table('tbl_absensi_guru as a')
             ->join('tbl_guru as g', 'g.id_guru', '=', 'a.id_guru')
             ->select(
@@ -149,32 +157,33 @@ class AdminDashboardController extends BaseController
             })
             ->values();
 
-        // Bulan Ini
-        $perGuruBulanIni = DB::table('tbl_absensi_guru as a')
-            ->join('tbl_guru as g', 'g.id_guru', '=', 'a.id_guru')
-            ->select(
-                'g.id_guru',
-                'g.nama_lengkap',
-                DB::raw('SUM(CASE WHEN a.status_kehadiran = "Hadir" THEN 1 ELSE 0 END) AS hadir'),
-                DB::raw('SUM(CASE WHEN a.status_kehadiran <> "Hadir" THEN 1 ELSE 0 END) AS tidak_hadir'),
-                DB::raw('AVG(COALESCE(a.menit_keterlambatan,0)) AS telat_menit')
-            )
-            ->whereBetween('a.tanggal', [$startOfMonth, $endOfMonth])
-            ->groupBy('g.id_guru', 'g.nama_lengkap')
-            ->orderBy('g.nama_lengkap')
-            ->get()
-            ->map(function ($r) {
-                return [
-                    'guru'       => $r->nama_lengkap,
-                    'hadir'      => (int) $r->hadir,
-                    'tidakHadir' => (int) $r->tidak_hadir,
-                    'telatMenit' => round((float)$r->telat_menit),
-                ];
-            })
-            ->values();
+        // Bulan Ini — CACHE 15 menit
+        $perGuruBulanIni = Cache::remember("dashboard:guru_bulan:{$monthKey}", now()->addMinutes(15), function () use ($startOfMonth, $endOfMonth) {
+            return DB::table('tbl_absensi_guru as a')
+                ->join('tbl_guru as g', 'g.id_guru', '=', 'a.id_guru')
+                ->select(
+                    'g.id_guru',
+                    'g.nama_lengkap',
+                    DB::raw('SUM(CASE WHEN a.status_kehadiran = "Hadir" THEN 1 ELSE 0 END) AS hadir'),
+                    DB::raw('SUM(CASE WHEN a.status_kehadiran <> "Hadir" THEN 1 ELSE 0 END) AS tidak_hadir'),
+                    DB::raw('AVG(COALESCE(a.menit_keterlambatan,0)) AS telat_menit')
+                )
+                ->whereBetween('a.tanggal', [$startOfMonth, $endOfMonth])
+                ->groupBy('g.id_guru', 'g.nama_lengkap')
+                ->orderBy('g.nama_lengkap')
+                ->get()
+                ->map(function ($r) {
+                    return [
+                        'guru'       => $r->nama_lengkap,
+                        'hadir'      => (int) $r->hadir,
+                        'tidakHadir' => (int) $r->tidak_hadir,
+                        'telatMenit' => round((float)$r->telat_menit),
+                    ];
+                })
+                ->values();
+        });
 
-        // ===================== 5) Tren Mingguan (4–8 minggu terakhir) =====================
-        // Helper untuk hitung tren % hadir / minggu
+        // ===================== 5) Tren Mingguan — CACHE 30 menit =====================
         $buildWeeklyTrend = function (string $table) {
             $colTanggal = 'a.tanggal';
             $rows = DB::table($table . ' as a')
@@ -191,56 +200,59 @@ class AdminDashboardController extends BaseController
             $trend = $rows->map(function ($r) {
                 $total = max(1, (int)$r->total);
                 $percent = round(((int)$r->hadir / $total) * 100);
-                // Label mingguan sederhana (mis. W35)
                 $label = 'W' . substr((string)$r->yw, -2);
                 return ['label' => $label, 'value' => $percent];
             })->values();
 
-            // ambil 4 terakhir (biar ringkas)
             return $trend->take(-4)->values();
         };
 
-        $trendSiswa = $buildWeeklyTrend('tbl_absensi_siswa');
-        $trendGuru  = $buildWeeklyTrend('tbl_absensi_guru');
+        $trendSiswa = Cache::remember('dashboard:trend_siswa', now()->addMinutes(30), fn () => $buildWeeklyTrend('tbl_absensi_siswa'));
+        $trendGuru  = Cache::remember('dashboard:trend_guru', now()->addMinutes(30), fn () => $buildWeeklyTrend('tbl_absensi_guru'));
 
-        // ===================== 6) Sparkline 30 hari (Siswa) =====================
-        $dailyRows = DB::table('tbl_absensi_siswa as a')
-            ->select(
-                DB::raw('DATE(a.tanggal) as d'),
-                DB::raw('SUM(CASE WHEN a.status_kehadiran = "Hadir" THEN 1 ELSE 0 END) as hadir'),
-                DB::raw('COUNT(*) as total')
-            )
-            ->where('a.tanggal', '>=', Carbon::now()->subDays(30)->startOfDay())
-            ->groupBy('d')
-            ->orderBy('d')
-            ->get();
+        // ===================== 6) Sparkline 30 hari — CACHE 30 menit =====================
+        $sparkLast30 = Cache::remember('dashboard:spark_30d', now()->addMinutes(30), function () {
+            $dailyRows = DB::table('tbl_absensi_siswa as a')
+                ->select(
+                    DB::raw('DATE(a.tanggal) as d'),
+                    DB::raw('SUM(CASE WHEN a.status_kehadiran = "Hadir" THEN 1 ELSE 0 END) as hadir'),
+                    DB::raw('COUNT(*) as total')
+                )
+                ->where('a.tanggal', '>=', Carbon::now()->subDays(30)->startOfDay())
+                ->groupBy('d')
+                ->orderBy('d')
+                ->get();
 
-        $sparkLast30 = $dailyRows->map(function ($r) {
-            $total = max(1, (int)$r->total);
-            return (int) round(((int)$r->hadir / $total) * 100);
-        })->values();
+            return $dailyRows->map(function ($r) {
+                $total = max(1, (int)$r->total);
+                return (int) round(((int)$r->hadir / $total) * 100);
+            })->values();
+        });
 
-        // ===================== 7) Aktivitas & Pengumuman =====================
-        $latestActivities = LogAktivitas::with('pengguna')
-            ->latest('waktu')
-            ->take(5)
-            ->get();
+        // ===================== 7) Aktivitas & Pengumuman — CACHE 5 menit =====================
+        $latestActivities = Cache::remember('dashboard:activities', now()->addMinutes(5), function () {
+            return LogAktivitas::with('pengguna')
+                ->latest('waktu')
+                ->take(5)
+                ->get();
+        });
 
-        $announcements = Pengumuman::latest('tanggal_terbit')
-            ->take(5)
-            ->get();
+        $announcements = Cache::remember('dashboard:announcements', now()->addMinutes(5), function () {
+            return Pengumuman::latest('tanggal_terbit')
+                ->take(5)
+                ->get();
+        });
 
         // ===================== 8) Mode admin (Absensi / Full) =====================
-        // Ambil dari session (default "full"); pastikan middleware share juga menyertakan kalau mau global
-        $adminMode = session('admin_mode', 'full'); // 'absensi' | 'full'
+        $adminMode = session('admin_mode', 'full');
 
         return Inertia::render('admin/Dashboard', [
             'adminMode' => $adminMode,
             'stats' => [
-                'totalGuru'   => $totalGuru,
-                'totalSiswa'  => $totalSiswa,
-                'totalMapel'  => $totalMapel,
-                'totalJadwal' => $totalJadwalHariIni,
+                'totalGuru'   => $statsBasic['totalGuru'],
+                'totalSiswa'  => $statsBasic['totalSiswa'],
+                'totalMapel'  => $statsBasic['totalMapel'],
+                'totalJadwal' => $statsBasic['totalJadwal'],
                 'kehadiranGuru' => [
                     'hadir'       => $guruHadir,
                     'tidakHadir'  => $guruTidakHadir,
@@ -264,5 +276,12 @@ class AdminDashboardController extends BaseController
             'latestActivities' => $latestActivities,
             'announcements'    => $announcements,
         ]);
+    }
+
+    public function updateMode(Request $request)
+    {
+        $request->validate(['mode' => 'required|in:absensi,full']);
+        $request->session()->put('admin_mode', $request->input('mode'));
+        return back()->with('success', 'Mode diperbarui ke: ' . ucfirst($request->input('mode')));
     }
 }

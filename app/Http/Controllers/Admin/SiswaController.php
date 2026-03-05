@@ -18,16 +18,29 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Http;
-use Maatwebsite\Excel\Facades\Excel; // Pastikan package maatwebsite/excel sudah terinstal
+use Maatwebsite\Excel\Facades\Excel;
 
 class SiswaController extends Controller
 {
     /**
-     * Menampilkan halaman daftar siswa dengan filter dan paginasi.
+     * Menampilkan halaman daftar siswa dengan filter dan paginasi dinamis.
      */
     public function index(Request $request)
     {
         $kelasOptions = Kelas::orderBy('tingkat')->get();
+        
+        // Logika Rows Per Page
+        $perPageRequest = $request->input('per_page', 10);
+        
+        // Jika 'all', kita ambil jumlah total data, atau angka sangat besar
+        if ($perPageRequest === 'all') {
+            $perPage = Siswa::count();
+            if ($perPage == 0) $perPage = 10; // Hindari division by zero atau error pagination jika kosong
+        } else {
+            $perPage = (int) $perPageRequest;
+            // Validasi agar tidak error jika user input aneh-aneh di URL
+            if ($perPage < 1) $perPage = 10;
+        }
 
         $siswas = Siswa::with('kelas')
             ->when($request->input('search'), function ($query, $search) {
@@ -38,7 +51,7 @@ class SiswaController extends Controller
                 $query->where('id_kelas', $kelasId);
             })
             ->latest()
-            ->paginate(10)
+            ->paginate($perPage) // Gunakan variabel dinamis
             ->withQueryString();
 
         // ✅ Tambahkan foto_url untuk setiap siswa
@@ -53,7 +66,7 @@ class SiswaController extends Controller
         return Inertia::render('admin/Siswa/Index', [
             'siswas' => $siswas,
             'kelasOptions' => $kelasOptions,
-            'filters' => $request->only(['search', 'kelas']),
+            'filters' => array_merge($request->only(['search', 'kelas']), ['per_page' => $perPageRequest]),
         ]);
     }
 
@@ -573,7 +586,7 @@ class SiswaController extends Controller
         $sampleRow = $fileData['sample'];
 
         $guesses = [];
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = env('AIzaSyDGdi4tpkpm4i8TGcH9_y_Re80JTvEL3VQ');
 
         if ($apiKey) {
             try {

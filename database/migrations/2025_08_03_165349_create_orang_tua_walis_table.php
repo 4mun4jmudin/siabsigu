@@ -14,9 +14,11 @@ return new class extends Migration
         Schema::create('tbl_orang_tua_wali', function (Blueprint $table) {
             $table->string('id_wali', 20)->primary();
 
+            // Foreign Key ke tbl_siswa
             $table->string('id_siswa', 20);
             $table->foreign('id_siswa')->references('id_siswa')->on('tbl_siswa')->onDelete('cascade');
 
+            // Foreign Key ke tbl_pengguna
             $table->unsignedBigInteger('id_pengguna')->unique()->nullable();
             $table->foreign('id_pengguna')->references('id_pengguna')->on('tbl_pengguna')->onDelete('set null');
 
@@ -28,6 +30,10 @@ return new class extends Migration
             $table->string('pekerjaan', 50)->nullable();
             $table->enum('penghasilan_bulanan', ['< 1 Juta', '1 - 3 Juta', '3 - 5 Juta', '5 - 10 Juta', '> 10 Juta', 'Tidak Berpenghasilan'])->nullable();
             $table->string('no_telepon_wa', 20);
+            
+            // PERBAIKAN: Menambahkan kolom foto_profil yang terlewat
+            $table->string('foto_profil')->nullable();
+            
             $table->timestamps();
             $table->softDeletes();
         });
@@ -38,6 +44,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('orang_tua_walis');
+        // PERBAIKAN: Ubah 'orang_tua_walis' menjadi 'tbl_orang_tua_wali'
+        Schema::dropIfExists('tbl_orang_tua_wali');
     }
 };

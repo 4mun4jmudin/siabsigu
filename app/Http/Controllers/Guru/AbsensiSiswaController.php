@@ -38,19 +38,15 @@ class AbsensiSiswaController extends Controller
      */
     public function show(JadwalMengajar $jadwal)
     {
-        // Pastikan guru yang login adalah guru yang mengajar sesuai jadwal
-        // if ($jadwal->id_guru != Auth::user()->guru->id_guru) {
-        //     abort(403, 'Anda tidak memiliki akses ke jadwal ini.');
-        // }
-        
         // Load relasi kelas beserta siswanya
         $jadwal->load('kelas.siswa');
 
-        // Ambil data absensi yang sudah ada untuk jadwal dan tanggal ini
-        $absensiHariIni = AbsensiSiswa::where('id_jadwal', $jadwal->id_jadwal)
+        // Ambil data absensi yang sudah ada untuk kelas dan tanggal ini
+        $siswaIds = $jadwal->kelas->siswa->pluck('id_siswa');
+        $absensiHariIni = AbsensiSiswa::whereIn('id_siswa', $siswaIds)
             ->whereDate('tanggal', Carbon::today())
             ->get()
-            ->keyBy('id_siswa'); // Gunakan id_siswa sebagai key untuk kemudahan akses di frontend
+            ->keyBy('id_siswa');
 
         return Inertia::render('Guru/AbsensiSiswa/Show', [
             'jadwal' => $jadwal,
@@ -60,35 +56,38 @@ class AbsensiSiswaController extends Controller
     }
 
     /**
-     * Menyimpan data absensi siswa.
+     * Menyimpan data absensi siswa (bulk upsert — 1 query).
      */
     public function store(Request $request, JadwalMengajar $jadwal)
     {
-        // Validasi
         $request->validate([
             'absensi' => 'required|array',
             'absensi.*.id_siswa' => 'required|exists:tbl_siswa,id_siswa',
-            'absensi.*.status' => 'required|in:Hadir,Sakit,Izin,Alfa',
+            'absensi.*.status_kehadiran' => 'required|in:Hadir,Sakit,Izin,Alfa',
             'absensi.*.keterangan' => 'nullable|string|max:255',
         ]);
 
-        $absensiData = $request->input('absensi');
-        $tanggal = Carbon::today();
+        $tanggal     = Carbon::today()->toDateString();
+        $tanggalCode = Carbon::today()->format('ymd');
+        $guruUserId  = Auth::id();
 
-        foreach ($absensiData as $data) {
-            AbsensiSiswa::updateOrCreate(
-                [
-                    'id_jadwal' => $jadwal->id_jadwal,
-                    'id_siswa' => $data['id_siswa'],
-                    'tanggal' => $tanggal,
-                ],
-                [
-                    'status' => $data['status'],
-                    'keterangan' => $data['keterangan'] ?? null,
-                    'id_guru' => $jadwal->id_guru,
-                ]
-            );
-        }
+        // Build array untuk bulk upsert — 1 query untuk semua siswa
+        $rows = collect($request->input('absensi'))->map(fn ($data) => [
+            'id_absensi'          => 'AS-' . $tanggalCode . '-' . $data['id_siswa'],
+            'id_siswa'            => $data['id_siswa'],
+            'tanggal'             => $tanggal,
+            'status_kehadiran'    => $data['status_kehadiran'],
+            'keterangan'          => $data['keterangan'] ?? null,
+            'metode_absen'        => 'Manual',
+            'id_penginput_manual' => $guruUserId,
+            'menit_keterlambatan' => 0,
+        ])->all();
+
+        AbsensiSiswa::upsert(
+            $rows,
+            ['id_siswa', 'tanggal'],
+            ['status_kehadiran', 'keterangan', 'id_penginput_manual']
+        );
 
         return redirect()->route('guru.absensi-siswa.index')->with('success', 'Absensi berhasil disimpan.');
     }

@@ -19,6 +19,11 @@ use App\Http\Controllers\Admin\JurnalMengajarController;
 use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Siswa\AbsensiController as SiswaAbsensiController;
 use App\Http\Controllers\Auth\SiswaLoginController;
+use App\Models\Siswa;
+use App\Models\Guru;
+use App\Models\Pengaturan;
+use App\Models\AbsensiSiswa;
+use Carbon\Carbon;
 
 // Panel Guru
 use App\Http\Controllers\Guru\DashboardController as GuruDashboardController;
@@ -59,22 +64,12 @@ use App\Http\Controllers\Admin\SuratIzinController;
 use App\Http\Controllers\Siswa\AccountController as SiswaAccountController;
 
 
+use App\Http\Controllers\StorageController;
+use App\Http\Controllers\DashboardRedirectController;
 use Illuminate\Support\Facades\Storage;
 
 // ------------- PUBLIC STORAGE ROUTE (untuk foto profil, dll) -------------
-Route::get('/storage-public/{path}', function (string $path) {
-    $path = urldecode($path);
-
-    if (!Storage::disk('public')->exists($path)) {
-        abort(404);
-    }
-
-    return response()->file(Storage::disk('public')->path($path), [
-        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-        'Pragma' => 'no-cache',
-        'Expires' => '0',
-    ]);
-})->where('path', '.*')->name('storage.public');
+Route::get('/storage-public/{path}', [StorageController::class, 'serve'])->where('path', '.*')->name('storage.public');
 
 
 
@@ -85,28 +80,20 @@ Route::get('/storage-public/{path}', function (string $path) {
 */
 
 // Halaman Utama
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+// Route::get('/', function () {
+//     return Inertia::render('Welcome', [
+//         'canLogin' => Route::has('login'),
+//         'canRegister' => Route::has('register'),
+//         'laravelVersion' => Application::VERSION,
+//         'phpVersion' => PHP_VERSION,
+//     ]);
+// });
+
+Route::get('/', [DashboardRedirectController::class, 'welcome']);
 
 // Dasbor default (admin)
 // Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-Route::get('/dashboard', function () {
-    $level = Auth::user()?->level ?? null;
-
-    return match ($level) {
-        'Admin', 'Kepala Sekolah' => redirect()->route('admin.dashboard'),
-        'Guru'                   => redirect()->route('guru.dashboard'),
-        'Siswa'                  => redirect()->route('siswa.dashboard'),
-        'Orang Tua'              => redirect()->route('orangtua.dashboard'),
-        default                  => abort(403),
-    };
-})->middleware('auth')->name('dashboard');
+Route::get('/dashboard', [DashboardRedirectController::class, 'redirect'])->middleware('auth')->name('dashboard');
 
 
 
@@ -263,18 +250,9 @@ Route::middleware('auth')->group(function () {
             Route::get('/attendance_calendar', [GuruDashboardController::class, 'attendanceCalendar'])->name('attendance_calendar');
 
             // Ranking siswa (opsional) — dua alias + 1 generic
-            Route::get('/students/top_present', function (Request $r) {
-                return app(GuruDashboardController::class)->studentsRanking($r, 'top');
-            })->name('students.top_present');
-
-            Route::get('/students/bottom_present', function (Request $r) {
-                return app(GuruDashboardController::class)->studentsRanking($r, 'bottom');
-            })->name('students.bottom_present');
-
-            Route::get('/students/{type}', function (Request $r, string $type) {
-                $type = $type === 'bottom' ? 'bottom' : 'top';
-                return app(GuruDashboardController::class)->studentsRanking($r, $type);
-            })->where('type', 'top|bottom')->name('students.ranking');
+            Route::get('/students/top_present', [GuruDashboardController::class, 'topPresent'])->name('students.top_present');
+            Route::get('/students/bottom_present', [GuruDashboardController::class, 'bottomPresent'])->name('students.bottom_present');
+            Route::get('/students/{type}', [GuruDashboardController::class, 'studentsByType'])->where('type', 'top|bottom')->name('students.ranking');
 
             // Pending leave/izin (opsional)
             Route::get('/leave_requests/pending', [GuruDashboardController::class, 'pendingLeaveRequests'])->name('leave_requests.pending');
@@ -311,11 +289,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
 
-        Route::post('/mode', function (Request $request) {
-            $request->validate(['mode' => 'required|in:absensi,full']);
-            $request->session()->put('admin_mode', $request->input('mode'));
-            return back()->with('success', 'Mode diperbarui ke: ' . ucfirst($request->input('mode')));
-        })->name('mode.update');
+        Route::post('/mode', [AdminDashboardController::class, 'updateMode'])->name('mode.update');
 
         // Surat Izin
         Route::get('/surat-izin/create', [SuratIzinController::class, 'create'])->name('surat-izin.create');
@@ -398,6 +372,12 @@ Route::middleware('auth')->group(function () {
         Route::post('absensi-siswa/store-manual', [AbsensiSiswaController::class, 'storeManual'])->name('absensi-siswa.storeManual');
         Route::get('absensi-siswa/export/excel', [AbsensiSiswaController::class, 'exportExcel'])->name('absensi-siswa.export.excel');
         Route::get('absensi-siswa/export/pdf', [AbsensiSiswaController::class, 'exportPdf'])->name('absensi-siswa.export.pdf');
+
+        // Export background (queue) — untuk data besar
+        Route::post('absensi-siswa/export-async', [AbsensiSiswaController::class, 'exportAsync'])->name('absensi-siswa.export.async');
+
+        // Download file export yang sudah selesai
+        Route::get('export/download', [AbsensiSiswaController::class, 'downloadExport'])->name('export.download');
 
         // Absensi Siswa Bulanan
         Route::prefix('absensi-siswa-bulanan')->name('absensi-siswa.bulanan.')->group(function () {

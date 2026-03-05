@@ -50,31 +50,26 @@ class AbsensiSiswaController extends Controller
             ->orderBy('nama_lengkap')
             ->get();
 
-        $absensiSudahAda = AbsensiSiswa::whereIn('id_siswa', $siswaDiKelas->pluck('id_siswa'))
-            ->whereDate('tanggal', $activeTanggal)
-            ->get()
-            ->keyBy('id_siswa');
-
         $jamMasukSekolah = Cache::remember('jam_masuk_siswa', now()->addHour(), function () {
             $pengaturan = Pengaturan::first();
             return $pengaturan->jam_masuk_siswa ?? '07:30:00';
         });
 
-        $siswaWithAbsensi = $siswaDiKelas->map(function ($siswa) use ($absensiSudahAda, $jamMasukSekolah) {
-            $absen = $absensiSudahAda->get($siswa->id_siswa);
-            $siswa->absensi = $absen;
+        // Hitung menit_keterlambatan langsung di SQL — bukan di PHP loop
+        $absensiSudahAda = AbsensiSiswa::whereIn('id_siswa', $siswaDiKelas->pluck('id_siswa'))
+            ->whereDate('tanggal', $activeTanggal)
+            ->select('*', DB::raw("
+                CASE
+                    WHEN status_kehadiran = 'Hadir' AND jam_masuk IS NOT NULL
+                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, '{$jamMasukSekolah}', jam_masuk), 0)
+                    ELSE 0
+                END AS menit_keterlambatan
+            "))
+            ->get()
+            ->keyBy('id_siswa');
 
-            if ($absen && $absen->status_kehadiran === 'Hadir' && $absen->jam_masuk) {
-                try {
-                    $jamMasukSiswa = Carbon::parse($absen->jam_masuk);
-                    $batasMasuk    = Carbon::parse($jamMasukSekolah);
-                    $selisihMenit  = $batasMasuk->diffInMinutes($jamMasukSiswa, false);
-                    $absen->menit_keterlambatan = $selisihMenit > 0 ? $selisihMenit : 0;
-                } catch (\Exception $e) {
-                    Log::error("Gagal parse waktu untuk siswa {$siswa->id_siswa}: " . $e->getMessage());
-                    $absen->menit_keterlambatan = 0;
-                }
-            }
+        $siswaWithAbsensi = $siswaDiKelas->map(function ($siswa) use ($absensiSudahAda) {
+            $siswa->absensi = $absensiSudahAda->get($siswa->id_siswa);
             return $siswa;
         });
 
@@ -152,38 +147,26 @@ class AbsensiSiswaController extends Controller
         ]);
 
         $tanggalAbsen = Carbon::parse($validated['tanggal'])->toDateString();
+        $tanggalCode  = Carbon::parse($tanggalAbsen)->format('ymd');
         $adminId      = Auth::id();
 
-        foreach ($validated['absensi'] as $data) {
-            $absensi   = AbsensiSiswa::where('tanggal', $tanggalAbsen)
-                ->where('id_siswa', $data['id_siswa'])
-                ->first();
+        // Build array untuk bulk upsert — 1 query untuk semua siswa
+        $rows = collect($validated['absensi'])->map(fn ($data) => [
+            'id_absensi'          => 'AS-' . $tanggalCode . '-' . $data['id_siswa'],
+            'id_siswa'            => $data['id_siswa'],
+            'tanggal'             => $tanggalAbsen,
+            'status_kehadiran'    => $data['status_kehadiran'],
+            'metode_absen'        => 'Manual',
+            'id_penginput_manual' => $adminId,
+            'jam_masuk'           => null,
+            'menit_keterlambatan' => 0,
+        ])->all();
 
-            $newStatus = $data['status_kehadiran'];
-
-            if ($absensi) {
-                $absensi->status_kehadiran    = $newStatus;
-                $absensi->id_penginput_manual = $adminId;
-
-                if ($newStatus !== 'Hadir') {
-                    $absensi->jam_masuk           = null;
-                    $absensi->menit_keterlambatan = 0;
-                }
-
-                $absensi->save();
-            } else {
-                AbsensiSiswa::create([
-                    'id_absensi'          => 'AS-' . Carbon::parse($tanggalAbsen)->format('ymd') . '-' . $data['id_siswa'],
-                    'id_siswa'            => $data['id_siswa'],
-                    'tanggal'             => $tanggalAbsen,
-                    'status_kehadiran'    => $newStatus,
-                    'metode_absen'        => 'Manual',
-                    'id_penginput_manual' => $adminId,
-                    'jam_masuk'           => null,
-                    'menit_keterlambatan' => 0,
-                ]);
-            }
-        }
+        AbsensiSiswa::upsert(
+            $rows,
+            ['id_siswa', 'tanggal'],                                                    // unique key match
+            ['status_kehadiran', 'id_penginput_manual', 'jam_masuk', 'menit_keterlambatan'] // kolom yang di-update saat conflict
+        );
 
         return back()->with('success', 'Absensi massal berhasil diperbarui.');
     }
@@ -273,6 +256,42 @@ class AbsensiSiswaController extends Controller
         return Excel::download(new AbsensiSiswaExport($filters), $fileName);
     }
 
+    public function exportAsync(Request $request)
+    {
+        $request->validate([
+            'format'   => 'required|in:excel,pdf',
+            'tanggal'  => 'required|date',
+            'id_kelas' => 'nullable|string',
+            'search'   => 'nullable|string',
+        ]);
+
+        \App\Jobs\ExportAbsensiJob::dispatch(
+            Auth::id(),
+            $request->input('format'),
+            $request->only('tanggal', 'id_kelas', 'search'),
+        );
+
+        return back()->with('success', 'Export sedang diproses di background. Anda akan mendapat notifikasi ketika file siap diunduh.');
+    }
+
+    public function downloadExport(Request $request)
+    {
+        $file = $request->query('file');
+        
+        // Basic validation for filename to prevent path traversal
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $file)) {
+            abort(400, 'Invalid filename.');
+        }
+        
+        $path = 'exports/' . basename($file);
+        
+        if (!\Illuminate\Support\Facades\Storage::disk('local')->exists($path)) {
+            abort(404, 'File tidak ditemukan.');
+        }
+        
+        return \Illuminate\Support\Facades\Storage::disk('local')->download($path, $file);
+    }
+
     public function exportPdf(Request $request)
     {
         $filters = $request->validate([
@@ -289,7 +308,7 @@ class AbsensiSiswaController extends Controller
                    ->orWhere('nis', 'like', "%{$s}%")
             ))
             ->orderBy('nama_lengkap')
-            ->get();
+            ->lazy(100); // Lazy loading — fetch 100 siswa per batch dari DB
 
         $kelas     = Kelas::find($filters['id_kelas']);
         $namaKelas = trim(($kelas->tingkat ?? '') . ' ' . ($kelas->jurusan ?? '')) ?: ($kelas->nama_kelas ?? 'Kelas');

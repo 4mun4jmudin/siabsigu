@@ -31,6 +31,10 @@ return new class extends Migration
             $table->boolean('login_barcode_enabled')->default(true);
             $table->boolean('login_fingerprint_enabled')->default(false);
             $table->boolean('login_manual_enabled')->default(true);
+            
+            // PERBAIKAN: Menambahkan pengaturan absensi manual guru
+            $table->boolean('absensi_manual_guru_enabled')->default(true);
+            
             $table->integer('password_min_length')->default(8);
             $table->boolean('password_require_upper')->default(true);
             $table->integer('password_expiry_days')->default(90);
@@ -38,6 +42,12 @@ return new class extends Migration
             $table->boolean('backup_auto_enabled')->default(false);
             $table->string('backup_time')->nullable();
             $table->integer('backup_retention_days')->default(30);
+            
+            // PERBAIKAN: Menambahkan koordinat lokasi dan radius sekolah
+            $table->string('lokasi_sekolah_latitude', 30)->nullable();
+            $table->string('lokasi_sekolah_longitude', 30)->nullable();
+            $table->integer('radius_absen_meters')->default(200);
+            
             $table->timestamps();
         });
 

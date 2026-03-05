@@ -14,6 +14,13 @@ return new class extends Migration
         Schema::create('tbl_mata_pelajaran', function (Blueprint $table) {
             $table->string('id_mapel', 20)->primary();
             $table->string('nama_mapel', 100)->unique();
+            
+            // PERBAIKAN: Menambahkan 4 kolom yang terlewat
+            $table->string('kategori', 50)->nullable();
+            $table->integer('kkm')->nullable();
+            $table->enum('status', ['Aktif', 'Tidak Aktif'])->default('Aktif');
+            $table->integer('jumlah_jp')->nullable();
+
             $table->timestamps();
             $table->softDeletes();
         });
@@ -24,6 +31,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('mata_pelajarans');
+        // PERBAIKAN: Ubah 'mata_pelajarans' menjadi 'tbl_mata_pelajaran'
+        Schema::dropIfExists('tbl_mata_pelajaran');
     }
 };
