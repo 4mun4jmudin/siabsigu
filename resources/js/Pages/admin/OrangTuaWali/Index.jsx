@@ -206,3 +206,5 @@ export default function Index({ auth, waliList, stats, filters }) {
 }
 
 Index.layout = (page) => <AdminLayout user={page.props.auth.user} header="Orang Tua / Wali">{page}</AdminLayout>;
+
+// ----
