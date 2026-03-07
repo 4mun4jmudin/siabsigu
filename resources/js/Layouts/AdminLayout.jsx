@@ -116,7 +116,7 @@ export default function AdminLayout({ user, header, children }) {
 
     // ✅ Ambil data notifikasi (asumsi struktur data dari backend)
     // Jika backend belum kirim array, fallback ke array kosong
-    const notifications = globalStats?.notifications || []; 
+    const notifications = globalStats?.notifications || [];
     // Prioritaskan hitungan dari unreadSurat jika ada, jika tidak gunakan panjang array notifikasi
     const unreadCount = globalStats?.unreadSurat ?? notifications.length ?? 0;
 
@@ -124,9 +124,24 @@ export default function AdminLayout({ user, header, children }) {
     const isAbsensiMode = adminMode === "absensi";
 
     useEffect(() => {
-        if (flash?.success) toast.success(flash.success);
-        if (flash?.error) toast.error(flash.error);
-    }, [flash?._ts]); 
+        console.log("AdminLayout useEffect flash triggered. Flash object:", flash, "Errors:", errors);
+        if (flash?.success) {
+            console.log("Triggering toast.success:", flash.success);
+            toast.success(flash.success);
+        }
+        if (flash?.message) {
+            console.log("Triggering toast.message:", flash.message);
+            toast.success(flash.message);
+        }
+        if (flash?.error) {
+            console.log("Triggering toast.error:", flash.error);
+            toast.error(flash.error);
+        }
+        if (errors?.error) {
+            console.log("Triggering toast.errors:", errors.error);
+            toast.error(errors.error);
+        }
+    }, [flash?._ts, errors?.error]);
 
     const toggleIconPath = pengaturan?.toggle_icon_url || "/images/sidebar-toggle-blue.png";
 
@@ -180,7 +195,7 @@ export default function AdminLayout({ user, header, children }) {
             route().current("admin.absensi-siswa.*") ||
             route().current("admin.absensi-siswa-mapel.*") ||
             route().current("admin.absensi-siswa.bulanan.*") ||
-            route().current("admin.surat-izin.*"); 
+            route().current("admin.surat-izin.*");
 
         return (
             <div className="flex flex-col h-full">
@@ -200,71 +215,69 @@ export default function AdminLayout({ user, header, children }) {
                         </li>
 
                         {/* Master Data */}
-                        {!isAbsensiMode && (
-                            <CollapsibleNavGroup
-                                title="Master Data"
-                                icon={<RectangleStackIcon className="w-6 h-6" />}
-                                isCollapsed={!isSidebarOpen && !isMobile}
-                                active={
-                                    route().current("admin.guru.*") ||
-                                    route().current("admin.siswa.*") ||
-                                    route().current("admin.kelas.*") ||
-                                    route().current("admin.mata-pelajaran.*") ||
-                                    route().current("admin.orang-tua-wali.*")
-                                }
-                            >
-                                <li>
-                                    <NavLink
-                                        href={route("admin.guru.index")}
-                                        active={route().current("admin.guru.*")}
-                                        isCollapsed={false}
-                                        label="Data Guru"
-                                    >
-                                        <UsersIcon className="w-5 h-5" />
-                                    </NavLink>
-                                </li>
-                                <li>
-                                    <NavLink
-                                        href={route("admin.siswa.index")}
-                                        active={route().current("admin.siswa.*")}
-                                        isCollapsed={false}
-                                        label="Data Siswa"
-                                    >
-                                        <AcademicCapIcon className="w-5 h-5" />
-                                    </NavLink>
-                                </li>
-                                <li>
-                                    <NavLink
-                                        href={route("admin.kelas.index")}
-                                        active={route().current("admin.kelas.*")}
-                                        isCollapsed={false}
-                                        label="Data Kelas"
-                                    >
-                                        <BuildingOffice2Icon className="w-5 h-5" />
-                                    </NavLink>
-                                </li>
-                                <li>
-                                    <NavLink
-                                        href={route("admin.mata-pelajaran.index")}
-                                        active={route().current("admin.mata-pelajaran.*")}
-                                        isCollapsed={false}
-                                        label="Mata Pelajaran"
-                                    >
-                                        <BookOpenIcon className="w-5 h-5" />
-                                    </NavLink>
-                                </li>
-                                <li>
-                                    <NavLink
-                                        href={route("admin.orang-tua-wali.index")}
-                                        active={route().current("admin.orang-tua-wali.*")}
-                                        isCollapsed={false}
-                                        label="Orang Tua/Wali"
-                                    >
-                                        <UserGroupIcon className="w-5 h-5" />
-                                    </NavLink>
-                                </li>
-                            </CollapsibleNavGroup>
-                        )}
+                        <CollapsibleNavGroup
+                            title="Master Data"
+                            icon={<RectangleStackIcon className="w-6 h-6" />}
+                            isCollapsed={!isSidebarOpen && !isMobile}
+                            active={
+                                route().current("admin.guru.*") ||
+                                route().current("admin.siswa.*") ||
+                                route().current("admin.kelas.*") ||
+                                route().current("admin.mata-pelajaran.*") ||
+                                route().current("admin.orang-tua-wali.*")
+                            }
+                        >
+                            <li>
+                                <NavLink
+                                    href={route("admin.guru.index")}
+                                    active={route().current("admin.guru.*")}
+                                    isCollapsed={false}
+                                    label="Data Guru"
+                                >
+                                    <UsersIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.siswa.index")}
+                                    active={route().current("admin.siswa.*")}
+                                    isCollapsed={false}
+                                    label="Data Siswa"
+                                >
+                                    <AcademicCapIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.kelas.index")}
+                                    active={route().current("admin.kelas.*")}
+                                    isCollapsed={false}
+                                    label="Data Kelas"
+                                >
+                                    <BuildingOffice2Icon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.mata-pelajaran.index")}
+                                    active={route().current("admin.mata-pelajaran.*")}
+                                    isCollapsed={false}
+                                    label="Mata Pelajaran"
+                                >
+                                    <BookOpenIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                            <li>
+                                <NavLink
+                                    href={route("admin.orang-tua-wali.index")}
+                                    active={route().current("admin.orang-tua-wali.*")}
+                                    isCollapsed={false}
+                                    label="Orang Tua/Wali"
+                                >
+                                    <UserGroupIcon className="w-5 h-5" />
+                                </NavLink>
+                            </li>
+                        </CollapsibleNavGroup>
 
                         {/* Absensi */}
                         <CollapsibleNavGroup
@@ -382,6 +395,33 @@ export default function AdminLayout({ user, header, children }) {
                             </NavLink>
                         </li>
 
+                        {/* Audit Trail (Tampil di mode Full) */}
+                        {!isAbsensiMode && (
+                            <li>
+                                <NavLink
+                                    href={route("admin.log-aktivitas.index")}
+                                    active={route().current("admin.log-aktivitas.*")}
+                                    isCollapsed={!isSidebarOpen && !isMobile}
+                                    label="Log Aktivitas"
+                                >
+                                    <ClipboardDocumentListIcon className="w-6 h-6" />
+                                </NavLink>
+                            </li>
+                        )}
+
+                        {!isAbsensiMode && (
+                            <li>
+                                <NavLink
+                                    href={route("admin.kalender.index")}
+                                    active={route().current("admin.kalender.*")}
+                                    isCollapsed={!isSidebarOpen && !isMobile}
+                                    label="Kalender Akademik"
+                                >
+                                    <CalendarDaysIcon className="w-6 h-6" />
+                                </NavLink>
+                            </li>
+                        )}
+
                         {!isAbsensiMode && (
                             <li>
                                 <NavLink
@@ -425,7 +465,44 @@ export default function AdminLayout({ user, header, children }) {
         <>
             <Head title={header} />
 
-            <Toaster position="top-right" reverseOrder={false} toastOptions={{ duration: 4500 }} />
+            <Toaster
+                position="top-right"
+                reverseOrder={false}
+                toastOptions={{
+                    duration: 4500,
+                    style: {
+                        background: '#ffffff',
+                        color: '#374151',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '16px',
+                        padding: '16px 20px',
+                        fontWeight: '500',
+                        fontSize: '0.9rem',
+                        border: '1px solid #f3f4f6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                    },
+                    success: {
+                        iconTheme: {
+                            primary: '#10b981',
+                            secondary: '#ffffff',
+                        },
+                        style: {
+                            borderLeft: '4px solid #10b981',
+                        }
+                    },
+                    error: {
+                        iconTheme: {
+                            primary: '#ef4444',
+                            secondary: '#ffffff',
+                        },
+                        style: {
+                            borderLeft: '4px solid #ef4444',
+                        }
+                    }
+                }}
+            />
 
             <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
                 {/* Mobile sidebar */}
@@ -602,7 +679,7 @@ export default function AdminLayout({ user, header, children }) {
                                                 {notifications.length > 0 ? (
                                                     notifications.map((notif) => (
                                                         <div key={notif.id} className="relative group border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
-                                                            <div 
+                                                            <div
                                                                 className="flex p-4 gap-3 cursor-pointer"
                                                                 onClick={() => handleNotificationClick(notif.id)}
                                                             >
@@ -630,9 +707,9 @@ export default function AdminLayout({ user, header, children }) {
                                                                 {/* Tombol Aksi (Tandai Baca/Lihat) */}
                                                                 <div className="flex-shrink-0 self-center">
                                                                     <button
-                                                                        onClick={(e) => { 
-                                                                            e.stopPropagation(); 
-                                                                            handleNotificationClick(notif.id); 
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleNotificationClick(notif.id);
                                                                         }}
                                                                         className="p-1.5 rounded-full text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                                                                         title="Lihat Detail"
@@ -652,8 +729,8 @@ export default function AdminLayout({ user, header, children }) {
                                                             </div>
                                                             <p className="text-sm text-gray-700 font-medium mb-1">Terdapat <b>{unreadCount}</b> pengajuan baru</p>
                                                             <p className="text-xs text-gray-500 mb-3">Backend belum mengirim detail data, tapi jumlahnya terdeteksi.</p>
-                                                            <Link 
-                                                                href={route("admin.surat-izin.index", { status: 'Diajukan' })} 
+                                                            <Link
+                                                                href={route("admin.surat-izin.index", { status: 'Diajukan' })}
                                                                 className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-full hover:bg-indigo-700 transition-colors"
                                                             >
                                                                 Lihat Semua Pengajuan
@@ -717,7 +794,7 @@ export default function AdminLayout({ user, header, children }) {
                                             <Menu.Item>
                                                 {({ active }) => (
                                                     <Link
-                                                        href={route("profile.edit")}
+                                                        href={route("admin.profile.edit")}
                                                         className={`${active ? "bg-gray-50" : ""
                                                             } block px-3 py-1 text-sm leading-6 text-gray-900`}
                                                     >

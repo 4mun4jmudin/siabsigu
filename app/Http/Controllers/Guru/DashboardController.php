@@ -615,7 +615,9 @@ class DashboardController extends Controller
     private function workdays(Carbon $start, Carbon $end): int
     {
         // weekday inklusif
-        return $start->copy()->startOfDay()->diffInWeekdays($end->copy()->startOfDay()) + 1;
+        $weekdays = $start->copy()->startOfDay()->diffInWeekdays($end->copy()->startOfDay()) + 1;
+        $holidays = \App\Models\KalenderAkademik::getWorkingDaysHolidayCount($start, $end);
+        return max(0, $weekdays - $holidays);
     }
 
     private function totalJamPerMinggu($jadwalCollection): float

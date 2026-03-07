@@ -333,13 +333,14 @@ class AbsensiSiswaController extends Controller
     private function countSchoolDays(Carbon $start, Carbon $end): int
     {
         $days = 0;
-        foreach (CarbonPeriod::create($start->copy()->startOfDay(), $end->copy()->endOfDay()) as $d) {
+        foreach (\Carbon\CarbonPeriod::create($start->copy()->startOfDay(), $end->copy()->endOfDay()) as $d) {
             // ISO: 6=Sabtu, 7=Minggu
             if (!in_array($d->dayOfWeekIso, [6, 7])) {
                 $days++;
             }
         }
-        return $days;
+        $holidays = \App\Models\KalenderAkademik::getWorkingDaysHolidayCount($start, $end);
+        return max(0, $days - $holidays);
     }
 
     /** Ambil data rekap bulanan + ringkasan, sudah termasuk expected_total & persen_hadir akurat. */

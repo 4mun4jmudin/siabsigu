@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\OrangTuaWali;
 use App\Models\Siswa;
+use App\Models\Kelas;
 use App\Models\User;
 use App\Models\AbsensiSiswa;
 use Illuminate\Http\Request;
@@ -55,8 +56,12 @@ class OrangTuaWaliController extends Controller
 
     public function create()
     {
+        $kelasOptions = Kelas::orderBy('tingkat')->orderBy('jurusan')->get();
         $siswaOptions = Siswa::whereDoesntHave('orangTuaWali')->where('status', 'Aktif')->get();
-        return Inertia::render('admin/OrangTuaWali/Create', ['siswaOptions' => $siswaOptions]);
+        return Inertia::render('admin/OrangTuaWali/Create', [
+            'siswaOptions' => $siswaOptions,
+            'kelasOptions' => $kelasOptions
+        ]);
     }
 
     public function store(Request $request)
@@ -116,11 +121,16 @@ class OrangTuaWaliController extends Controller
     public function edit(OrangTuaWali $orangTuaWali)
     {
         $orangTuaWali->load('pengguna');
+        $kelasOptions = Kelas::orderBy('tingkat')->orderBy('jurusan')->get();
         $siswaOptions = Siswa::where('status', 'Aktif')
             ->where(function ($query) use ($orangTuaWali) {
                 $query->whereDoesntHave('orangTuaWali')->orWhere('id_siswa', $orangTuaWali->id_siswa);
             })->get();
-        return Inertia::render('admin/OrangTuaWali/Edit', ['wali' => $orangTuaWali, 'siswaOptions' => $siswaOptions]);
+        return Inertia::render('admin/OrangTuaWali/Edit', [
+            'wali' => $orangTuaWali, 
+            'siswaOptions' => $siswaOptions,
+            'kelasOptions' => $kelasOptions
+        ]);
     }
 
     public function update(Request $request, OrangTuaWali $orangTuaWali)

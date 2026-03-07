@@ -6,8 +6,13 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'; // Import Icon
+import { toast } from '@/utils/toast';
+import Select from 'react-select';
 
-export default function Edit({ auth, wali, siswaOptions }) {
+export default function Edit({ auth, wali, siswaOptions, kelasOptions }) {
+    const currentStudent = siswaOptions.find(siswa => siswa.id_siswa === wali.id_siswa);
+    const initialKelas = currentStudent ? currentStudent.id_kelas : '';
+    const [selectedKelas, setSelectedKelas] = useState(initialKelas);
     const { data, setData, put, processing, errors } = useForm({
         // Data Pribadi Wali
         id_siswa: wali.id_siswa || '',
@@ -19,7 +24,7 @@ export default function Edit({ auth, wali, siswaOptions }) {
         pekerjaan: wali.pekerjaan || '',
         penghasilan_bulanan: wali.penghasilan_bulanan || '',
         no_telepon_wa: wali.no_telepon_wa || '',
-        
+
         // Data Akun Login
         username: wali.pengguna?.username || '',
         email: wali.pengguna?.email || '',
@@ -32,37 +37,73 @@ export default function Edit({ auth, wali, siswaOptions }) {
 
     const submit = (e) => {
         e.preventDefault();
-        put(route('admin.orang-tua-wali.update', wali.id_wali));
+        put(route('admin.orang-tua-wali.update', wali.id_wali), {
+            onError: (errs) => {
+                const message = Object.values(errs)[0] || 'Gagal memperbarui data, periksa kembali input Anda.';
+                toast.error(message);
+            }
+        });
     };
 
     return (
-        <AdminLayout user={auth.user} header="Edit Orang Tua/Wali">
+        <>
             <Head title="Edit Orang Tua/Wali" />
             <div className="max-w-4xl mx-auto">
                 <form onSubmit={submit} className="space-y-8">
-                    
+
                     {/* Informasi Siswa Perwalian */}
                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
                         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                             <span className="w-1 h-6 bg-indigo-500 rounded-full"></span>
                             Siswa Perwalian
                         </h2>
-                        <div>
-                            <InputLabel htmlFor="id_siswa" value="Pilih Anak / Siswa Perwalian" />
-                            <select 
-                                id="id_siswa" 
-                                value={data.id_siswa} 
-                                onChange={e => setData('id_siswa', e.target.value)} 
-                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">--- Pilih Siswa ---</option>
-                                {siswaOptions.map(siswa => (
-                                    <option key={siswa.id_siswa} value={siswa.id_siswa}>
-                                        {siswa.nama_lengkap} ({siswa.nis})
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={errors.id_siswa} className="mt-2" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <InputLabel htmlFor="filter_kelas" value="Filter Kelas" />
+                                <Select
+                                    id="filter_kelas"
+                                    value={kelasOptions?.map(k => ({ value: k.id_kelas, label: `${k.tingkat} ${k.jurusan}` })).find(option => option.value === selectedKelas) || null}
+                                    onChange={selectedOption => {
+                                        setSelectedKelas(selectedOption ? selectedOption.value : '');
+                                        setData('id_siswa', ''); // Reset siswa saat kelas diubah
+                                    }}
+                                    options={kelasOptions?.map(kelas => ({
+                                        value: kelas.id_kelas,
+                                        label: `${kelas.tingkat} ${kelas.jurusan}`
+                                    }))}
+                                    placeholder="--- Semua Kelas ---"
+                                    isClearable
+                                    className="mt-1"
+                                    classNamePrefix="react-select"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="id_siswa" value="Pilih Anak / Siswa Perwalian" />
+                                <Select
+                                    id="id_siswa"
+                                    value={
+                                        siswaOptions
+                                            .filter(siswa => selectedKelas ? String(siswa.id_kelas) === String(selectedKelas) : false)
+                                            .map(s => ({ value: s.id_siswa, label: `${s.nama_lengkap} (${s.nis})` }))
+                                            .find(option => option.value === data.id_siswa) || null
+                                    }
+                                    onChange={selectedOption => setData('id_siswa', selectedOption ? selectedOption.value : '')}
+                                    options={
+                                        siswaOptions
+                                            .filter(siswa => selectedKelas ? String(siswa.id_kelas) === String(selectedKelas) : false)
+                                            .map(siswa => ({
+                                                value: siswa.id_siswa,
+                                                label: `${siswa.nama_lengkap} (${siswa.nis})`
+                                            }))
+                                    }
+                                    placeholder="--- Pilih Siswa ---"
+                                    isDisabled={!selectedKelas} // Disable jika kelas belum dipilih
+                                    isClearable
+                                    className="mt-1"
+                                    classNamePrefix="react-select"
+                                />
+                                <InputError message={errors.id_siswa} className="mt-2" />
+                            </div>
                         </div>
                     </div>
 
@@ -150,7 +191,7 @@ export default function Edit({ auth, wali, siswaOptions }) {
                                 )}
                             </button>
                         </div>
-                        
+
                         <p className="text-sm text-gray-500 mb-6 bg-orange-50 p-3 rounded-md border border-orange-100">
                             Info: Kosongkan password jika tidak ingin mengubahnya.
                         </p>
@@ -167,17 +208,17 @@ export default function Edit({ auth, wali, siswaOptions }) {
                                 <TextInput id="email" type="email" value={data.email} onChange={e => setData('email', e.target.value)} className="mt-1 block w-full" />
                                 <InputError message={errors.email} className="mt-2" />
                             </div>
-                            
+
                             {/* Input Password Baru dengan Icon Toggle */}
                             <div className="relative">
                                 <InputLabel htmlFor="password" value="Password Baru" />
                                 <div className="relative mt-1">
-                                    <TextInput 
-                                        id="password" 
-                                        type={showPassword ? "text" : "password"} 
-                                        value={data.password} 
-                                        onChange={e => setData('password', e.target.value)} 
-                                        className="block w-full pr-10" 
+                                    <TextInput
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={data.password}
+                                        onChange={e => setData('password', e.target.value)}
+                                        className="block w-full pr-10"
                                         placeholder="Min. 8 karakter"
                                     />
                                     <button
@@ -199,11 +240,11 @@ export default function Edit({ auth, wali, siswaOptions }) {
                             <div>
                                 <InputLabel htmlFor="password_confirmation" value="Konfirmasi Password Baru" />
                                 <div className="relative mt-1">
-                                    <TextInput 
-                                        id="password_confirmation" 
-                                        type={showPassword ? "text" : "password"} 
-                                        value={data.password_confirmation} 
-                                        onChange={e => setData('password_confirmation', e.target.value)} 
+                                    <TextInput
+                                        id="password_confirmation"
+                                        type={showPassword ? "text" : "password"}
+                                        value={data.password_confirmation}
+                                        onChange={e => setData('password_confirmation', e.target.value)}
                                         className="block w-full pr-10"
                                         placeholder="Ulangi password baru"
                                     />
@@ -225,8 +266,8 @@ export default function Edit({ auth, wali, siswaOptions }) {
                     </div>
 
                     <div className="flex items-center justify-end mt-6 gap-3">
-                        <Link 
-                            href={route('admin.orang-tua-wali.index')} 
+                        <Link
+                            href={route('admin.orang-tua-wali.index')}
                             className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
                         >
                             Batal
@@ -235,6 +276,8 @@ export default function Edit({ auth, wali, siswaOptions }) {
                     </div>
                 </form>
             </div>
-        </AdminLayout>
+        </>
     );
 }
+
+Edit.layout = (page) => <AdminLayout user={page.props.auth.user} header="Edit Orang Tua/Wali">{page}</AdminLayout>;

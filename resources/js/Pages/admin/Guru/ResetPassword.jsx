@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
 import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
@@ -10,18 +11,12 @@ export default function ResetPassword({ auth, gurus, filters }) {
     const { post, processing } = useForm();
     
     const [search, setSearch] = useState(filters.search || '');
-    const [toast, setToast] = useState({ show: false, message: '' });
+    
     const [confirmingReset, setConfirmingReset] = useState(false);
     const [guruToReset, setGuruToReset] = useState(null);
 
     // Toast Effect
-    useEffect(() => {
-        if (flash?.message || flash?.success || flash?.error) {
-            setToast({ show: true, message: flash.message || flash.success || flash.error });
-            const timer = setTimeout(() => setToast({ ...toast, show: false }), 4000);
-            return () => clearTimeout(timer);
-        }
-    }, [flash]);
+    
 
     const debouncedSearch = useCallback(debounce((val) => {
         router.get(route('admin.guru.reset-password'), { search: val }, { preserveState: true, replace: true });
@@ -44,11 +39,7 @@ export default function ResetPassword({ auth, gurus, filters }) {
         <AdminLayout user={auth.user} header="Reset Password Guru">
             <Head title="Reset Password Guru" />
             
-            {toast.show && (
-                <div className="fixed top-4 right-4 z-50 px-4 py-3 bg-green-600 text-white rounded shadow-lg transition-opacity duration-500">
-                    {toast.message}
-                </div>
-            )}
+            
 
             <div className="space-y-6">
                 <div className="flex justify-between items-center">

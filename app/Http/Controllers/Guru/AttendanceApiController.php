@@ -271,7 +271,10 @@ class AttendanceApiController extends Controller
         for ($i=0; $i<6; $i++) {
             $dt = $start->copy()->addMonths($i);
             $ym = $dt->format('Y-m');
-            $workdays = $dt->diffInWeekdays($dt->copy()->endOfMonth()) + 1;
+            $endMonth = $dt->copy()->endOfMonth();
+            $weekdays = $dt->diffInWeekdays($endMonth) + 1;
+            $holidays = \App\Models\KalenderAkademik::getWorkingDaysHolidayCount($dt, $endMonth);
+            $workdays = max(0, $weekdays - $holidays);
             $pct = $workdays > 0 ? round(($byMonth->get($ym, 0) / $workdays) * 100, 1) : 0;
             $series[] = ['period' => $dt->translatedFormat('M Y'), 'presence_pct' => $pct];
         }

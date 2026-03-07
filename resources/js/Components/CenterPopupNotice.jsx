@@ -59,11 +59,10 @@ export default function CenterPopupNotice({
               <div className="p-4">
                 <div className="flex items-start gap-3">
                   <div
-                    className={`mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl ${
-                      isError
+                    className={`mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl ${isError
                         ? "bg-rose-50 ring-1 ring-rose-200"
                         : "bg-sky-50 ring-1 ring-sky-200"
-                    }`}
+                      }`}
                   >
                     <Icon
                       className={`h-6 w-6 ${isError ? "text-rose-600" : "text-sky-600"}`}

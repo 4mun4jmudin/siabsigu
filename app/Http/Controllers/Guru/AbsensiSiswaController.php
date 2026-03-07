@@ -60,6 +60,11 @@ class AbsensiSiswaController extends Controller
      */
     public function store(Request $request, JadwalMengajar $jadwal)
     {
+        $pengaturan = \App\Models\Pengaturan::first();
+        if ($pengaturan && $pengaturan->is_kunci_absensi) {
+            return redirect()->back()->with('error', 'Periode absensi telah dikunci oleh Administrator. Anda tidak dapat mengubah absensi siswa.');
+        }
+
         $request->validate([
             'absensi' => 'required|array',
             'absensi.*.id_siswa' => 'required|exists:tbl_siswa,id_siswa',

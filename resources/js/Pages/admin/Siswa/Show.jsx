@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
-import ToastNotification from '@/Components/ToastNotification';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import {
   User,
@@ -475,13 +475,9 @@ export default function Show({ auth, siswa, orangTuaWali = [], riwayatAbsensi = 
   const { delete: destroy, processing: processingDelete } = useForm();
 
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '' });
+  
 
-  useEffect(() => {
-    if (flash?.message) {
-      setToast({ show: true, message: flash.message });
-    }
-  }, [flash]);
+  
 
   const confirmDeletion = (e) => {
     e.preventDefault();
@@ -503,14 +499,11 @@ export default function Show({ auth, siswa, orangTuaWali = [], riwayatAbsensi = 
     router.post(route('admin.siswa.update.keamanan', siswa.id_siswa), formData, {
       preserveScroll: true,
       onSuccess: () => {
-        setToast({ show: true, message: 'Data keamanan berhasil diperbarui!' });
+        toast.success('Data keamanan berhasil diperbarui!');
       },
       onError: (errors) => {
         console.error(errors);
-        setToast({
-          show: true,
-          message: 'Gagal memperbarui data, periksa kembali input Anda.',
-        });
+        toast.error('Gagal memperbarui data, periksa kembali input Anda.');
       },
     });
   };
@@ -529,11 +522,7 @@ export default function Show({ auth, siswa, orangTuaWali = [], riwayatAbsensi = 
   return (
     <AdminLayout user={auth.user} header={`Detail Siswa: ${siswa.nama_lengkap}`}>
       <Head title={`Detail ${siswa.nama_lengkap}`} />
-      <ToastNotification
-        show={toast.show}
-        message={toast.message}
-        onClose={() => setToast({ ...toast, show: false })}
-      />
+
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">

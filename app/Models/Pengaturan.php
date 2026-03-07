@@ -49,7 +49,9 @@ class Pengaturan extends Model
         'lokasi_sekolah_latitude',
         'lokasi_sekolah_longitude',
         'radius_absen_meters',
-        
+        'radius_absen_meters',
+        'is_kunci_absensi',
+        'is_kunci_jurnal',
     ];
 
     /**
@@ -64,6 +66,9 @@ class Pengaturan extends Model
         'absensi_manual_guru_enabled' => 'boolean',
         'password_require_upper' => 'boolean',
         'auto_create_user' => 'boolean',
+        'auto_create_user' => 'boolean',
         'backup_auto_enabled' => 'boolean',
+        'is_kunci_absensi' => 'boolean',
+        'is_kunci_jurnal' => 'boolean',
     ];
 }

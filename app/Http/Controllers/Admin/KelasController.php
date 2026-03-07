@@ -39,27 +39,42 @@ class KelasController extends Controller
                       });
             })
             ->latest('tingkat')
-            ->paginate(10)
-            ->withQueryString();
+            ->get();
+
+        // Ambil ID guru yang sudah menjadi wali kelas
+        $assignedWaliIds = Kelas::whereNotNull('id_wali_kelas')->pluck('id_wali_kelas')->toArray();
+
+        // Ambil guru aktif dan tambahkan flag is_assigned untuk filtering di frontend
+        $guruOptions = Guru::where('status', 'Aktif')->get()->map(function ($guru) use ($assignedWaliIds) {
+            $guru->is_assigned = in_array($guru->id_guru, $assignedWaliIds);
+            return $guru;
+        });
 
         return Inertia::render('admin/Kelas/Index', [
             'kelasList' => $kelasList,
             'stats' => $stats,
             'filters' => $request->only(['search']),
+            'guruOptions' => $guruOptions,
         ]);
     }
 
     /**
      * Menampilkan halaman detail sebuah kelas dengan data untuk tab.
      */
-    public function show(Kelas $kela)
+    public function show(Request $request, Kelas $kela)
     {
         // Eager load relasi wali kelas
         $kela->load(['waliKelas']);
-        
-        // Ambil daftar siswa di kelas ini dengan paginasi
+
+        // Ambil daftar siswa di kelas ini dengan pencarian & paginasi
         $siswasInKelas = Siswa::where('id_kelas', $kela->id_kelas)
-            ->paginate(10);
+            ->when($request->input('search'), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nama_lengkap', 'like', "%{$search}%")
+                      ->orWhere('nis', 'like', "%{$search}%");
+                });
+            })
+            ->get();
 
         // Ambil data untuk tab "Jadwal Pelajaran"
         $jadwalPelajaran = JadwalMengajar::where('id_kelas', $kela->id_kelas)
@@ -70,21 +85,20 @@ class KelasController extends Controller
                 return array_search($jadwal->hari, $daysOrder);
             });
 
+        // Ambil ID guru yang sudah menjadi wali kelas
+        $assignedWaliIds = Kelas::whereNotNull('id_wali_kelas')->pluck('id_wali_kelas')->toArray();
+
+        // Ambil guru aktif dan tambahkan flag is_assigned untuk filtering di frontend
+        $guruOptions = Guru::where('status', 'Aktif')->get()->map(function ($guru) use ($assignedWaliIds) {
+            $guru->is_assigned = in_array($guru->id_guru, $assignedWaliIds);
+            return $guru;
+        });
+
         return Inertia::render('admin/Kelas/Show', [
             'kelas' => $kela,
             'siswasInKelas' => $siswasInKelas,
             'jadwalPelajaran' => $jadwalPelajaran,
-        ]);
-    }
-
-    /**
-     * Menampilkan form untuk menambah data kelas baru.
-     */
-    public function create()
-    {
-        // Ambil guru yang belum menjadi wali kelas
-        $guruOptions = Guru::whereDoesntHave('kelasWali')->where('status', 'Aktif')->get();
-        return Inertia::render('admin/Kelas/Create', [
+            'filters' => $request->only(['search']),
             'guruOptions' => $guruOptions,
         ]);
     }
@@ -102,25 +116,7 @@ class KelasController extends Controller
         ]);
 
         Kelas::create($validated);
-        return to_route('admin.kelas.index')->with('message', 'Data Kelas berhasil ditambahkan.');
-    }
-
-    /**
-     * Menampilkan form untuk mengedit data kelas.
-     */
-    public function edit(Kelas $kela)
-    {
-        // Ambil guru yang belum menjadi wali kelas ATAU wali kelas saat ini
-        $guruOptions = Guru::where('status', 'Aktif')
-            ->where(function ($query) use ($kela) {
-                $query->whereDoesntHave('kelasWali')
-                      ->orWhere('id_guru', $kela->id_wali_kelas);
-            })->get();
-
-        return Inertia::render('admin/Kelas/Edit', [
-            'kelas' => $kela,
-            'guruOptions' => $guruOptions,
-        ]);
+        return back()->with('status', 'Data Kelas berhasil ditambahkan.');
     }
 
     /**
@@ -135,7 +131,7 @@ class KelasController extends Controller
         ]);
 
         $kela->update($validated);
-        return to_route('admin.kelas.index')->with('message', 'Data Kelas berhasil diperbarui.');
+        return back()->with('status', 'Data Kelas berhasil diperbarui.');
     }
 
     /**

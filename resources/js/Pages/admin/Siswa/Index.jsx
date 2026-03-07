@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from '@/utils/toast';
 // Import path relatif sesuaikan dengan struktur project kamu
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
-import ToastNotification from '@/Components/ToastNotification';
 import Checkbox from '@/Components/Checkbox';
 import ImportModal from './ImportModal'; // Pastikan file ini ada di folder yang sama
 import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
-import { 
+import {
     EyeIcon,
     PencilSquareIcon,
     TrashIcon,
@@ -71,19 +71,19 @@ const EmptyState = () => (
 export default function Index({ auth, siswas, kelasOptions, filters }) {
     const { flash } = usePage().props;
     const { delete: destroy, post, processing } = useForm();
-    
+
     // State Filter & Search
     const [search, setSearch] = useState(filters.search || '');
     const [selectedKelas, setSelectedKelas] = useState(filters.kelas || '');
-    
+
     // State Rows Per Page (Default 10)
     const [perPage, setPerPage] = useState(filters.per_page || 10);
-    
+
     // State UI
-    const [toast, setToast] = useState({ show: false, message: '' });
+
     const [isLoading, setIsLoading] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
-    
+
     // State Delete Single
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -92,23 +92,19 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
     const [selectedIds, setSelectedIds] = useState([]);
     const [bulkAction, setBulkAction] = useState(null); // 'delete', 'move_class', 'change_status'
     const [bulkValue, setBulkValue] = useState(''); // Nilai target (id_kelas atau status)
-    
+
     // State Loading khusus Bulk Action
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
-    useEffect(() => {
-        if (flash?.message) {
-            setToast({ show: true, message: flash.message });
-        }
-    }, [flash]);
+
 
     const isFirstRender = useRef(true);
 
     // --- SEARCH & FILTER ---
     // Update debouncedSearch untuk menyertakan perPage juga
     const debouncedSearch = useCallback(debounce((searchVal, kelasVal, perPageVal) => {
-        router.get(route('admin.siswa.index'), 
-            { search: searchVal, kelas: kelasVal, per_page: perPageVal, page: 1 }, 
+        router.get(route('admin.siswa.index'),
+            { search: searchVal, kelas: kelasVal, per_page: perPageVal, page: 1 },
             {
                 preserveState: true,
                 replace: true,
@@ -139,10 +135,10 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
     const handlePerPageChange = (e) => {
         const newVal = e.target.value;
         setPerPage(newVal);
-        
+
         // Langsung reload tanpa debounce agar responsif
-        router.get(route('admin.siswa.index'), 
-            { search, kelas: selectedKelas, per_page: newVal, page: 1 }, 
+        router.get(route('admin.siswa.index'),
+            { search, kelas: selectedKelas, per_page: newVal, page: 1 },
             {
                 preserveState: true,
                 replace: true,
@@ -177,21 +173,21 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
 
     const executeBulkAction = (e) => {
         e.preventDefault();
-        
+
         const requestOptions = {
             preserveScroll: true,
             onStart: () => setIsBulkProcessing(true),
             onFinish: () => {
                 setIsBulkProcessing(false);
-                setBulkAction(null); 
+                setBulkAction(null);
             },
             onSuccess: () => {
-                setSelectedIds([]); 
-                setBulkValue('');   
+                setSelectedIds([]);
+                setBulkValue('');
             },
             onError: (errors) => {
                 console.error("Bulk action error:", errors);
-                setToast({ show: true, message: "Terjadi kesalahan saat memproses data." });
+                toast.success("Terjadi kesalahan saat memproses data.");
             }
         };
 
@@ -205,9 +201,9 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
             }
         } else if (bulkAction === 'move_class' || bulkAction === 'change_status') {
             if (!bulkValue) return alert('Silakan pilih target nilai.');
-            
-            router.post(route('admin.siswa.bulk-update'), { 
-                ids: selectedIds, 
+
+            router.post(route('admin.siswa.bulk-update'), {
+                ids: selectedIds,
                 type: bulkAction === 'move_class' ? 'kelas' : 'status',
                 value: bulkValue
             }, requestOptions);
@@ -225,7 +221,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
         setConfirmingDeletion(false);
         setItemToDelete(null);
     };
-    
+
     const deleteItem = (e) => {
         e.preventDefault();
         if (!itemToDelete) return closeModal();
@@ -246,8 +242,8 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
     return (
         <AdminLayout user={auth.user} header="Data Siswa">
             <Head title="Data Siswa" />
-            <ToastNotification show={toast.show} message={toast.message} onClose={() => setToast({ ...toast, show: false })} />
-            
+
+
             <div className="space-y-6">
                 {/* Header & Main Actions */}
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
@@ -256,15 +252,15 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                         <p className="text-sm text-gray-500">Kelola data semua siswa yang terdaftar.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                         <Link 
-                            href={route('admin.siswa.reset-password')} 
+                        <Link
+                            href={route('admin.siswa.reset-password')}
                             className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-500 active:bg-indigo-600 transition"
                         >
                             <KeyIcon className="h-4 w-4 mr-2" />
                             Reset Pass
                         </Link>
 
-                         <button 
+                        <button
                             onClick={handleGenerateAccounts}
                             disabled={processing}
                             className="inline-flex items-center justify-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-500 active:bg-green-700 disabled:opacity-50 transition"
@@ -287,7 +283,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
                             </div>
-                            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama atau NIS..." className="block w-full pl-10 border-gray-300 rounded-md shadow-sm transition focus:ring-2 focus:ring-blue-200"/>
+                            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama atau NIS..." className="block w-full pl-10 border-gray-300 rounded-md shadow-sm transition focus:ring-2 focus:ring-blue-200" />
                         </div>
 
                         {/* Filter Kelas */}
@@ -302,12 +298,12 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
 
                         {/* Rows Per Page Selector (NEW) */}
                         <div className="sm:col-span-2">
-                             <select 
-                                value={perPage} 
-                                onChange={handlePerPageChange} 
+                            <select
+                                value={perPage}
+                                onChange={handlePerPageChange}
                                 className="block w-full border-gray-300 rounded-md shadow-sm text-sm"
                                 title="Jumlah Baris Per Halaman"
-                             >
+                            >
                                 <option value="10">10 Baris</option>
                                 <option value="25">25 Baris</option>
                                 <option value="50">50 Baris</option>
@@ -318,21 +314,21 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
 
                         {/* Action Buttons */}
                         <div className="sm:col-span-2 flex justify-end gap-2">
-                             <button
+                            <button
                                 onClick={() => setShowImportModal(true)}
                                 className="inline-flex items-center justify-center w-full sm:w-auto px-3 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase hover:bg-gray-50 transition"
                                 title="Import Excel"
-                             >
+                            >
                                 <ArrowDownOnSquareIcon className="h-4 w-4" />
-                             </button>
+                            </button>
 
-                             <a 
+                            <a
                                 href={route('admin.siswa.export_pdf', { search: search, kelas: selectedKelas })}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center w-full sm:w-auto px-3 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase hover:bg-gray-50 transition"
                                 title="Export PDF"
-                             >
+                            >
                                 <ArrowUpOnSquareIcon className="h-4 w-4" />
                             </a>
                         </div>
@@ -344,15 +340,15 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                     <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center gap-4 animate-fade-in-up">
                         <span className="font-semibold text-sm">{selectedIds.length} Dipilih</span>
                         <div className="h-4 w-px bg-gray-600"></div>
-                        
+
                         <button onClick={() => { setBulkAction('move_class'); setBulkValue(''); }} className="text-sm hover:text-blue-300 flex items-center gap-1">
                             <ArrowPathIcon className="h-4 w-4" /> Pindah Kelas
                         </button>
-                        
+
                         <button onClick={() => { setBulkAction('change_status'); setBulkValue(''); }} className="text-sm hover:text-yellow-300 flex items-center gap-1">
                             <CheckCircleIcon className="h-4 w-4" /> Ubah Status
                         </button>
-                        
+
                         <button onClick={() => setBulkAction('delete')} className="text-sm hover:text-red-300 flex items-center gap-1">
                             <TrashIcon className="h-4 w-4" /> Hapus
                         </button>
@@ -382,13 +378,13 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                 )}
                             </div>
                         </div>
-                        
+
                         <div className="overflow-x-auto relative">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-6 py-3 text-left w-10">
-                                            <Checkbox 
+                                            <Checkbox
                                                 checked={siswas.data.length > 0 && selectedIds.length === siswas.data.length}
                                                 onChange={handleSelectAll}
                                             />
@@ -409,7 +405,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                         siswas.data.map((siswa) => (
                                             <tr key={siswa.id_siswa} className={`hover:bg-gray-50 transition ${selectedIds.includes(siswa.id_siswa) ? 'bg-blue-50' : ''}`}>
                                                 <td className="px-6 py-4">
-                                                    <Checkbox 
+                                                    <Checkbox
                                                         checked={selectedIds.includes(siswa.id_siswa)}
                                                         onChange={() => handleSelectOne(siswa.id_siswa)}
                                                     />
@@ -430,9 +426,9 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                     <div className="flex items-center gap-x-3">
-                                                        <Link href={route('admin.siswa.show', siswa.id_siswa)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
-                                                        <Link href={route('admin.siswa.edit', siswa.id_siswa)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5"/></Link>
-                                                        <button onClick={(e) => confirmDeletion(e, siswa)} className="text-gray-400 hover:text-red-600 transition" title="Hapus Data"><TrashIcon className="h-5 w-5"/></button>
+                                                        <Link href={route('admin.siswa.show', siswa.id_siswa)} className="text-gray-400 hover:text-gray-600 transition" title="Lihat Detail"><EyeIcon className="h-5 w-5" /></Link>
+                                                        <Link href={route('admin.siswa.edit', siswa.id_siswa)} className="text-gray-400 hover:text-indigo-600 transition" title="Edit Data"><PencilSquareIcon className="h-5 w-5" /></Link>
+                                                        <button onClick={(e) => confirmDeletion(e, siswa)} className="text-gray-400 hover:text-red-600 transition" title="Hapus Data"><TrashIcon className="h-5 w-5" /></button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -456,7 +452,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                     </div>
                 </div>
             </div>
-            
+
             {/* Modal Konfirmasi Hapus Single */}
             <Modal show={confirmingDeletion} onClose={closeModal}>
                 <div className="p-6">
@@ -477,7 +473,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                     <h2 className="text-lg font-medium text-gray-900 mb-2">
                         {bulkAction === 'delete' ? 'Hapus Massal' : bulkAction === 'move_class' ? 'Pindah Kelas Massal' : 'Ubah Status Massal'}
                     </h2>
-                    
+
                     {bulkAction === 'delete' ? (
                         <p className="text-sm text-gray-600 mb-4">
                             Anda akan menghapus <strong>{selectedIds.length} data siswa</strong> terpilih. Semua data terkait (akun, nilai, absensi) akan ikut terhapus.
@@ -485,7 +481,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                     ) : bulkAction === 'move_class' ? (
                         <div className="mb-4">
                             <p className="text-sm text-gray-600 mb-2">Pilih kelas tujuan untuk <strong>{selectedIds.length} siswa</strong> terpilih:</p>
-                            <select 
+                            <select
                                 className="w-full border-gray-300 rounded-md shadow-sm"
                                 value={bulkValue}
                                 onChange={(e) => setBulkValue(e.target.value)}
@@ -499,7 +495,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                     ) : (
                         <div className="mb-4">
                             <p className="text-sm text-gray-600 mb-2">Pilih status baru untuk <strong>{selectedIds.length} siswa</strong> terpilih:</p>
-                            <select 
+                            <select
                                 className="w-full border-gray-300 rounded-md shadow-sm"
                                 value={bulkValue}
                                 onChange={(e) => setBulkValue(e.target.value)}
@@ -515,10 +511,10 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
 
                     <div className="mt-6 flex justify-end">
                         <button onClick={() => setBulkAction(null)} type="button" className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">Batal</button>
-                        <button 
-                            onClick={executeBulkAction} 
-                            type="button" 
-                            disabled={isBulkProcessing || (bulkAction !== 'delete' && !bulkValue)} 
+                        <button
+                            onClick={executeBulkAction}
+                            type="button"
+                            disabled={isBulkProcessing || (bulkAction !== 'delete' && !bulkValue)}
                             className={`ml-3 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm disabled:opacity-50 ${bulkAction === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                         >
                             {isBulkProcessing ? 'Memproses...' : 'Konfirmasi'}
@@ -528,11 +524,11 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
             </Modal>
 
             {/* Modal Import */}
-            <ImportModal 
-                show={showImportModal} 
+            <ImportModal
+                show={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onSuccess={() => {
-                    router.reload({ only: ['siswas'] }); 
+                    router.reload({ only: ['siswas'] });
                 }}
             />
         </AdminLayout>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '@/utils/toast';
 import { useForm } from '@inertiajs/react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import InputLabel from '@/Components/InputLabel';
@@ -25,7 +26,7 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
     radius_absen_meters: pengaturan.radius_absen_meters ?? 200,
   });
 
-  const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
+   // { type: 'success'|'error', message }
 
   useEffect(() => {
     if (toast) {
@@ -38,8 +39,8 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
     e.preventDefault();
     put(route('admin.pengaturan.update-absensi'), {
       preserveScroll: true,
-      onSuccess: () => setToast({ type: 'success', message: 'Pengaturan Absensi berhasil disimpan.' }),
-      onError: () => setToast({ type: 'error', message: 'Gagal menyimpan pengaturan absensi. Cek input dan coba lagi.' }),
+      onSuccess: () => toast.success('Pengaturan Absensi berhasil disimpan.'),
+      onError: () => toast.error('Gagal menyimpan pengaturan absensi. Cek input dan coba lagi.'),
     });
   };
 
@@ -86,14 +87,7 @@ export default function AbsensiSettingsForm({ className = '', pengaturan = {} })
         </header>
 
         {/* Toast Notification */}
-        {toast && (
-          <div className={`mt-4 mb-4 p-3 rounded-md ${toast.type === 'success' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-red-50 border border-red-100 text-red-700'}`} role="status">
-            <div className="flex items-center gap-2">
-              {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-              <span>{toast.message}</span>
-            </div>
-          </div>
-        )}
+        
 
         <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* --- BAGIAN LOKASI & RADIUS (BARU) --- */}

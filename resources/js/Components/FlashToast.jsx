@@ -1,21 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { usePage } from "@inertiajs/react";
-import ToastNotification from "@/Components/ToastNotification";
+import { toast } from "@/utils/toast";
 
 export default function FlashToast() {
   const { flash } = usePage().props;
-  const [toast, setToast] = useState({ show: false, message: "" });
 
   useEffect(() => {
     const msg = flash?.success || flash?.error || flash?.message;
-    if (msg) setToast({ show: true, message: msg });
+    if (msg) toast(msg);
   }, [flash]);
 
-  return (
-    <ToastNotification
-      show={toast.show}
-      message={toast.message}
-      onClose={() => setToast((p) => ({ ...p, show: false }))}
-    />
-  );
+  return null;
 }

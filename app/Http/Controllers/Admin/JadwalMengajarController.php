@@ -492,38 +492,16 @@ class JadwalMengajarController extends Controller
     public function confirmImport(Request $request)
     {
         $data = $request->input('data', []);
-        $success = 0;
-        $failed = [];
-
-        DB::beginTransaction();
-        try {
-            foreach ($data as $row) {
-                if ($row['status'] !== "OK") {
-                    $failed[] = $row;
-                    continue;
-                }
-
-                JadwalMengajar::create([
-                    'id_jadwal'       => 'JDW-' . now()->format('ymdHis') . rand(10, 99),
-                    'id_tahun_ajaran' => TahunAjaran::where('status', 'Aktif')->value('id_tahun_ajaran'),
-                    'id_kelas'        => $row['id_kelas'],
-                    'id_guru'         => $row['id_guru'],
-                    'id_mapel'        => $row['id_mapel'],
-                    'hari'            => $row['hari'],
-                    'jam_mulai'       => $row['jam_mulai'],
-                    'jam_selesai'     => $row['jam_selesai'],
-                ]);
-
-                $success++;
-            }
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['import' => $e->getMessage()]);
+        
+        if (empty($data)) {
+            return back()->withErrors(['import' => 'Tidak ada data valid untuk diimpor.']);
         }
 
+        // Dispatch job ke background
+        \App\Jobs\ImportJadwalJob::dispatch(auth()->id(), $data);
+
         return redirect()->route('admin.jadwal-mengajar.index')
-            ->with('message', "Import selesai: {$success} berhasil, " . count($failed) . " gagal.");
+            ->with('message', "Proses import sedang berjalan di background. Anda akan menerima notifikasi jika selesai.");
     }
 
     public function downloadTemplate()

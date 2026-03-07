@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '@/utils/toast';
 import { useForm } from '@inertiajs/react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import InputLabel from '@/Components/InputLabel';
@@ -18,9 +19,11 @@ export default function SystemSettingsForm({ className = '', pengaturan = {} }) 
         notification_email_enabled: !!pengaturan.notification_email_enabled,
         email_administrator: pengaturan.email_administrator || '',
         smtp_server: pengaturan.smtp_server || '',
+        is_kunci_absensi: !!pengaturan.is_kunci_absensi,
+        is_kunci_jurnal: !!pengaturan.is_kunci_jurnal,
     });
 
-    const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
+     // { type: 'success'|'error', message }
 
     useEffect(() => {
         if (toast) {
@@ -31,13 +34,13 @@ export default function SystemSettingsForm({ className = '', pengaturan = {} }) 
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('admin.pengaturan.clear-cache'), {
+        put(route('admin.pengaturan.system.update'), {
             preserveScroll: true,
-            onSuccess: () => setToast({ type: 'success', message: 'Pengaturan Sistem berhasil diperbarui.' }),
-            onError: () => setToast({ type: 'error', message: 'Gagal memperbarui pengaturan sistem. Cek input dan coba lagi.' }),
+            onSuccess: () => toast.success('Pengaturan Sistem berhasil diperbarui.'),
+            onError: () => toast.error('Gagal memperbarui pengaturan sistem. Cek input dan coba lagi.'),
         });
     };
-    
+
 
     const confirmAndCall = async (title, routeName) => {
         if (!confirm(`Yakin ingin ${title}? Operasi ini mungkin mempengaruhi kinerja sistem.`)) return;
@@ -59,7 +62,7 @@ export default function SystemSettingsForm({ className = '', pengaturan = {} }) 
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ message: 'Response not JSON' }));
-                setToast({ type: 'error', message: err.message || 'Terjadi error saat menjalankan operasi.' });
+                toast.error(err.message || 'Terjadi error saat menjalankan operasi.');
                 return;
             }
 
@@ -85,14 +88,7 @@ export default function SystemSettingsForm({ className = '', pengaturan = {} }) 
             </header>
 
             {/* Toast Notification */}
-            {toast && (
-                <div className={`mt-4 mb-4 p-3 rounded-md ${toast.type === 'success' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-red-50 border border-red-100 text-red-700'}`} role="status">
-                    <div className="flex items-center gap-2">
-                        {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                        <span>{toast.message}</span>
-                    </div>
-                </div>
-            )}
+            
 
             <form onSubmit={submit} className="space-y-6">
                 {/* Informasi Sistem */}
@@ -199,6 +195,45 @@ export default function SystemSettingsForm({ className = '', pengaturan = {} }) 
                         ) : (
                             <div className="mt-4 text-sm text-gray-500">Notifikasi email dinonaktifkan. Aktifkan untuk melihat pengaturan email.</div>
                         )}
+                    </div>
+                </div>
+
+                {/* Penguncian Sistem (Cut-off) */}
+                <div className="bg-white shadow rounded-lg p-6 relative">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="rounded-md bg-red-50 p-2 text-red-600"><AlertTriangle className="w-5 h-5" /></div>
+                            <div>
+                                <h3 className="text-xl font-semibold text-gray-800">Penguncian Sistem (Cut-off)</h3>
+                                <p className="text-sm text-gray-500">Kunci data absensi dan nilai agar tidak bisa diubah guru lagi.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-6">
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-gray-700">Kunci Absensi & Kehadiran</span>
+                                <ToggleSwitch
+                                    name="is_kunci_absensi"
+                                    checked={data.is_kunci_absensi}
+                                    onChange={(e) => setData('is_kunci_absensi', e.target.checked)}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500">Jika aktif, guru tidak dapat lagi menambah/mengubah data kehadiran lama.</p>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-gray-700">Kunci Jurnal & Nilai Rapor</span>
+                                <ToggleSwitch
+                                    name="is_kunci_jurnal"
+                                    checked={data.is_kunci_jurnal}
+                                    onChange={(e) => setData('is_kunci_jurnal', e.target.checked)}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500">Jika aktif, guru tidak dapat mengedit jurnal mengajar maupun penilaian siswa.</p>
+                        </div>
                     </div>
                 </div>
 

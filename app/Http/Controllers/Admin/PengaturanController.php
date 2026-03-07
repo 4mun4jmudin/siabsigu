@@ -190,6 +190,8 @@ class PengaturanController extends Controller
             'notification_email_enabled' => 'nullable|boolean',
             'email_administrator' => 'nullable|required_if:notification_email_enabled,true|email|max:255',
             'smtp_server' => 'nullable|required_if:notification_email_enabled,true|string|max:255',
+            'is_kunci_absensi' => 'nullable|boolean',
+            'is_kunci_jurnal' => 'nullable|boolean',
         ]);
 
         DB::beginTransaction();
@@ -236,14 +238,15 @@ class PengaturanController extends Controller
             $diskName = config('backup.backup.destination.disks')[0];
 
             $disk = Storage::disk($diskName);
-            $directory = $backupName;
+            $directory = $backupName; // default 'sisab'
 
-            if (!$disk->exists($directory)) {
-                return response()->json(['success' => true, 'backups' => []]);
-            }
-
+            // Hapus pengecekan !$disk->exists($directory) karena pada disk local kadang tidak konsisten untuk folder
             $files = collect($disk->allFiles($directory))
                 ->filter(fn($path) => Str::endsWith($path, '.zip'));
+
+            if ($files->isEmpty()) {
+                return response()->json(['success' => true, 'backups' => []]);
+            }
 
             $list = $files->map(function ($path) use ($disk) {
                 $timestamp = $disk->lastModified($path);
@@ -308,43 +311,69 @@ class PengaturanController extends Controller
             'backup' => 'required|string',
         ]);
 
-        $backup = $request->input('backup');
+        $backupPath = $request->input('backup');
 
         try {
-            // Jika menggunakan paket spatie/laravel-backup yang menyediakan command restore:
-            // Artisan::call('backup:restore', ['--source' => $backup]); // contoh, sesuaikan dengan paket
-            // Namun banyak aplikasi tidak punya restore via artisan; sering restore dilakukan manual (mysql import)
-            //
-            // **Contoh sederhana fallback**: jika backup adalah SQL dump di storage/app/backups/<file.sql>,
-            // kamu bisa mengimportnya ke MySQL menggunakan proses `mysql` (butuh akses shell dan keamanan!)
-            // Contoh (jangan gunakan tanpa memikirkan keamanan):
-            //
-            // $fullPath = storage_path('app/' . $backup);
-            // $dbHost = config('database.connections.mysql.host');
-            // $dbDatabase = config('database.connections.mysql.database');
-            // $dbUsername = config('database.connections.mysql.username');
-            // $dbPassword = config('database.connections.mysql.password');
-            //
-            // $command = sprintf('mysql -h%s -u%s -p%s %s < %s', escapeshellarg($dbHost), escapeshellarg($dbUsername), escapeshellarg($dbPassword), escapeshellarg($dbDatabase), escapeshellarg($fullPath));
-            // exec($command, $output, $returnVar);
-            // if ($returnVar !== 0) throw new \Exception('Restore command failed: ' . implode("\n", $output));
-            //
-            // Untuk keamanan dan portable code, di sini kita kembalikan 501 jika tidak ada implementasi restore otomatis.
-            //
+            $diskName = config('backup.backup.destination.disks')[0];
+            $disk = Storage::disk($diskName);
 
-            // Jika kamu belum punya script restore otomatis, beri respon informatif
+            if (!$disk->exists($backupPath)) {
+                return response()->json(['success' => false, 'message' => 'File backup tidak ditemukan.'], 404);
+            }
+
+            // Path absolut ke file zip
+            $zipPath = $disk->path($backupPath);
+            
+            // Siapkan folder temporary untuk ekstraksi
+            $tempDir = storage_path('app/restore-temp-' . uniqid());
+            if (!File::exists($tempDir)) {
+                File::makeDirectory($tempDir, 0755, true);
+            }
+
+            // Ekstrak ZIP menggunakan ZipArchive
+            $zip = new \ZipArchive;
+            if ($zip->open($zipPath) === true) {
+                $zip->extractTo($tempDir);
+                $zip->close();
+            } else {
+                return response()->json(['success' => false, 'message' => 'Gagal membuka file ZIP backup.'], 500);
+            }
+
+            // Mencari file .sql di dalam folder hasil ekstraksi (biasanya di db-dumps/)
+            $sqlFiles = collect(File::allFiles($tempDir))
+                ->filter(fn($file) => $file->getExtension() === 'sql');
+
+            if ($sqlFiles->isEmpty()) {
+                File::deleteDirectory($tempDir);
+                return response()->json(['success' => false, 'message' => 'File SQL tidak ditemukan di dalam arsip backup.'], 404);
+            }
+
+            $sqlPath = $sqlFiles->first()->getRealPath();
+
+            // Jalankan raw SQL (hati-hati terhadap ukuran memori jika database sangat besar)
+            DB::unprepared(file_get_contents($sqlPath));
+
+            // Bersihkan folder temporary
+            File::deleteDirectory($tempDir);
+
             LogAktivitas::create([
                 'id_pengguna' => Auth::id(),
-                'aksi' => 'Percobaan restore database',
-                'keterangan' => "Permintaan restore untuk: {$backup}",
+                'aksi' => 'Restore database berhasil',
+                'keterangan' => "Restore dari file: {$backupPath}",
             ]);
 
             return response()->json([
-                'success' => false,
-                'message' => 'Restore otomatis belum diimplementasikan di server. Silakan restore secara manual atau hubungi admin.',
-            ], 501);
+                'success' => true,
+                'message' => 'Database berhasil dipulihkan dari backup.',
+            ]);
         } catch (\Exception $e) {
             Log::error('Gagal melakukan restore database: ' . $e->getMessage());
+            
+            // Coba bersihkan temp dir jika sempat dibuat dan gagal
+            if (isset($tempDir) && File::exists($tempDir)) {
+                File::deleteDirectory($tempDir);
+            }
+
             return response()->json(['success' => false, 'message' => 'Gagal melakukan restore. ' . $e->getMessage()], 500);
         }
     }

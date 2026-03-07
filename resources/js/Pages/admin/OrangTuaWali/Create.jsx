@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
+import { toast } from '@/utils/toast';
+import Select from 'react-select';
 
-export default function Create({ auth, siswaOptions }) {
+export default function Create({ auth, siswaOptions, kelasOptions }) {
+    console.log("Create Render", { kelasCount: kelasOptions?.length, siswaCount: siswaOptions?.length });
+    const [selectedKelas, setSelectedKelas] = useState(null);
     const { data, setData, post, processing, errors } = useForm({
         // Data Pribadi Wali
         id_siswa: '',
@@ -18,7 +22,7 @@ export default function Create({ auth, siswaOptions }) {
         pekerjaan: '',
         penghasilan_bulanan: '',
         no_telepon_wa: '',
-        
+
         // Data Akun Login
         username: '',
         email: '',
@@ -28,24 +32,70 @@ export default function Create({ auth, siswaOptions }) {
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('admin.orang-tua-wali.store'));
+        post(route('admin.orang-tua-wali.store'), {
+            onError: (errs) => {
+                const message = Object.values(errs)[0] || 'Gagal menyimpan data, periksa kembali input Anda.';
+                toast.error(message);
+            }
+        });
     };
 
     return (
-        <AdminLayout user={auth.user} header="Tambah Orang Tua/Wali">
+        <>
             <Head title="Tambah Orang Tua/Wali" />
             <div className="max-w-4xl mx-auto">
                 <form onSubmit={submit} className="space-y-8">
                     {/* Informasi Siswa Perwalian */}
                     <div className="bg-white p-6 rounded-lg shadow-sm">
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Siswa Perwalian</h2>
-                        <div>
-                            <InputLabel htmlFor="id_siswa" value="Pilih Anak / Siswa Perwalian" />
-                            <select id="id_siswa" value={data.id_siswa} onChange={e => setData('id_siswa', e.target.value)} className="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                <option value="">--- Pilih Siswa ---</option>
-                                {siswaOptions.map(siswa => <option key={siswa.id_siswa} value={siswa.id_siswa}>{siswa.nama_lengkap} ({siswa.nis})</option>)}
-                            </select>
-                            <InputError message={errors.id_siswa} className="mt-2" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <InputLabel htmlFor="filter_kelas" value="Filter Kelas" />
+                                <Select
+                                    id="filter_kelas"
+                                    value={kelasOptions?.map(k => ({ value: k.id_kelas, label: `${k.tingkat} ${k.jurusan}` })).find(option => option.value === selectedKelas) || null}
+                                    onChange={selectedOption => {
+                                        console.log("Selected Kelas changed to:", selectedOption ? selectedOption.value : '');
+                                        setSelectedKelas(selectedOption ? selectedOption.value : '');
+                                        setData('id_siswa', ''); // Reset siswa saat kelas diubah
+                                    }}
+                                    options={kelasOptions?.map(kelas => ({
+                                        value: kelas.id_kelas,
+                                        label: `${kelas.tingkat} ${kelas.jurusan}`
+                                    }))}
+                                    placeholder="--- Semua Kelas ---"
+                                    isClearable
+                                    className="mt-1"
+                                    classNamePrefix="react-select"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="id_siswa" value="Pilih Anak / Siswa Perwalian" />
+                                <Select
+                                    id="id_siswa"
+                                    value={
+                                        siswaOptions
+                                            .filter(siswa => selectedKelas ? String(siswa.id_kelas) === String(selectedKelas) : false)
+                                            .map(s => ({ value: s.id_siswa, label: `${s.nama_lengkap} (${s.nis})` }))
+                                            .find(option => option.value === data.id_siswa) || null
+                                    }
+                                    onChange={selectedOption => setData('id_siswa', selectedOption ? selectedOption.value : '')}
+                                    options={
+                                        siswaOptions
+                                            .filter(siswa => selectedKelas ? String(siswa.id_kelas) === String(selectedKelas) : false)
+                                            .map(siswa => ({
+                                                value: siswa.id_siswa,
+                                                label: `${siswa.nama_lengkap} (${siswa.nis})`
+                                            }))
+                                    }
+                                    placeholder="--- Pilih Siswa ---"
+                                    isDisabled={!selectedKelas} // Disable jika kelas belum dipilih
+                                    isClearable
+                                    className="mt-1"
+                                    classNamePrefix="react-select"
+                                />
+                                <InputError message={errors.id_siswa} className="mt-2" />
+                            </div>
                         </div>
                     </div>
 
@@ -58,7 +108,7 @@ export default function Create({ auth, siswaOptions }) {
                                 <TextInput id="nama_lengkap" value={data.nama_lengkap} onChange={e => setData('nama_lengkap', e.target.value)} className="mt-1 block w-full" isFocused />
                                 <InputError message={errors.nama_lengkap} className="mt-2" />
                             </div>
-                             <div>
+                            <div>
                                 <InputLabel htmlFor="hubungan" value="Hubungan dengan Siswa" />
                                 <select id="hubungan" value={data.hubungan} onChange={e => setData('hubungan', e.target.value)} className="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                     <option>Ayah</option>
@@ -98,7 +148,7 @@ export default function Create({ auth, siswaOptions }) {
                                 </select>
                                 <InputError message={errors.penghasilan_bulanan} className="mt-2" />
                             </div>
-                             <div>
+                            <div>
                                 <InputLabel htmlFor="no_telepon_wa" value="No. Telepon (WhatsApp)" />
                                 <TextInput id="no_telepon_wa" value={data.no_telepon_wa} onChange={e => setData('no_telepon_wa', e.target.value)} className="mt-1 block w-full" />
                                 <InputError message={errors.no_telepon_wa} className="mt-2" />
@@ -109,22 +159,22 @@ export default function Create({ auth, siswaOptions }) {
                     <div className="bg-white p-6 rounded-lg shadow-sm">
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Akun Login</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div>
+                            <div>
                                 <InputLabel htmlFor="username" value="Username" />
                                 <TextInput id="username" value={data.username} onChange={e => setData('username', e.target.value)} className="mt-1 block w-full" />
                                 <InputError message={errors.username} className="mt-2" />
                             </div>
-                             <div>
+                            <div>
                                 <InputLabel htmlFor="email" value="Email (Opsional)" />
                                 <TextInput id="email" type="email" value={data.email} onChange={e => setData('email', e.target.value)} className="mt-1 block w-full" />
                                 <InputError message={errors.email} className="mt-2" />
                             </div>
-                             <div>
+                            <div>
                                 <InputLabel htmlFor="password" value="Password" />
                                 <TextInput id="password" type="password" value={data.password} onChange={e => setData('password', e.target.value)} className="mt-1 block w-full" />
                                 <InputError message={errors.password} className="mt-2" />
                             </div>
-                             <div>
+                            <div>
                                 <InputLabel htmlFor="password_confirmation" value="Konfirmasi Password" />
                                 <TextInput id="password_confirmation" type="password" value={data.password_confirmation} onChange={e => setData('password_confirmation', e.target.value)} className="mt-1 block w-full" />
                                 <InputError message={errors.password_confirmation} className="mt-2" />
@@ -138,6 +188,8 @@ export default function Create({ auth, siswaOptions }) {
                     </div>
                 </form>
             </div>
-        </AdminLayout>
+        </>
     );
 }
+
+Create.layout = (page) => <AdminLayout user={page.props.auth.user} header="Tambah Orang Tua/Wali">{page}</AdminLayout>;

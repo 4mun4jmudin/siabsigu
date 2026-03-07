@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '@/utils/toast';
 import { useForm } from '@inertiajs/react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
@@ -16,7 +17,7 @@ export default function GeneralSettingsForm({ className = '', pengaturan = {}, t
         semester_aktif: pengaturan.semester_aktif || '',
     });
 
-    const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
+     // { type: 'success'|'error', message }
 
     useEffect(() => {
         if (toast) {
@@ -39,14 +40,14 @@ export default function GeneralSettingsForm({ className = '', pengaturan = {}, t
         post(route('admin.pengaturan.update-general'), {
             _method: 'put', // Spoofing the PUT request
             preserveScroll: true,
-            onSuccess: () => setToast({ type: 'success', message: 'Pengaturan berhasil disimpan!' }),
+            onSuccess: () => toast.success('Pengaturan berhasil disimpan!'),
             onError: (response) => {
                 // Cek jika ada error validasi spesifik
                 const firstError = Object.values(errors)[0];
                 if (firstError) {
                     setToast({ type: 'error', message: `Gagal menyimpan: ${firstError}` });
                 } else {
-                    setToast({ type: 'error', message: 'Gagal menyimpan pengaturan. Silakan coba lagi.' });
+                    toast.error('Gagal menyimpan pengaturan. Silakan coba lagi.');
                 }
             },
         });
@@ -76,14 +77,7 @@ export default function GeneralSettingsForm({ className = '', pengaturan = {}, t
             </header>
 
             {/* Toast Notification */}
-            {toast && (
-                <div className={`mb-4 p-3 rounded-md ${toast.type === 'success' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-red-50 border border-red-100 text-red-700'}`} role="status">
-                    <div className="flex items-center gap-2">
-                        {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                        <span>{toast.message}</span>
-                    </div>
-                </div>
-            )}
+            
 
             <form onSubmit={submit} className="bg-white border rounded-lg shadow-sm p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

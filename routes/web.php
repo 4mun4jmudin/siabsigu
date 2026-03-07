@@ -58,6 +58,7 @@ use App\Http\Controllers\Admin\AnalitikNilaiController;
 use App\Http\Controllers\Admin\RemedialController;
 use App\Http\Controllers\Admin\PenilaianNilaiController;
 use App\Http\Controllers\Admin\SuratIzinController;
+use App\Http\Controllers\Admin\LogAktivitasController;
 
 // Akun Siswa
 // use App\Http\Controllers\Siswa\AccountController;
@@ -274,20 +275,15 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('admin')->name('admin.')->middleware('check.level:Admin')->group(function () {
-        // Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-        // Route::get('/dashboard', function () {
-        //     $level = Auth::user()?->level ?? null;
-
-        //     return match ($level) {
-        //         'Admin', 'Kepala Sekolah' => redirect()->route('admin.dashboard'),
-        //         'Guru'                   => redirect()->route('guru.dashboard'),
-        //         'Siswa'                  => redirect()->route('siswa.dashboard'),
-        //         'Orang Tua'              => redirect()->route('orangtua.dashboard'),
-        //         default                  => abort(403),
-        //     };
-        // })->middleware('auth')->name('dashboard');
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
+        // Audit Trail (Log Aktivitas)
+        Route::get('/log-aktivitas', [LogAktivitasController::class, 'index'])->name('log-aktivitas.index');
+
+        // Profil Admin
+        Route::get('/profile', [App\Http\Controllers\Admin\ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [App\Http\Controllers\Admin\ProfileController::class, 'update'])->name('profile.update');
+        Route::put('/password', [App\Http\Controllers\Admin\ProfileController::class, 'updatePassword'])->name('password.update');
 
         Route::post('/mode', [AdminDashboardController::class, 'updateMode'])->name('mode.update');
 
@@ -354,6 +350,10 @@ Route::middleware('auth')->group(function () {
 
         // Route::post('orang-tua-wali/{orangTuaWali}/reset-password', [OrangTuaWaliController::class, 'resetPassword'])->name('orang-tua-wali.reset-password');
         Route::resource('pengumuman', App\Http\Controllers\Admin\PengumumanController::class);
+        
+        // Kalender Akademik / Hari Libur
+        Route::resource('kalender-akademik', App\Http\Controllers\Admin\KalenderAkademikController::class)
+            ->only(['index', 'store', 'update', 'destroy'])->names('kalender');
 
         // Fitur tambahan
         Route::post('siswa/{siswa}/keamanan', [SiswaController::class, 'updateKeamanan'])->name('siswa.update.keamanan');

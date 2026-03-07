@@ -71,7 +71,7 @@ function SimpleBarChart({ data = [], height = 64, gap = 6, barColor = '#0ea5e9' 
         return (
           <g key={i} transform={`translate(${x},0)`}>
             <rect x={0} y={y} width={bw} height={h} rx={4} fill={barColor} className="hover:opacity-80 transition-opacity cursor-pointer">
-               <title>{`${d.label}: ${d.value}`}</title>
+              <title>{`${d.label}: ${d.value}`}</title>
             </rect>
             <text x={bw / 2} y={height + 12} fontSize="9" textAnchor="middle" fill="#64748b">
               {d.label}
@@ -104,29 +104,29 @@ function Sparkline({ values = [], stroke = '#06b6d4', height = 40 }) {
 
 /* ----------------- UI Small Components ----------------- */
 const StatCard = ({ icon, label, value, description, color = 'sky' }) => {
-    const bgColors = {
-        sky: 'bg-sky-50 text-sky-700 border-sky-100',
-        emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-        violet: 'bg-violet-50 text-violet-700 border-violet-100',
-        orange: 'bg-orange-50 text-orange-700 border-orange-100',
-        rose: 'bg-rose-50 text-rose-700 border-rose-100',
-    };
-    const currentBg = bgColors[color] || bgColors.sky;
+  const bgColors = {
+    sky: 'bg-sky-50 text-sky-700 border-sky-100',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    violet: 'bg-violet-50 text-violet-700 border-violet-100',
+    orange: 'bg-orange-50 text-orange-700 border-orange-100',
+    rose: 'bg-rose-50 text-rose-700 border-rose-100',
+  };
+  const currentBg = bgColors[color] || bgColors.sky;
 
-    return (
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow duration-200 h-full">
-        <div className={`p-3 rounded-xl border ${currentBg}`}>
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{label}</p>
-          <div className="mt-1">
-            <div className="text-2xl font-bold text-gray-800">{value}</div>
-            {description && <div className="text-xs text-gray-400 mt-0.5">{description}</div>}
-          </div>
+  return (
+    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow duration-200 h-full">
+      <div className={`p-3 rounded-xl border ${currentBg}`}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{label}</p>
+        <div className="mt-1">
+          <div className="text-2xl font-bold text-gray-800">{value}</div>
+          {description && <div className="text-xs text-gray-400 mt-0.5">{description}</div>}
         </div>
       </div>
-    );
+    </div>
+  );
 };
 
 const PresenceCard = ({ title, present = 0, absent = 0, accent = 'sky' }) => {
@@ -139,19 +139,19 @@ const PresenceCard = ({ title, present = 0, absent = 0, accent = 'sky' }) => {
     <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
       <div className="flex justify-between items-start mb-4">
         <div>
-            <h4 className="font-semibold text-gray-800 text-sm uppercase tracking-wide">{title}</h4>
-            <div className="text-xs text-gray-400 mt-1">{total} Terdaftar</div>
+          <h4 className="font-semibold text-gray-800 text-sm uppercase tracking-wide">{title}</h4>
+          <div className="text-xs text-gray-400 mt-1">{total} Terdaftar</div>
         </div>
         <div className={`text-2xl font-bold ${textClass}`}>{percentage}%</div>
       </div>
-      
+
       <div className="space-y-3">
         <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
           <div className={`${accentClass} h-2.5 rounded-full transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }} />
         </div>
         <div className="flex justify-between text-xs font-medium">
-           <span className="text-gray-600 bg-gray-100 px-2 py-1 rounded">Hadir: {present}</span>
-           <span className="text-red-600 bg-red-50 px-2 py-1 rounded">Absen: {absent}</span>
+          <span className="text-gray-600 bg-gray-100 px-2 py-1 rounded">Hadir: {present}</span>
+          <span className="text-red-600 bg-red-50 px-2 py-1 rounded">Absen: {absent}</span>
         </div>
       </div>
     </div>
@@ -161,32 +161,32 @@ const PresenceCard = ({ title, present = 0, absent = 0, accent = 'sky' }) => {
 const DataTable = ({ columns = [], rows = [] }) => (
   <div className="overflow-hidden border border-gray-100 rounded-xl">
     <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+      <table className="min-w-full text-sm">
         <thead className="bg-gray-50/50 text-gray-500 border-b border-gray-100">
-            <tr>
+          <tr>
             {columns.map((c) => (
-                <th key={c.key} className="px-4 py-3 text-left font-semibold whitespace-nowrap first:pl-5 last:pr-5">{c.header}</th>
+              <th key={c.key} className="px-4 py-3 text-left font-semibold whitespace-nowrap first:pl-5 last:pr-5">{c.header}</th>
             ))}
-            </tr>
+          </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-            {rows.length ? (
+          {rows.length ? (
             rows.map((r, i) => (
-                <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+              <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                 {columns.map((c) => (
-                    <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-700 first:pl-5 last:pr-5">
+                  <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-700 first:pl-5 last:pr-5">
                     {c.render ? c.render(r[c.key], r) : r[c.key]}
-                    </td>
+                  </td>
                 ))}
-                </tr>
+              </tr>
             ))
-            ) : (
+          ) : (
             <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400 italic">Belum ada data untuk ditampilkan</td>
+              <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400 italic">Belum ada data untuk ditampilkan</td>
             </tr>
-            )}
+          )}
         </tbody>
-        </table>
+      </table>
     </div>
   </div>
 );
@@ -197,11 +197,10 @@ const Tabs = ({ value, onChange, items }) => (
       <button
         key={it.value}
         onClick={() => onChange(it.value)}
-        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-            value === it.value 
-            ? 'bg-white text-gray-900 shadow-sm' 
+        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${value === it.value
+            ? 'bg-white text-gray-900 shadow-sm'
             : 'text-gray-500 hover:text-gray-700'
-        }`}
+          }`}
       >
         {it.label}
       </button>
@@ -303,9 +302,8 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
         {/* Top Header */}
         <div
           ref={topRef}
-          className={`bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 transition-all duration-700 ease-out ${
-            topRevealed ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
-          }`}
+          className={`bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 transition-all duration-700 ease-out ${topRevealed ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+            }`}
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
@@ -315,7 +313,7 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
               <p className="mt-2 text-sm text-gray-500 max-w-2xl">
                 Selamat datang di panel admin {pengaturan?.nama_sekolah ?? 'Sekolah'}. Berikut adalah ringkasan aktivitas {isAbsensiMode ? 'absensi' : 'operasional'} hari ini.
               </p>
-              
+
               <div className="mt-4 flex flex-wrap items-center gap-4 text-xs font-medium text-gray-500">
                 <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -390,10 +388,10 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
 
         {/* Main Content Area */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Left Column: Kehadiran & Tren */}
           <div className="lg:col-span-2 space-y-8">
-            
+
             {/* Visualisasi Kehadiran Hari Ini */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <PresenceCard title="Kehadiran Guru" present={s.kehadiranGuru.hadir} absent={s.kehadiranGuru.tidakHadir} accent="blue" />
@@ -404,8 +402,8 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900">Tren Kehadiran</h3>
-                    <p className="text-sm text-gray-500">Perbandingan tingkat kehadiran guru & siswa.</p>
+                  <h3 className="text-lg font-bold text-gray-900">Tren Kehadiran</h3>
+                  <p className="text-sm text-gray-500">Perbandingan tingkat kehadiran guru & siswa.</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <select
@@ -423,8 +421,8 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                 <div className="relative">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span className="text-sm font-semibold text-gray-700">Siswa</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span className="text-sm font-semibold text-gray-700">Siswa</span>
                     </div>
                   </div>
                   <SimpleBarChart data={trendSiswaData.length ? trendSiswaData : [{ label: 'W1', value: 0 }, { label: 'W2', value: 0 }, { label: 'W3', value: 0 }, { label: 'W4', value: 0 }]} barColor="#10b981" height={100} />
@@ -433,16 +431,16 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                 <div className="relative">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-sky-500"></span>
-                        <span className="text-sm font-semibold text-gray-700">Guru</span>
+                      <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                      <span className="text-sm font-semibold text-gray-700">Guru</span>
                     </div>
                   </div>
                   <SimpleBarChart data={trendGuruData.length ? trendGuruData : [{ label: 'W1', value: 0 }, { label: 'W2', value: 0 }, { label: 'W3', value: 0 }, { label: 'W4', value: 0 }]} barColor="#0ea5e9" height={100} />
                 </div>
               </div>
-              
+
               <div className="mt-6 pt-4 border-t border-gray-50 text-center">
-                 <p className="text-xs text-gray-400">Data diperbarui secara realtime sesuai pencatatan absensi.</p>
+                <p className="text-xs text-gray-400">Data diperbarui secara realtime sesuai pencatatan absensi.</p>
               </div>
             </div>
 
@@ -462,8 +460,8 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-900">Analisis Detail</h3>
-                    <p className="text-sm text-gray-500">Peringkat kehadiran berdasarkan kelas & guru.</p>
+                  <h3 className="text-lg font-bold text-gray-900">Analisis Detail</h3>
+                  <p className="text-sm text-gray-500">Peringkat kehadiran berdasarkan kelas & guru.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <Tabs value={scope} onChange={setScope} items={[{ label: 'Per Kelas', value: 'kelas' }, { label: 'Per Guru', value: 'guru' }]} />
@@ -519,7 +517,7 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
 
           {/* Right Column: Actions & Feed */}
           <div className="space-y-8">
-            
+
             {/* Quick Actions Card */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
@@ -528,7 +526,7 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                   <Link href={route ? route('admin.pengaturan.index') : '#'} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
                     <span className="sr-only">Pengaturan</span>
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-400">
-                        <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
                     </svg>
                   </Link>
                 )}
@@ -542,7 +540,7 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                   <div className="text-sm font-semibold text-gray-800 group-hover:text-sky-700">Absensi Guru</div>
                   <div className="text-xs text-gray-500 mt-0.5">Input & Rekap</div>
                 </Link>
-                
+
                 <Link href={route ? route('admin.absensi-siswa.index') : '#'} className="group p-4 rounded-xl border border-gray-100 hover:border-emerald-200 bg-gray-50 hover:bg-emerald-50 transition-all duration-200 text-left">
                   <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                     <AcademicCapIcon className="w-4 h-4" />
@@ -560,7 +558,7 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                       <div className="text-sm font-semibold text-gray-800 group-hover:text-violet-700">Jurnal KBM</div>
                       <div className="text-xs text-gray-500 mt-0.5">Monitoring</div>
                     </Link>
-                    
+
                     <Link href={route ? route('admin.jadwal-mengajar.index') : '#'} className="group p-4 rounded-xl border border-gray-100 hover:border-orange-200 bg-gray-50 hover:bg-orange-50 transition-all duration-200 text-left">
                       <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                         <CalendarDaysIcon className="w-4 h-4" />
@@ -608,7 +606,7 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">{timeAgo(a.waktu)}</span>
                             <span className="text-[10px] text-gray-300">•</span>
-                            <span className="text-[10px] text-gray-400">{new Date(a.waktu).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
+                            <span className="text-[10px] text-gray-400">{new Date(a.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                         </div>
                       </div>
@@ -617,15 +615,15 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                 ) : (
                   <div className="py-10 text-center">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-50 mb-3">
-                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-300" />
+                      <MagnifyingGlassIcon className="w-5 h-5 text-gray-300" />
                     </div>
                     <p className="text-sm text-gray-500">Tidak ada aktivitas ditemukan.</p>
                   </div>
                 )}
               </div>
               <div className="p-3 bg-gray-50 text-center border-t border-gray-100">
-                <Link href="#" className="text-xs font-medium text-sky-600 hover:text-sky-700 flex items-center justify-center gap-1">
-                    Lihat Semua Aktivitas <ChevronRightIcon className="w-3 h-3" />
+                <Link href={route ? route('admin.log-aktivitas.index') : '#'} className="text-xs font-medium text-sky-600 hover:text-sky-700 flex items-center justify-center gap-1">
+                  Lihat Semua Aktivitas <ChevronRightIcon className="w-3 h-3" />
                 </Link>
               </div>
             </div>
@@ -649,7 +647,7 @@ export default function Dashboard({ auth, stats = {}, latestActivities = [], ann
                       <div className="flex justify-between items-start gap-2">
                         <h5 className="text-sm font-semibold leading-tight line-clamp-1">{p.judul}</h5>
                         <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded text-white/80 whitespace-nowrap">
-                            {new Date(p.tanggal_terbit).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
+                          {new Date(p.tanggal_terbit).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                         </span>
                       </div>
                       <p className="text-xs text-white/80 mt-1 line-clamp-2 leading-relaxed">{p.isi}</p>

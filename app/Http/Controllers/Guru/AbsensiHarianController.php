@@ -199,9 +199,10 @@ class AbsensiHarianController extends Controller
     public function submitIzin(Request $request)
     {
         $check = $this->checkAbsensiManualEnabled();
-        if ($check instanceof RedirectResponse || $check instanceof JsonResponse) {
-            return $check;
-        }
+        if ($check instanceof RedirectResponse || $check instanceof JsonResponse) return $check;
+
+        $kunci = $this->checkSystemKunci('absensi');
+        if ($kunci) return $kunci;
 
         $user = Auth::user();
         $guru = $user?->guru;
@@ -294,9 +295,10 @@ class AbsensiHarianController extends Controller
     public function store(Request $request)
     {
         $check = $this->checkAbsensiManualEnabled();
-        if ($check instanceof RedirectResponse || $check instanceof JsonResponse) {
-            return $check;
-        }
+        if ($check instanceof RedirectResponse || $check instanceof JsonResponse) return $check;
+
+        $kunci = $this->checkSystemKunci('absensi');
+        if ($kunci) return $kunci;
 
         $user = Auth::user();
         $guru = $user?->guru;
@@ -434,6 +436,27 @@ class AbsensiHarianController extends Controller
             }
             return redirect()->route('guru.dashboard')->with('error', 'Halaman absensi dinonaktifkan oleh administrator.');
         }
+        return null;
+    }
+
+    /**
+     * Memeriksa apakah periode ini sudah dikunci (Cut-off) oleh Admin.
+     */
+    private function checkSystemKunci(string $tipe = 'absensi')
+    {
+        $peng = Pengaturan::first();
+        
+        $isLocked = false;
+        if ($tipe === 'absensi' && $peng && $peng->is_kunci_absensi) $isLocked = true;
+        
+        if ($isLocked) {
+            $msg = 'Periode absensi saat ini telah dikunci oleh Administrator. Anda tidak dapat melakukan perubahan data absensi.';
+            if (request()->wantsJson()) {
+                return response()->json(['message' => $msg], 403);
+            }
+            return redirect()->back()->with('error', $msg);
+        }
+        
         return null;
     }
 

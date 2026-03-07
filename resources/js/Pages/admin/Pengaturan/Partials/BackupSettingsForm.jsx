@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '@/utils/toast';
 import { useForm } from '@inertiajs/react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import InputLabel from '@/Components/InputLabel';
@@ -57,7 +58,7 @@ export default function BackupSettingsForm({ className = '', pengaturan = {} }) 
 
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
-  const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
+   // { type: 'success'|'error', message }
   const [lastBackup, setLastBackup] = useState(pengaturan.last_backup || null);
   const [availableBackups, setAvailableBackups] = useState([]);
   const [selectedBackup, setSelectedBackup] = useState('');
@@ -83,7 +84,7 @@ export default function BackupSettingsForm({ className = '', pengaturan = {} }) 
       }
     } else {
       // Optionally show a toast if listing fails
-      // setToast({ type: 'error', message: 'Gagal mengambil daftar backup.' });
+      // toast.error('Gagal mengambil daftar backup.');
     }
   };
 
@@ -91,8 +92,8 @@ export default function BackupSettingsForm({ className = '', pengaturan = {} }) 
     e.preventDefault();
     put(route(BACKUP_SETTINGS_ROUTE), {
       preserveScroll: true,
-      onSuccess: () => setToast({ type: 'success', message: 'Pengaturan Backup Otomatis berhasil disimpan.' }),
-      onError: () => setToast({ type: 'error', message: 'Gagal menyimpan pengaturan. Silakan coba lagi.' }),
+      onSuccess: () => toast.success('Pengaturan Backup Otomatis berhasil disimpan.'),
+      onError: () => toast.error('Gagal menyimpan pengaturan. Silakan coba lagi.'),
     });
   };
 
@@ -106,11 +107,11 @@ export default function BackupSettingsForm({ className = '', pengaturan = {} }) 
     setIsBackingUp(false);
 
     if (ok && payload && payload.success) {
-      setToast({ type: 'success', message: payload.message || 'Backup berhasil.' });
+      toast.success(payload.message || 'Backup berhasil.');
       if (payload.last_backup) setLastBackup(payload.last_backup);
       fetchBackups();
     } else {
-      setToast({ type: 'error', message: (payload && payload.message) || 'Backup gagal. Periksa log server.' });
+      toast.error((payload && payload.message) || 'Backup gagal. Periksa log server.');
     }
   };
 
@@ -118,7 +119,7 @@ export default function BackupSettingsForm({ className = '', pengaturan = {} }) 
     e?.preventDefault();
     if (isRestoring) return;
     if (!selectedBackup) {
-      setToast({ type: 'error', message: 'Pilih file backup terlebih dahulu untuk restore.' });
+      toast.error('Pilih file backup terlebih dahulu untuk restore.');
       return;
     }
 
@@ -130,12 +131,12 @@ export default function BackupSettingsForm({ className = '', pengaturan = {} }) 
     setIsRestoring(false);
 
     if (ok && payload && payload.success) {
-      setToast({ type: 'success', message: payload.message || 'Restore selesai.' });
+      toast.success(payload.message || 'Restore selesai.');
       // Optionally refresh state after restore
       fetchBackups();
     } else {
       const msg = (payload && payload.message) || 'Restore gagal. Periksa log server.';
-      setToast({ type: 'error', message: msg });
+      toast.error(msg);
     }
   };
 
@@ -154,14 +155,7 @@ export default function BackupSettingsForm({ className = '', pengaturan = {} }) 
       </header>
 
       {/* Toast */}
-      {toast && (
-        <div className={`mt-4 p-3 rounded-md ${toast.type === 'success' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-red-50 border border-red-100 text-red-700'}`} role="status">
-          <div className="flex items-center gap-2">
-            {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-            <span>{toast.message}</span>
-          </div>
-        </div>
-      )}
+      
 
       <form onSubmit={submit} className="mt-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

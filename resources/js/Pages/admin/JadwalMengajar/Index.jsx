@@ -9,7 +9,7 @@ import Modal from '@/Components/Modal';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toast';
 import axios from 'axios';
 import moment from 'moment';
 import 'moment/locale/id'; // Import locale Bahasa Indonesia

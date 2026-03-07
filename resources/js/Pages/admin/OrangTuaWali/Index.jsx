@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
-    PlusIcon, 
-    PencilIcon, 
-    TrashIcon, 
-    EyeIcon, 
-    UserGroupIcon, 
+import {
+    PlusIcon,
+    PencilIcon,
+    TrashIcon,
+    EyeIcon,
+    UserGroupIcon,
     HeartIcon,
-    KeyIcon 
+    KeyIcon
 } from '@heroicons/react/24/outline';
 import { debounce } from 'lodash';
 import Modal from '@/Components/Modal';
@@ -40,6 +41,7 @@ const HubunganBadge = ({ hubungan }) => {
 };
 
 export default function Index({ auth, waliList, stats, filters }) {
+    const { flash } = usePage().props;
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [waliToDelete, setWaliToDelete] = useState(null);
 
@@ -57,12 +59,20 @@ export default function Index({ auth, waliList, stats, filters }) {
         e.preventDefault();
         if (waliToDelete) {
             router.delete(route('admin.orang-tua-wali.destroy', waliToDelete.id_wali), {
-                onSuccess: () => closeDeleteModal(),
+                onSuccess: () => {
+                    closeDeleteModal();
+                    // Tidak perlu toast.success di sini karena flash.success dari backend akan memicunya di useEffect
+                },
+                onError: (err) => {
+                    closeDeleteModal();
+                    const errorMessage = Object.values(err)[0] || 'Gagal menghapus data orang tua/wali.';
+                    toast.error(errorMessage);
+                },
                 preserveScroll: true,
             });
         }
     };
-    
+
     const handleSearch = debounce((e) => {
         router.get(route('admin.orang-tua-wali.index'), { ...filters, search: e.target.value }, {
             preserveState: true,
@@ -78,7 +88,7 @@ export default function Index({ auth, waliList, stats, filters }) {
     };
 
     return (
-        <AdminLayout user={auth.user} header="Orang Tua / Wali">
+        <>
             <Head title="Orang Tua / Wali" />
 
             <div className="space-y-8">
@@ -96,7 +106,7 @@ export default function Index({ auth, waliList, stats, filters }) {
                                 Reset Password
                             </button>
                         </Link>
-                        
+
                         {/* Tombol Tambah */}
                         <Link href={route('admin.orang-tua-wali.create')}>
                             <button className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition">
@@ -109,9 +119,9 @@ export default function Index({ auth, waliList, stats, filters }) {
 
                 {/* Kartu Statistik */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard title="Total Orang Tua/Wali" value={stats.total} description="Data terdaftar" icon={<UserGroupIcon className="h-6 w-6 text-gray-600"/>} color="bg-gray-100" />
+                    <StatCard title="Total Orang Tua/Wali" value={stats.total} description="Data terdaftar" icon={<UserGroupIcon className="h-6 w-6 text-gray-600" />} color="bg-gray-100" />
                     <StatCard title="Ayah" value={stats.ayah} description="Data ayah" icon={<div className="h-6 w-6 rounded-full bg-blue-500" />} color="bg-transparent p-0" />
-                    <StatCard title="Ibu" value={stats.ibu} description="Data ibu" icon={<HeartIcon className="h-6 w-6 text-pink-500"/>} color="bg-pink-100" />
+                    <StatCard title="Ibu" value={stats.ibu} description="Data ibu" icon={<HeartIcon className="h-6 w-6 text-pink-500" />} color="bg-pink-100" />
                     <StatCard title="Wali" value={stats.wali} description="Data wali" icon={<div className="h-6 w-6 rounded-full bg-purple-500" />} color="bg-transparent p-0" />
                 </div>
 
@@ -165,9 +175,9 @@ export default function Index({ auth, waliList, stats, filters }) {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{wali.penghasilan_bulanan || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{wali.no_telepon_wa}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2 flex items-center">
-                                            <Link href={route('admin.orang-tua-wali.show', wali.id_wali)} className="text-gray-600 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100" title="Lihat Detail"><EyeIcon className="h-5 w-5"/></Link>
-                                            <Link href={route('admin.orang-tua-wali.edit', wali.id_wali)} className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-gray-100" title="Edit"><PencilIcon className="h-5 w-5"/></Link>
-                                            <button onClick={() => openDeleteModal(wali)} className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-gray-100" title="Hapus"><TrashIcon className="h-5 w-5"/></button>
+                                            <Link href={route('admin.orang-tua-wali.show', wali.id_wali)} className="text-gray-600 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100" title="Lihat Detail"><EyeIcon className="h-5 w-5" /></Link>
+                                            <Link href={route('admin.orang-tua-wali.edit', wali.id_wali)} className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-gray-100" title="Edit"><PencilIcon className="h-5 w-5" /></Link>
+                                            <button onClick={() => openDeleteModal(wali)} className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-gray-100" title="Hapus"><TrashIcon className="h-5 w-5" /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -191,6 +201,8 @@ export default function Index({ auth, waliList, stats, filters }) {
                     </div>
                 </form>
             </Modal>
-        </AdminLayout>
+        </>
     );
 }
+
+Index.layout = (page) => <AdminLayout user={page.props.auth.user} header="Orang Tua / Wali">{page}</AdminLayout>;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
 import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
@@ -36,7 +37,7 @@ export default function ResetPassword({ auth, walis, filters }) {
     const { post, processing } = useForm();
     
     const [search, setSearch] = useState(filters.search || '');
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+    
     const [confirmingReset, setConfirmingReset] = useState(false);
     const [waliToReset, setWaliToReset] = useState(null);
 
@@ -48,8 +49,7 @@ export default function ResetPassword({ auth, walis, filters }) {
                 message: flash.message || flash.success || flash.error,
                 type: flash.error ? 'error' : 'success'
             });
-            const timer = setTimeout(() => { setToast({ ...toast, show: false }); }, 4000);
-            return () => clearTimeout(timer);
+            
         }
     }, [flash]);
 
@@ -85,7 +85,7 @@ export default function ResetPassword({ auth, walis, filters }) {
             onSuccess: () => closeResetModal(),
             onError: () => {
                 closeResetModal();
-                setToast({ show: true, message: 'Gagal mereset password.', type: 'error' });
+                toast.error('Gagal mereset password.');
             }
         });
     };
@@ -94,12 +94,7 @@ export default function ResetPassword({ auth, walis, filters }) {
         <AdminLayout user={auth.user} header="Reset Password Orang Tua">
             <Head title="Reset Password Orang Tua" />
             
-            {toast.show && (
-                <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg text-white ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'} transition-opacity duration-300 flex items-center`}>
-                    <span>{toast.message}</span>
-                    <button onClick={() => setToast({ ...toast, show: false })} className="ml-3 font-bold">×</button>
-                </div>
-            )}
+            
 
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">

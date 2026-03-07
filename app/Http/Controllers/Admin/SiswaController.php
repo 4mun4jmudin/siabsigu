@@ -8,7 +8,9 @@ use App\Models\Kelas;
 use App\Models\OrangTuaWali;
 use App\Models\AbsensiSiswa;
 use App\Models\User;
+use App\Models\LogAktivitas;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -411,26 +413,36 @@ class SiswaController extends Controller
      */
     public function exportPdf(Request $request)
     {
-        $query = Siswa::with('kelas');
+        $search = $request->query('search');
+        $id_kelas = $request->query('kelas');
+        
+        $query = Siswa::with('kelas')->where('status', 'Aktif');
 
-        if ($request->has('search')) {
-            $search = $request->input('search');
+        if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('nama_lengkap', 'like', "%{$search}%")
-                  ->orWhere('nis', 'like', "%{$search}%");
+                  ->orWhere('nis', 'like', "%{$search}%")
+                  ->orWhere('nisn', 'like', "%{$search}%");
             });
         }
 
-        if ($request->has('kelas') && $request->input('kelas') != '') {
-            $query->where('id_kelas', $request->input('kelas'));
+        if ($id_kelas) {
+            $query->where('id_kelas', $id_kelas);
         }
 
-        $siswas = $query->orderBy('nama_lengkap')->get();
+        // Chunking untuk menghemat memori jika data besar (lebih dari 1000 baris)
+        // Kita menggunakan chunk map untuk menghasilkan array semua data tanpa load semua sekaligus.
+        $siswas = collect();
+        $query->orderBy('nis')->chunk(500, function ($chunk) use ($siswas) {
+            foreach ($chunk as $siswa) {
+                $siswas->push($siswa);
+            }
+        });
 
-        $pdf = Pdf::loadView('pdf.siswa_all', ['siswas' => $siswas])
+        $pdf = Pdf::loadView('exports.siswa_pdf', ['siswas' => $siswas])
                   ->setPaper('a4', 'landscape');
 
-        return $pdf->download('Data_Siswa_' . date('Y-m-d_H-i') . '.pdf');
+        return $pdf->download('Data_Siswa.pdf');
     }
 
     /**
@@ -460,6 +472,13 @@ class SiswaController extends Controller
                     $siswa->delete();
                     $count++;
                 }
+                
+                LogAktivitas::create([
+                    'id_pengguna' => Auth::id() ?? 1,
+                    'waktu'       => now(),
+                    'aksi'        => 'Hapus Massal Siswa',
+                    'keterangan'  => "Menghapus (Soft Delete) {$count} data siswa beserta akunnya."
+                ]);
             });
 
             return back()->with('success', "Berhasil menghapus {$count} data siswa.");
@@ -494,9 +513,24 @@ class SiswaController extends Controller
                     $updateData['id_kelas'] = $value;
                 } elseif ($type === 'status') {
                     $updateData['status'] = $value;
+                    
+                    if ($value === 'Lulus') {
+                        // Soft delete linked users if status changes to Lulus
+                        $idPenggunas = Siswa::whereIn('id_siswa', $ids)->whereNotNull('id_pengguna')->pluck('id_pengguna');
+                        if ($idPenggunas->count() > 0) {
+                            User::whereIn('id_pengguna', $idPenggunas)->delete();
+                        }
+                    }
                 }
 
                 $updatedCount = Siswa::whereIn('id_siswa', $ids)->update($updateData);
+                
+                LogAktivitas::create([
+                    'id_pengguna' => Auth::id() ?? 1,
+                    'waktu'       => now(),
+                    'aksi'        => 'Ubah Massal Siswa',
+                    'keterangan'  => "Mengubah {$type} menjadi '{$value}' untuk {$updatedCount} siswa."
+                ]);
             });
 
             return back()->with('success', "Berhasil memperbarui {$updatedCount} data siswa.");
@@ -712,112 +746,23 @@ class SiswaController extends Controller
             }
         }
 
-        foreach ($dataRows as $data) {
-            $rowNumber++;
-            if (empty(array_filter($data, function($val) { return !is_null($val) && $val !== ''; }))) continue;
-
-            try {
-                $getVal = fn($key) => isset($mappings[$key]) && isset($data[$mappings[$key]]) ? trim($data[$mappings[$key]]) : null;
-
-                $nis = $getVal('nis');
-                $nama = $getVal('nama_lengkap');
-                $kelasRaw = $getVal('kelas');
-
-                if (!$nis || !$nama) throw new \Exception("NIS atau Nama kosong.");
-
-                if (Siswa::where('nis', $nis)->exists()) {
-                    throw new \Exception("NIS $nis sudah terdaftar.");
-                }
-
-                $idKelas = null;
-                if ($kelasRaw) {
-                    $kelasRaw = trim($kelasRaw);
-                    
-                    // 1. Coba Exact Match "X RPL 1"
-                    $idKelas = Kelas::whereRaw("UPPER(CONCAT(tingkat, ' ', jurusan)) = ?", [strtoupper($kelasRaw)])->value('id_kelas');
-
-                    // 2. Coba Pecah String (Spasi)
-                    if (!$idKelas) {
-                        $parts = explode(' ', $kelasRaw, 2);
-                        if (count($parts) == 2) {
-                            $idKelas = Kelas::where('tingkat', $parts[0])
-                                ->where('jurusan', 'LIKE', "%{$parts[1]}%")
-                                ->value('id_kelas');
-                        }
-                    }
-
-                    // 3. Fallback: Cari jurusan saja
-                    if (!$idKelas) {
-                        $idKelas = Kelas::where('jurusan', 'LIKE', "%{$kelasRaw}%")->value('id_kelas');
-                    }
-                }
-
-                if (!$idKelas) {
-                    throw new \Exception("Kelas '$kelasRaw' tidak ditemukan di database. Pastikan format sesuai (Cth: X RPL 1).");
-                }
-
-                $jkRaw = strtoupper($getVal('jenis_kelamin'));
-                $jk = ($jkRaw == 'P' || $jkRaw == 'PEREMPUAN') ? 'Perempuan' : 'Laki-laki';
-
-                $tglLahir = now();
-                $tglRaw = $getVal('tanggal_lahir');
-                if ($tglRaw) {
-                    try {
-                        if (is_numeric($tglRaw)) {
-                            $tglLahir = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($tglRaw);
-                        } else {
-                            $tglLahir = \Carbon\Carbon::parse($tglRaw);
-                        }
-                    } catch (\Exception $e) {}
-                }
-
-                // Gunakan Str::random(20) agar sesuai panjang kolom id_siswa
-                $idSiswaBaru = Str::random(20);
-
-                DB::transaction(function () use ($idSiswaBaru, $nis, $getVal, $nama, $idKelas, $jk, $tglLahir) {
-                    $siswa = Siswa::create([
-                        'id_siswa' => $idSiswaBaru, 
-                        'nis' => $nis,
-                        'nisn' => $getVal('nisn') ?? '-',
-                        'nama_lengkap' => $nama,
-                        'id_kelas' => $idKelas,
-                        'jenis_kelamin' => $jk,
-                        'tempat_lahir' => $getVal('tempat_lahir') ?? '-',
-                        'tanggal_lahir' => $tglLahir,
-                        'nik' => $getVal('nik') ?? null,
-                        'nomor_kk' => $getVal('nomor_kk') ?? '-',
-                        'agama' => $getVal('agama') ?? 'Islam',
-                        'alamat_lengkap' => $getVal('alamat_lengkap') ?? '-',
-                        'status' => 'Aktif'
-                    ]);
-
-                    if (!User::where('username', $nis)->exists()) {
-                        $user = User::create([
-                            'nama_lengkap' => $nama,
-                            'username' => $nis,
-                            'password' => Hash::make($nis),
-                            'level' => 'Siswa',
-                        ]);
-                        $siswa->id_pengguna = $user->id_pengguna;
-                        $siswa->save();
-                    }
-                });
-
-                $success++;
-            } catch (\Exception $e) {
-                $failed++;
-                $identifier = isset($data[1]) ? $data[1] : 'Unknown'; 
-                $errors[] = "Baris $rowNumber ($identifier): " . substr($e->getMessage(), 0, 100);
-            }
-        }
+        // Dispatch background job
+        \App\Jobs\ImportSiswaJob::dispatch(
+            auth()->id(),
+            $dataRows,
+            $mappings,
+            config('app.timezone')
+        );
 
         Storage::delete($request->file_path);
 
         return response()->json([
-            'total' => $success + $failed,
-            'success' => $success,
-            'failed' => $failed,
-            'errors' => $errors
+            'message' => 'File sedang diproses di background. Anda akan menerima notifikasi setelah selesai.',
+            // Respons dummy agar frontend yang lama tidak error (jika mengharapkan property ini)
+            'total' => count($dataRows),
+            'success' => 0,
+            'failed' => 0,
+            'errors' => []
         ]);
     }
 }

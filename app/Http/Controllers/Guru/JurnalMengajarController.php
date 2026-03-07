@@ -71,6 +71,11 @@ class JurnalMengajarController extends Controller
      */
     public function store(Request $request)
     {
+        $pengaturan = \App\Models\Pengaturan::first();
+        if ($pengaturan && $pengaturan->is_kunci_jurnal) {
+            return back()->with('error', 'Periode pengisian jurnal telah dikunci oleh Administrator.')->withInput();
+        }
+
         $guru = Auth::user()->guru;
         $tanggalInput = $request->input('tanggal');
 
@@ -232,6 +237,11 @@ class JurnalMengajarController extends Controller
      */
     public function update(Request $request, JurnalMengajar $jurnal)
     {
+        $pengaturan = \App\Models\Pengaturan::first();
+        if ($pengaturan && $pengaturan->is_kunci_jurnal) {
+            return back()->with('error', 'Periode pengisian jurnal telah dikunci oleh Administrator.')->withInput();
+        }
+
         $guru = Auth::user()->guru;
 
         if (! $jurnal->relationLoaded('jadwalMengajar')) {
@@ -328,6 +338,11 @@ class JurnalMengajarController extends Controller
      */
     public function destroy(JurnalMengajar $jurnal)
     {
+        $pengaturan = \App\Models\Pengaturan::first();
+        if ($pengaturan && $pengaturan->is_kunci_jurnal) {
+            return back()->with('error', 'Periode pengisian jurnal telah dikunci oleh Administrator.');
+        }
+
         $guru = Auth::user()->guru;
 
         if (! $jurnal->relationLoaded('jadwalMengajar')) {
@@ -348,6 +363,11 @@ class JurnalMengajarController extends Controller
      */
     public function storeQuickEntry(Request $request)
     {
+        $pengaturan = \App\Models\Pengaturan::first();
+        if ($pengaturan && $pengaturan->is_kunci_jurnal) {
+            return back()->with('error', 'Periode pengisian jurnal telah dikunci oleh Administrator.');
+        }
+
         $guru = Auth::user()->guru;
 
         $validated = $request->validate([

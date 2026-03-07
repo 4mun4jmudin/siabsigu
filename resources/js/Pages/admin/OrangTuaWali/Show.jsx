@@ -5,7 +5,7 @@ import { ArrowLeftIcon, PencilIcon, UserCircleIcon, AcademicCapIcon, KeyIcon, Cl
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
 import DangerButton from '@/Components/DangerButton';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toast';
 import PrimaryButton from '@/Components/PrimaryButton';
 
 // Komponen untuk menampilkan baris data

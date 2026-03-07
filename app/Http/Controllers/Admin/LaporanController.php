@@ -190,7 +190,9 @@ class LaporanController extends Controller
         if ($totalPopulation <= 0) return 0.0;
 
         // hitung hari kerja (Senin–Jumat) dalam bulan (inklusif)
-        $workdays = $startDate->diffInWeekdays($endDate) + 1;
+        $weekdays = $startDate->diffInWeekdays($endDate) + 1;
+        $holidays = \App\Models\KalenderAkademik::getWorkingDaysHolidayCount($startDate, $endDate);
+        $workdays = max(0, $weekdays - $holidays);
         if ($workdays <= 0) return 0.0;
 
         $totalHadir = DB::table($table)
@@ -232,7 +234,10 @@ class LaporanController extends Controller
             $bulanKey   = $date->format('Y-m');
             $bulanLabel = $date->translatedFormat('M');
 
-            $workdays = $date->diffInWeekdays($date->copy()->endOfMonth()) + 1;
+            $endMonth = $date->copy()->endOfMonth();
+            $weekdays = $date->diffInWeekdays($endMonth) + 1;
+            $holidays = \App\Models\KalenderAkademik::getWorkingDaysHolidayCount($date, $endMonth);
+            $workdays = max(0, $weekdays - $holidays);
 
             $persenSiswa = ($kehadiranSiswa->get($bulanKey, 0) / ($totalSiswa * max(1, $workdays))) * 100;
             $persenGuru  = ($kehadiranGuru->get($bulanKey, 0)  / ($totalGuru  * max(1, $workdays))) * 100;
@@ -343,7 +348,9 @@ class LaporanController extends Controller
         $selectedMonth   = $this->safeParseMonth($request->input('bulan', Carbon::now()->format('Y-m')));
         $startOfMonth    = $selectedMonth->copy()->startOfMonth();
         $endOfMonth      = $selectedMonth->copy()->endOfMonth();
-        $totalHariKerja  = $startOfMonth->diffInWeekdays($endOfMonth) + 1;
+        $weekdays        = $startOfMonth->diffInWeekdays($endOfMonth) + 1;
+        $holidays        = \App\Models\KalenderAkademik::getWorkingDaysHolidayCount($startOfMonth, $endOfMonth);
+        $totalHariKerja  = max(0, $weekdays - $holidays);
 
         $rekapGuru = Guru::where('status', 'Aktif')
             ->withCount([
@@ -500,9 +507,11 @@ class LaporanController extends Controller
             if (!isset($weeks[$weekNumber])) {
                 $startOfWeek = $d->copy()->startOfWeek(Carbon::MONDAY);
                 $endOfWeek   = $d->copy()->endOfWeek(Carbon::SUNDAY);
+                $weekdays    = $startOfWeek->diffInWeekdays($endOfWeek) + 1;
+                $holidays    = \App\Models\KalenderAkademik::getWorkingDaysHolidayCount($startOfWeek, $endOfWeek);
                 $weeks[$weekNumber] = [
                     'label'    => 'Minggu ' . $d->weekOfMonth,
-                    'workdays' => $startOfWeek->diffInWeekdays($endOfWeek) + 1,
+                    'workdays' => max(0, $weekdays - $holidays),
                 ];
             }
             $d->addDay();

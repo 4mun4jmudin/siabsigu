@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from '@/utils/toast';
 // Pastikan path import ini sesuai dengan struktur project Anda
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
@@ -44,7 +45,7 @@ export default function ResetPassword({ auth, siswas, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     
     // State untuk UI
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+    
     const [confirmingReset, setConfirmingReset] = useState(false);
     const [studentToReset, setStudentToReset] = useState(null);
 
@@ -58,10 +59,7 @@ export default function ResetPassword({ auth, siswas, filters }) {
             });
             
             // Auto hide toast
-            const timer = setTimeout(() => {
-                setToast({ ...toast, show: false });
-            }, 3000);
-            return () => clearTimeout(timer);
+            
         }
     }, [flash]);
 
@@ -106,7 +104,7 @@ export default function ResetPassword({ auth, siswas, filters }) {
             },
             onError: () => {
                 closeResetModal();
-                setToast({ show: true, message: 'Gagal mereset password.', type: 'error' });
+                toast.error('Gagal mereset password.');
             }
         });
     };
@@ -116,12 +114,7 @@ export default function ResetPassword({ auth, siswas, filters }) {
             <Head title="Reset Password Siswa" />
             
             {/* Custom Toast Notification */}
-            {toast.show && (
-                <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg text-white ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'} transition-opacity duration-300 flex items-center`}>
-                    <span>{toast.message}</span>
-                    <button onClick={() => setToast({ ...toast, show: false })} className="ml-3 font-bold text-white hover:text-gray-200">×</button>
-                </div>
-            )}
+            
 
             <div className="space-y-6">
                 {/* Header Section */}
