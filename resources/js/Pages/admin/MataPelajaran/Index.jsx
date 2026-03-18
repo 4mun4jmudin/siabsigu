@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { PlusIcon, BookOpenIcon, UserGroupIcon, AcademicCapIcon, ClipboardDocumentListIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
 import Modal from '@/Components/Modal';
+import SkeletonTable from '@/Components/SkeletonTable';
 import SecondaryButton from '@/Components/SecondaryButton';
 import DangerButton from '@/Components/DangerButton';
 import { debounce } from 'lodash';
@@ -43,6 +44,7 @@ const StatusBadge = ({ status }) => {
 export default function Index({ auth, stats, mataPelajaran, guruPengampuList, filters }) {
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [mapelToDelete, setMapelToDelete] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     const openDeleteModal = (mapel) => {
         setMapelToDelete(mapel);
@@ -68,6 +70,8 @@ export default function Index({ auth, stats, mataPelajaran, guruPengampuList, fi
         router.get(route('admin.mata-pelajaran.index'), { search: e.target.value }, {
             preserveState: true,
             replace: true,
+            onStart: () => setIsLoading(true),
+            onFinish: () => setIsLoading(false),
         });
     }, 300);
 
@@ -124,7 +128,9 @@ export default function Index({ auth, stats, mataPelajaran, guruPengampuList, fi
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {mataPelajaran.data.length > 0 ? mataPelajaran.data.map(mapel => (
+                                {isLoading ? (
+                                    <SkeletonTable rows={5} columns={7} />
+                                ) : mataPelajaran.data.length > 0 ? mataPelajaran.data.map(mapel => (
                                     <tr key={mapel.id_mapel} className="hover:bg-gray-50 transition">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{mapel.id_mapel}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">

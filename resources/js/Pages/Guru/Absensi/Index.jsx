@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import GuruLayout from '@/Layouts/GuruLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
+import Skeleton from '@/Components/Skeleton';
 import {
   ArrowLeft,
   Search,
@@ -33,6 +34,7 @@ export default function Index({
   // ---------- filters & ui ----------
   const [searchTerm, setSearchTerm] = useState(filters.search || '');
   const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [tanggal, setTanggal] = useState(
     filters.tanggal || today || new Date().toISOString().slice(0, 10),
   );
@@ -90,6 +92,8 @@ export default function Index({
     router.get(route('guru.absensi-mapel.show', { id_jadwal: jadwal.id_jadwal }), params, {
       preserveState: true,
       replace: true,
+      onStart: () => setIsLoading(true),
+      onFinish: () => setIsLoading(false),
     });
   }, [debouncedSearch, tanggal, jadwal?.id_jadwal, onlyToday, TODAY]);
 
@@ -481,7 +485,37 @@ export default function Index({
         {/* Form Tabel */}
         <form onSubmit={doSubmit} className="mt-4 space-y-4" aria-label="Form absensi">
           <div className="overflow-hidden rounded-lg border bg-white">
-            {(filteredSiswa || []).length === 0 ? (
+          {isLoading ? (
+              /* Skeleton rows saat loading */
+              <div className="divide-y">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="grid grid-cols-12 items-center gap-4 p-3 animate-pulse">
+                    {/* Identitas */}
+                    <div className="col-span-12 md:col-span-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full flex-none" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-20" />
+                          <Skeleton className="h-4 w-24 rounded-full" />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Status buttons */}
+                    <div className="col-span-12 md:col-span-5 flex flex-wrap gap-2">
+                      <Skeleton className="h-7 w-16 rounded-full" />
+                      <Skeleton className="h-7 w-14 rounded-full" />
+                      <Skeleton className="h-7 w-12 rounded-full" />
+                      <Skeleton className="h-7 w-12 rounded-full" />
+                    </div>
+                    {/* Keterangan */}
+                    <div className="col-span-12 md:col-span-3">
+                      <Skeleton className="h-10 w-full rounded-md" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (filteredSiswa || []).length === 0 ? (
               <div className="p-8 text-center text-slate-500">Tidak ada siswa sesuai filter.</div>
             ) : (
               <div className="divide-y">

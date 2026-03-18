@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
+import SkeletonProfile from '@/Components/SkeletonProfile';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import {
   User,
@@ -475,6 +476,14 @@ export default function Show({ auth, siswa, orangTuaWali = [], riwayatAbsensi = 
   const { delete: destroy, processing: processingDelete } = useForm();
 
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+
+  // State loading skeleton saat mount pertama kali
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timeout);
+  }, []);
   
 
   
@@ -536,6 +545,9 @@ export default function Show({ auth, siswa, orangTuaWali = [], riwayatAbsensi = 
           <h1 className="text-2xl font-bold text-gray-900">Detail Siswa</h1>
         </div>
 
+        {isLoading ? (
+          <SkeletonProfile />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <aside className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm p-5 lg:sticky lg:top-6">
@@ -640,6 +652,7 @@ export default function Show({ auth, siswa, orangTuaWali = [], riwayatAbsensi = 
             </div>
           </section>
         </div>
+        )}
       </div>
 
       <Modal show={confirmingDeletion} onClose={closeModal}>

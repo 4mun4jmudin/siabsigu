@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
+import SkeletonTable from '@/Components/SkeletonTable';
 import {
     PlusIcon,
     PencilIcon,
@@ -44,6 +45,7 @@ export default function Index({ auth, waliList, stats, filters }) {
     const { flash } = usePage().props;
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [waliToDelete, setWaliToDelete] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     const openDeleteModal = (wali) => {
         setWaliToDelete(wali);
@@ -77,6 +79,8 @@ export default function Index({ auth, waliList, stats, filters }) {
         router.get(route('admin.orang-tua-wali.index'), { ...filters, search: e.target.value }, {
             preserveState: true,
             replace: true,
+            onStart: () => setIsLoading(true),
+            onFinish: () => setIsLoading(false),
         });
     }, 300);
 
@@ -84,6 +88,8 @@ export default function Index({ auth, waliList, stats, filters }) {
         router.get(route('admin.orang-tua-wali.index'), { ...filters, hubungan: e.target.value }, {
             preserveState: true,
             replace: true,
+            onStart: () => setIsLoading(true),
+            onFinish: () => setIsLoading(false),
         });
     };
 
@@ -162,7 +168,9 @@ export default function Index({ auth, waliList, stats, filters }) {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {waliList.data.map(wali => (
+                                {isLoading ? (
+                                    <SkeletonTable rows={5} columns={8} />
+                                ) : waliList.data.length > 0 ? waliList.data.map(wali => (
                                     <tr key={wali.id_wali} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{wali.siswa?.nama_lengkap || 'N/A'}</div>
@@ -180,7 +188,9 @@ export default function Index({ auth, waliList, stats, filters }) {
                                             <button onClick={() => openDeleteModal(wali)} className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-gray-100" title="Hapus"><TrashIcon className="h-5 w-5" /></button>
                                         </td>
                                     </tr>
-                                ))}
+                                )) : (
+                                    <tr><td colSpan="8" className="text-center py-8 text-gray-500">Tidak ada data orang tua/wali ditemukan.</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

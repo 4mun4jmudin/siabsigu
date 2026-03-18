@@ -4,6 +4,7 @@ import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
 import Checkbox from '@/Components/Checkbox';
+import SkeletonTable from '@/Components/SkeletonTable';
 import ImportModal from './ImportModal'; // Pastikan file ini ada di folder yang sama
 import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
 import {
@@ -22,25 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import debounce from 'lodash.debounce';
 
-// --- KOMPONEN SKELETON LOADER ---
-const TableSkeleton = () => {
-    return (
-        <>
-            {[...Array(5)].map((_, index) => (
-                <tr key={index} className="animate-pulse border-b border-gray-200">
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-4"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-48"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-8"></div></td>
-                    <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded-full w-16"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-12"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                </tr>
-            ))}
-        </>
-    );
-};
+
 
 // const Pagination = ({ links }) => (
 //     <div className="flex flex-wrap justify-center gap-1">
@@ -400,7 +383,7 @@ export default function Index({ auth, siswas, kelasOptions, filters }) {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {isLoading ? (
-                                        <TableSkeleton />
+                                        <SkeletonTable rows={5} columns={8} />
                                     ) : siswas.data.length > 0 ? (
                                         siswas.data.map((siswa) => (
                                             <tr key={siswa.id_siswa} className={`hover:bg-gray-50 transition ${selectedIds.includes(siswa.id_siswa) ? 'bg-blue-50' : ''}`}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
+import SkeletonTable from '@/Components/SkeletonTable';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { 
     PlusIcon, PencilIcon, TrashIcon, EyeIcon, 
@@ -25,6 +26,7 @@ export default function Index({ auth, gurus, stats, filters }) {
     const { flash } = usePage().props;
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [guruToDelete, setGuruToDelete] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     // Modal Delete Handlers
     const openDeleteModal = (guru) => { setGuruToDelete(guru); setConfirmingDeletion(true); };
@@ -41,7 +43,9 @@ export default function Index({ auth, gurus, stats, filters }) {
     // Search Handler
     const handleSearch = debounce((e) => {
         router.get(route('admin.guru.index'), { search: e.target.value }, {
-            preserveState: true, replace: true
+            preserveState: true, replace: true,
+            onStart: () => setIsLoading(true),
+            onFinish: () => setIsLoading(false),
         });
     }, 300);
 
@@ -105,7 +109,9 @@ export default function Index({ auth, gurus, stats, filters }) {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {gurus.data.length > 0 ? (
+                                {isLoading ? (
+                                    <SkeletonTable rows={5} columns={5} />
+                                ) : gurus.data.length > 0 ? (
                                     gurus.data.map((guru) => (
                                         <tr key={guru.id_guru} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">

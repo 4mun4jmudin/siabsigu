@@ -3,6 +3,7 @@ import { toast } from '@/utils/toast';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
 import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
+import SkeletonTable from '@/Components/SkeletonTable';
 import {
     PencilSquareIcon,
     TrashIcon,
@@ -22,22 +23,7 @@ import SelectInput from '@/Components/SelectInput';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 
-// --- KOMPONEN SKELETON LOADER ---
-const TableSkeleton = () => {
-    return (
-        <>
-            {[...Array(5)].map((_, index) => (
-                <tr key={index} className="animate-pulse border-b border-gray-200">
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-48"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                </tr>
-            ))}
-        </>
-    );
-};
+
 
 // Komponen untuk kartu statistik
 const StatCard = ({ icon, label, value, detail }) => (
@@ -280,7 +266,7 @@ export default function Index({ auth, kelasList, stats, filters, guruOptions }) 
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {isLoading ? (
-                                                <TableSkeleton />
+                                                <SkeletonTable rows={5} columns={5} />
                                             ) : (
                                                 kelasList.map((kelas) => (
                                                     <tr key={kelas.id_kelas} className="hover:bg-gray-50 disabled:opacity-50">
